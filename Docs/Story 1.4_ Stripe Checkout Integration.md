@@ -5,14 +5,14 @@
 ## **Story**
 
 * As a User  
-* I want to purchase a credit package via Stripe  
+* I want to purchase a credit package cryptomus OR paypal
 * so that I can add funds to my account
 
 ## **Acceptance Criteria (ACs)**
 
 1. "Buy Credits" page created with package options (e.g., 10 credits for $15).  
-2. Stripe Checkout session integration implemented.  
-3. Stripe Webhook handler implemented to verify payment success.  
+2. Checkout session integration implemented.  
+3. Webhook handler implemented to verify payment success.  
 4. Webhook automatically inserts a PURCHASE record into transactions table (updating user balance).
 
 ## **Tasks / Subtasks**
