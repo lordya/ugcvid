@@ -1,16 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { signOut } from '@/app/actions/auth'
-import { Button } from '@/components/ui/button'
-import { VideoCard } from '@/components/VideoCard'
+import { VideoCard } from '@/components/feature/VideoCard'
 import Link from 'next/link'
-import { VideoStatus } from '@/hooks/useVideoStatus'
-
-interface VideoInputMetadata {
-  title?: string
-  description?: string
-  images?: string[]
-}
+import { Button } from '@/components/ui/button'
 
 export default async function LibraryPage() {
   const supabase = await createClient()
@@ -40,49 +32,48 @@ export default async function LibraryPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-semibold mb-2">Library</h1>
+            <h1 className="text-4xl font-semibold mb-2 text-white">Library</h1>
             <p className="text-muted-foreground">
               Welcome back, {user.email}
             </p>
           </div>
           <div className="flex gap-4">
             <Link href="/wizard">
-              <Button className="bg-primary hover:bg-primary/90">
+              <Button className="bg-[#6366F1] hover:bg-[#6366F1]/90">
                 Create Video
               </Button>
             </Link>
-            <form action={signOut}>
-              <Button
-                type="submit"
-                variant="outline"
-                className="bg-[#161B22] border-border hover:bg-[#1F2937]"
-              >
-                Sign Out
-              </Button>
-            </form>
           </div>
         </div>
 
         {!hasVideos ? (
-          <div className="rounded-lg border bg-[#161B22] p-12 text-center">
+          <div className="rounded-lg border border-border bg-[#161B22] p-12 text-center">
             <p className="text-muted-foreground text-lg mb-4">
               Your video library is empty—let&apos;s create something
             </p>
             <Link href="/wizard">
-              <Button className="bg-primary hover:bg-primary/90">
+              <Button className="bg-[#6366F1] hover:bg-[#6366F1]/90">
                 Create Your First Video
               </Button>
             </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {videos.map((video) => (
               <VideoCard
                 key={video.id}
-                videoId={video.id}
-                initialStatus={video.status as VideoStatus}
-                inputMetadata={(video.input_metadata as VideoInputMetadata | null) || undefined}
-                createdAt={video.created_at}
+                video={{
+                  id: video.id,
+                  status: video.status as 'DRAFT' | 'SCRIPT_GENERATED' | 'PROCESSING' | 'COMPLETED' | 'FAILED',
+                  video_url: video.video_url,
+                  final_script: video.final_script,
+                  input_metadata: video.input_metadata as {
+                    title?: string
+                    description?: string
+                    images?: string[]
+                  } | null,
+                  created_at: video.created_at,
+                }}
               />
             ))}
           </div>
@@ -91,3 +82,4 @@ export default async function LibraryPage() {
     </main>
   )
 }
+
