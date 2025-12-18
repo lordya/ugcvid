@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useWizardStore } from '@/store/useWizardStore'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,7 @@ export default function WizardScriptPage() {
     selectedImages,
     toggleImageSelection,
     setStep,
+    reset,
   } = useWizardStore()
 
   const [loading, setLoading] = useState(false)
@@ -33,6 +34,9 @@ export default function WizardScriptPage() {
   const [messageIndex, setMessageIndex] = useState(0)
   const [descriptionExpanded, setDescriptionExpanded] = useState(false)
   const [selectionError, setSelectionError] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Get product info
   const productTitle = metadata?.title || manualInput?.title || ''
@@ -43,6 +47,26 @@ export default function WizardScriptPage() {
   useEffect(() => {
     setStep(2)
   }, [setStep])
+
+  // Auto-dismiss toast after 3 seconds
+  useEffect(() => {
+    if (toast) {
+      // Clear any existing timeout
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current)
+      }
+      // Set new timeout
+      toastTimeoutRef.current = setTimeout(() => {
+        setToast(null)
+      }, 3000)
+    }
+    // Cleanup on unmount or toast change
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current)
+      }
+    }
+  }, [toast])
 
   // Auto-trigger script generation if script is empty and metadata exists
   useEffect(() => {
@@ -176,12 +200,70 @@ export default function WizardScriptPage() {
     toggleImageSelection(imageUrl)
   }
 
-  const handleGenerateVideo = () => {
+  const handleGenerateVideo = async () => {
     if (!script.trim() || selectedImages.length === 0) {
       return
     }
-    // Navigate to processing step
-    router.push('/wizard/processing')
+
+    setGenerating(true)
+    setError(null)
+    setToast(null)
+
+    try {
+      const response = await fetch('/api/generate/video', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          script: script.trim(),
+          imageUrls: selectedImages,
+          aspectRatio: '9:16',
+          title: productTitle,
+          description: productDescription,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        // Handle specific error cases
+        if (response.status === 402) {
+          setToast({
+            message: 'Insufficient credits. Please purchase more credits to continue.',
+            type: 'error',
+          })
+        } else {
+          setToast({
+            message: data.error || 'Failed to start video generation',
+            type: 'error',
+          })
+        }
+        setError(data.error || 'Failed to start video generation')
+        return
+      }
+
+      // Success: Clear wizard store and redirect
+      reset()
+      setToast({
+        message: 'Generation started! Your video is being created.',
+        type: 'success',
+      })
+
+      // Redirect to library after a brief delay to show the toast
+      setTimeout(() => {
+        router.push('/library')
+      }, 1500)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to start video generation'
+      setError(errorMessage)
+      setToast({
+        message: errorMessage,
+        type: 'error',
+      })
+    } finally {
+      setGenerating(false)
+    }
   }
 
   const scriptLength = script.length
@@ -249,6 +331,20 @@ export default function WizardScriptPage() {
       {selectionError && (
         <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
           <p className="text-sm text-destructive font-medium">{selectionError}</p>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div
+          className={cn(
+            'fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg border transition-all animate-in slide-in-from-top-5',
+            toast.type === 'success'
+              ? 'bg-success/10 border-success/20 text-success'
+              : 'bg-destructive/10 border-destructive/20 text-destructive'
+          )}
+        >
+          <p className="text-sm font-medium">{toast.message}</p>
         </div>
       )}
 
@@ -394,11 +490,18 @@ export default function WizardScriptPage() {
                 </Button>
                 <Button
                   onClick={handleGenerateVideo}
-                  disabled={!canGenerate}
+                  disabled={!canGenerate || generating}
                   className="flex-1 bg-primary hover:bg-primary/90 text-white h-12 text-base font-semibold"
                   size="lg"
                 >
-                  Generate Video • -1 Credit
+                  {generating ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                      Preparing...
+                    </>
+                  ) : (
+                    'Generate Video • -1 Credit'
+                  )}
                 </Button>
               </div>
 
