@@ -64,14 +64,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate signature
-    const signature = generateSignature(paymentPayload, apiKey)
+    const signature = generateSignature(paymentPayload, apiKey!)
 
     // Create payment via Cryptomus API
     const response = await fetch('https://api.cryptomus.com/v1/payment', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        merchant: merchantId,
+        merchant: merchantId!,
         sign: signature,
       },
       body: JSON.stringify(paymentPayload),
