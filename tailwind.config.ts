@@ -35,6 +35,14 @@ const config = {
           DEFAULT: "#EF4444",
           foreground: "hsl(var(--destructive-foreground))",
         },
+        success: {
+          DEFAULT: "#10B981",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "#F59E0B",
+          foreground: "hsl(var(--warning-foreground))",
+        },
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",

@@ -48,6 +48,24 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
+  // Admin routes - check ADMIN_EMAILS environment variable
+  if (pathname.startsWith('/admin')) {
+    if (!user) {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = '/login'
+      redirectUrl.searchParams.set('redirectedFrom', pathname)
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    // Check if user email is in ADMIN_EMAILS
+    const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(email => email.trim()) || []
+    if (!adminEmails.includes(user.email || '')) {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = '/library'
+      return NextResponse.redirect(redirectUrl)
+    }
+  }
+
   // If user is authenticated and tries to access login/signup, redirect to library
   if ((pathname === '/login' || pathname === '/signup') && user) {
     const redirectUrl = request.nextUrl.clone()
