@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -24,6 +20,11 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    // Initialize OpenAI client only when needed (not at module level)
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
 
     // System prompt for UGC script generation
     const systemPrompt = `You are an expert UGC video scripter. Create a 30-second viral TikTok script for the following product. 
