@@ -19,7 +19,8 @@ export type Database = {
           amount: number
           created_at: string
           id: string
-          stripe_payment_id: string | null
+          payment_id: string | null
+          provider: Database["public"]["Enums"]["payment_provider"]
           type: Database["public"]["Enums"]["transaction_type"]
           user_id: string
         }
@@ -27,7 +28,8 @@ export type Database = {
           amount: number
           created_at?: string
           id?: string
-          stripe_payment_id?: string | null
+          payment_id?: string | null
+          provider?: Database["public"]["Enums"]["payment_provider"]
           type: Database["public"]["Enums"]["transaction_type"]
           user_id: string
         }
@@ -35,7 +37,8 @@ export type Database = {
           amount?: number
           created_at?: string
           id?: string
-          stripe_payment_id?: string | null
+          payment_id?: string | null
+          provider?: Database["public"]["Enums"]["payment_provider"]
           type?: Database["public"]["Enums"]["transaction_type"]
           user_id?: string
         }
@@ -131,6 +134,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      payment_provider: "LEMON" | "CRYPTO" | "SYSTEM"
       transaction_type: "PURCHASE" | "GENERATION" | "REFUND" | "BONUS"
       video_status:
         | "DRAFT"
@@ -265,6 +269,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      payment_provider: ["LEMON", "CRYPTO", "SYSTEM"],
       transaction_type: ["PURCHASE", "GENERATION", "REFUND", "BONUS"],
       video_status: [
         "DRAFT",
@@ -276,4 +281,3 @@ export const Constants = {
     },
   },
 } as const
-

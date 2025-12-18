@@ -22,6 +22,13 @@ CREATE TYPE transaction_type AS ENUM (
   'BONUS'
 );
 
+-- Payment provider enum
+CREATE TYPE payment_provider AS ENUM (
+  'LEMON',
+  'CRYPTO',
+  'SYSTEM'
+);
+
 -- ============================================
 -- 2. CREATE TABLES
 -- ============================================
@@ -56,7 +63,8 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   amount integer NOT NULL,
   type transaction_type NOT NULL,
-  stripe_payment_id text,
+  provider payment_provider NOT NULL DEFAULT 'SYSTEM',
+  payment_id text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -70,6 +78,14 @@ CREATE INDEX IF NOT EXISTS idx_videos_user_id ON public.videos(user_id);
 CREATE INDEX IF NOT EXISTS idx_videos_status ON public.videos(status);
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON public.transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON public.transactions(created_at DESC);
+-- Unique index to prevent duplicate webhook processing (same provider + payment_id)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_provider_payment_unique 
+  ON public.transactions(provider, payment_id) 
+  WHERE payment_id IS NOT NULL;
+-- Index for querying by provider and payment_id
+CREATE INDEX IF NOT EXISTS idx_transactions_provider_payment_id 
+  ON public.transactions(provider, payment_id) 
+  WHERE payment_id IS NOT NULL;
 
 -- ============================================
 -- 4. CREATE FUNCTIONS
@@ -274,5 +290,7 @@ COMMENT ON TABLE public.videos IS 'Video generation records with status tracking
 COMMENT ON TABLE public.transactions IS 'Credit transaction log for purchases, generations, refunds, and bonuses';
 COMMENT ON COLUMN public.users.credits_balance IS 'Current available credits (updated automatically via trigger)';
 COMMENT ON COLUMN public.transactions.amount IS 'Positive for purchase/refund/bonus, negative for generation/spend';
+COMMENT ON COLUMN public.transactions.provider IS 'Payment provider: LEMON (Lemon Squeezy), CRYPTO (Cryptomus), or SYSTEM (internal operations)';
+COMMENT ON COLUMN public.transactions.payment_id IS 'External payment ID (Lemon Squeezy Order ID or Cryptomus UUID) - used to prevent duplicate webhook processing';
 COMMENT ON FUNCTION public.update_user_credits() IS 'Automatically updates user credits_balance when a transaction is inserted';
 

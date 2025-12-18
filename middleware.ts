@@ -41,7 +41,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Protected routes - redirect to login if not authenticated
-  if ((pathname.startsWith('/library') || pathname.startsWith('/wizard')) && !user) {
+  if ((pathname.startsWith('/library') || pathname.startsWith('/wizard') || pathname.startsWith('/billing')) && !user) {
     const redirectUrl = request.nextUrl.clone()
     redirectUrl.pathname = '/login'
     redirectUrl.searchParams.set('redirectedFrom', pathname)
