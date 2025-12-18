@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useWizardStore } from '@/store/useWizardStore'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Sparkles, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 const PROCESSING_MESSAGES = [
   'Analyzing product...',
@@ -35,8 +36,6 @@ export default function WizardScriptPage() {
   const [descriptionExpanded, setDescriptionExpanded] = useState(false)
   const [selectionError, setSelectionError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
-  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Get product info
   const productTitle = metadata?.title || manualInput?.title || ''
@@ -48,25 +47,6 @@ export default function WizardScriptPage() {
     setStep(2)
   }, [setStep])
 
-  // Auto-dismiss toast after 3 seconds
-  useEffect(() => {
-    if (toast) {
-      // Clear any existing timeout
-      if (toastTimeoutRef.current) {
-        clearTimeout(toastTimeoutRef.current)
-      }
-      // Set new timeout
-      toastTimeoutRef.current = setTimeout(() => {
-        setToast(null)
-      }, 3000)
-    }
-    // Cleanup on unmount or toast change
-    return () => {
-      if (toastTimeoutRef.current) {
-        clearTimeout(toastTimeoutRef.current)
-      }
-    }
-  }, [toast])
 
   // Auto-trigger script generation if script is empty and metadata exists
   useEffect(() => {
@@ -207,7 +187,12 @@ export default function WizardScriptPage() {
 
     setGenerating(true)
     setError(null)
-    setToast(null)
+
+    // Show loading toast with progress indication
+    const toastId = toast.loading('Generation Started... (Est. 45s)', {
+      description: 'Your video is being created. This may take a moment.',
+      duration: 5000,
+    })
 
     try {
       const response = await fetch('/api/generate/video', {
@@ -228,38 +213,46 @@ export default function WizardScriptPage() {
 
       if (!response.ok) {
         // Handle specific error cases
+        toast.dismiss(toastId)
         if (response.status === 402) {
-          setToast({
-            message: 'Insufficient credits. Please purchase more credits to continue.',
-            type: 'error',
+          toast.error('Insufficient credits', {
+            description: 'Please purchase more credits to continue.',
+            action: {
+              label: 'Buy Credits',
+              onClick: () => router.push('/billing'),
+            },
           })
         } else {
-          setToast({
-            message: data.error || 'Failed to start video generation',
-            type: 'error',
+          toast.error('Failed to start video generation', {
+            description: data.error || 'Please try again.',
           })
         }
         setError(data.error || 'Failed to start video generation')
         return
       }
 
-      // Success: Clear wizard store and redirect
+      // Success: Clear wizard store and show success toast with action
       reset()
-      setToast({
-        message: 'Generation started! Your video is being created.',
-        type: 'success',
+      toast.dismiss(toastId)
+      toast.success('Generation Started!', {
+        description: 'Your video is being created. This may take a moment.',
+        duration: 5000,
+        action: {
+          label: 'View in Library',
+          onClick: () => router.push('/library'),
+        },
       })
 
       // Redirect to library after a brief delay to show the toast
       setTimeout(() => {
         router.push('/library')
-      }, 1500)
+      }, 2000)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to start video generation'
+      toast.dismiss(toastId)
       setError(errorMessage)
-      setToast({
-        message: errorMessage,
-        type: 'error',
+      toast.error('Generation Failed', {
+        description: errorMessage,
       })
     } finally {
       setGenerating(false)
@@ -331,20 +324,6 @@ export default function WizardScriptPage() {
       {selectionError && (
         <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
           <p className="text-sm text-destructive font-medium">{selectionError}</p>
-        </div>
-      )}
-
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          className={cn(
-            'fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg border transition-all animate-in slide-in-from-top-5',
-            toast.type === 'success'
-              ? 'bg-success/10 border-success/20 text-success'
-              : 'bg-destructive/10 border-destructive/20 text-destructive'
-          )}
-        >
-          <p className="text-sm font-medium">{toast.message}</p>
         </div>
       )}
 

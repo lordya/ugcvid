@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { DashboardStats } from '@/components/dashboard/DashboardStats'
 import { LibraryClient } from '@/components/dashboard/LibraryClient'
+import { EmptyState } from '@/components/onboarding/EmptyState'
+import { LibraryOnboarding } from '@/components/onboarding/LibraryOnboarding'
 
 export default async function LibraryPage() {
   const supabase = await createClient()
@@ -50,17 +52,13 @@ export default async function LibraryPage() {
         {/* Stats Header */}
         <DashboardStats userId={user.id} />
 
+        {/* Welcome Modal (only shows if no videos and hasn't been dismissed) */}
+        <LibraryOnboarding videoCount={videos?.length || 0} />
+
         {/* Video Grid with Toolbar */}
         {!hasVideos ? (
-          <div className="rounded-lg border border-border bg-[#161B22] p-12 text-center">
-            <p className="text-muted-foreground text-lg mb-4">
-              Your video library is empty—let&apos;s create something
-            </p>
-            <Link href="/wizard">
-              <Button className="bg-[#6366F1] hover:bg-[#6366F1]/90">
-                Create Your First Video
-              </Button>
-            </Link>
+          <div className="rounded-lg border border-border bg-[#161B22]">
+            <EmptyState />
           </div>
         ) : (
           <LibraryClient

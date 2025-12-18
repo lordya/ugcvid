@@ -28,6 +28,7 @@ export function Sidebar() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [creditsBalance, setCreditsBalance] = useState<number>(0)
+  const [videoCount, setVideoCount] = useState<number>(0)
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
 
@@ -51,6 +52,14 @@ export function Sidebar() {
         if (userData) {
           setCreditsBalance(userData.credits_balance || 0)
         }
+
+        // Fetch video count
+        const { count } = await supabase
+          .from('videos')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', authUser.id)
+
+        setVideoCount(count || 0)
       }
     }
 
@@ -103,16 +112,19 @@ export function Sidebar() {
         {navigation.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
+          const isCreateButton = item.href === '/wizard'
+          const shouldPulse = isCreateButton && videoCount === 0
           
           return (
             <Link
               key={item.name}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                'relative flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
                 active
                   ? 'bg-layer-3 text-[#6366F1]'
-                  : 'text-muted-foreground hover:bg-layer-3 hover:text-foreground'
+                  : 'text-muted-foreground hover:bg-layer-3 hover:text-foreground',
+                shouldPulse && 'ring-2 ring-[#6366F1] ring-offset-2 ring-offset-layer-2 animate-pulse'
               )}
             >
               <Icon className="w-5 h-5" />
