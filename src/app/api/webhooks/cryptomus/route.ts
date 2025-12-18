@@ -2,12 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import crypto from 'crypto'
 
-const apiKey = process.env.CRYPTOMUS_API_KEY
-
-if (!apiKey) {
-  throw new Error('Missing CRYPTOMUS_API_KEY environment variable')
-}
-
 // Disable body parsing to get raw body for signature verification
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -16,7 +10,7 @@ export const dynamic = 'force-dynamic'
  * Verifies Cryptomus webhook signature
  * Signature = MD5(base64(json_body) + api_key)
  */
-function verifySignature(signature: string | null, body: string): boolean {
+function verifySignature(signature: string | null, body: string, apiKey: string): boolean {
   if (!signature) {
     return false
   }
@@ -30,12 +24,19 @@ function verifySignature(signature: string | null, body: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate environment variables
+    const apiKey = process.env.CRYPTOMUS_API_KEY
+
+    if (!apiKey) {
+      return NextResponse.json({ error: 'Cryptomus webhook is not configured' }, { status: 500 })
+    }
+
     // Get raw body for signature verification
     const rawBody = await request.text()
     const signature = request.headers.get('sign')
 
     // Verify webhook signature
-    if (!verifySignature(signature, rawBody)) {
+    if (!verifySignature(signature, rawBody, apiKey)) {
       console.error('Invalid Cryptomus webhook signature')
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }

@@ -2,12 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import crypto from 'crypto'
 
-const webhookSecret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET
-
-if (!webhookSecret) {
-  throw new Error('Missing LEMONSQUEEZY_WEBHOOK_SECRET environment variable')
-}
-
 // Disable body parsing to get raw body for signature verification
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -17,13 +11,13 @@ export const dynamic = 'force-dynamic'
  * Lemon Squeezy uses HMAC SHA256 of the raw request body using the webhook secret
  * The signature header may be 'x-signature' or 'X-Signature'
  */
-function verifySignature(signature: string | null, body: string): boolean {
+function verifySignature(signature: string | null, body: string, webhookSecret: string): boolean {
   if (!signature) {
     return false
   }
 
   try {
-    const hmac = crypto.createHmac('sha256', webhookSecret!)
+    const hmac = crypto.createHmac('sha256', webhookSecret)
     const digest = hmac.update(body).digest('hex')
     // Compare signatures in constant time
     return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest))
@@ -35,13 +29,20 @@ function verifySignature(signature: string | null, body: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate environment variables
+    const webhookSecret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET
+
+    if (!webhookSecret) {
+      return NextResponse.json({ error: 'Lemon Squeezy webhook is not configured' }, { status: 500 })
+    }
+
     // Get raw body for signature verification
     const rawBody = await request.text()
     // Lemon Squeezy may send signature in different header formats
     const signature = request.headers.get('x-signature') || request.headers.get('X-Signature')
 
     // Verify webhook signature
-    if (!verifySignature(signature, rawBody)) {
+    if (!verifySignature(signature, rawBody, webhookSecret)) {
       console.error('Invalid Lemon Squeezy webhook signature')
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }

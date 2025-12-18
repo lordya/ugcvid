@@ -3,16 +3,6 @@ import { lemonSqueezySetup, createCheckout } from '@lemonsqueezy/lemonsqueezy.js
 import { createClient } from '@/lib/supabase/server'
 import { z } from 'zod'
 
-// Initialize Lemon Squeezy SDK
-const apiKey = process.env.LEMONSQUEEZY_API_KEY
-const storeId = process.env.LEMONSQUEEZY_STORE_ID
-
-if (!apiKey || !storeId) {
-  throw new Error('Missing Lemon Squeezy environment variables')
-}
-
-lemonSqueezySetup({ apiKey })
-
 const checkoutSchema = z.object({
   variantId: z.string(),
   credits: z.number().int().positive(),
@@ -20,6 +10,17 @@ const checkoutSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate environment variables
+    const apiKey = process.env.LEMONSQUEEZY_API_KEY
+    const storeId = process.env.LEMONSQUEEZY_STORE_ID
+
+    if (!apiKey || !storeId) {
+      return NextResponse.json({ error: 'Lemon Squeezy payment is not configured' }, { status: 500 })
+    }
+
+    // Initialize Lemon Squeezy SDK
+    lemonSqueezySetup({ apiKey })
+
     // Authenticate user
     const supabase = await createClient()
     const {
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     const { variantId, credits } = checkoutSchema.parse(body)
 
     // Create checkout session
-    const { data, error } = await createCheckout(storeId!, variantId, {
+    const { data, error } = await createCheckout(storeId, variantId, {
       checkoutOptions: {
         embed: false, // Use redirect checkout
         media: false,

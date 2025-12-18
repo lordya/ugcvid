@@ -4,13 +4,6 @@ import { z } from 'zod'
 import crypto from 'crypto'
 import { v4 as uuidv4 } from 'uuid'
 
-const merchantId = process.env.CRYPTOMUS_MERCHANT_ID
-const apiKey = process.env.CRYPTOMUS_API_KEY
-
-if (!merchantId || !apiKey) {
-  throw new Error('Missing Cryptomus environment variables')
-}
-
 const checkoutSchema = z.object({
   amount: z.number().positive(),
   currency: z.string().length(3).default('USD'),
@@ -30,6 +23,14 @@ function generateSignature(payload: object, apiKey: string): string {
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate environment variables
+    const merchantId = process.env.CRYPTOMUS_MERCHANT_ID
+    const apiKey = process.env.CRYPTOMUS_API_KEY
+
+    if (!merchantId || !apiKey) {
+      return NextResponse.json({ error: 'Cryptomus payment is not configured' }, { status: 500 })
+    }
+
     // Authenticate user
     const supabase = await createClient()
     const {
@@ -64,14 +65,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate signature
-    const signature = generateSignature(paymentPayload, apiKey!)
+    const signature = generateSignature(paymentPayload, apiKey)
 
     // Create payment via Cryptomus API
     const response = await fetch('https://api.cryptomus.com/v1/payment', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        merchant: merchantId!,
+        merchant: merchantId,
         sign: signature,
       },
       body: JSON.stringify(paymentPayload),
