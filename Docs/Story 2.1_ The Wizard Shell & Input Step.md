@@ -1,37 +1,59 @@
-# **Story 2.1: The Wizard Shell & Input Step**
+Story 2.1: The Wizard Shell & Input Step
 
-## **Status: Draft**
+Status: Draft
 
-## **Story**
+Story
 
-* As a User  
-* I want to enter an Amazon URL or manual product details  
-* so that I can start the video creation process
+As a User
 
-## **Acceptance Criteria (ACs)**
+I want to enter an Amazon URL or manual product details via a sleek, professional wizard
 
-1. Wizard layout created with progress stepper (Input \-\> Script \-\> Generate).  
-2. "Amazon Input" tab implemented: Input field for URL \+ "Fetch" button.  
-3. "Manual Input" tab implemented: Fields for Title, Description, and Image Upload (to Supabase Storage).  
-4. On Amazon Fetch, backend scrapes (or mock-scrapes) title/desc/images and returns them to UI state.
+so that I can start the video creation process without friction
 
-## **Tasks / Subtasks**
+Acceptance Criteria (ACs)
 
-* \[ \] Task 1 (AC: 1\) Wizard Shell  
-  * \[ \] Create app/(dashboard)/wizard/layout.tsx with a shared WizardProvider (Zustand or React Context) to hold state across steps.  
-  * \[ \] Create visual stepper component showing current step.  
-* \[ \] Task 2 (AC: 2\) Amazon Input UI  
-  * \[ \] Create app/(dashboard)/wizard/page.tsx (Step 1).  
-  * \[ \] Implement URL Input with Zod validation.  
-  * \[ \] Create API route api/generate/scrape (Mock for now: returns hardcoded data after 2s delay).  
-* \[ \] Task 3 (AC: 3\) Manual Input UI  
-  * \[ \] Create Tabs for "Amazon" vs "Manual".  
-  * \[ \] Implement File Uploader for images (upload to temp-uploads bucket in Supabase).  
-* \[ \] Task 4 (AC: 4\) State Management  
-  * \[ \] Ensure fetched/entered data is stored in the Wizard Context.  
-  * \[ \] "Next" button routes to /wizard/script.
+Wizard Layout: Multi-step shell created with a progress stepper (Input -> Review -> Processing).
 
-## **Dev Technical Guidance**
+Professional UI: Background #0A0E14, Cards #161B22, Primary Actions #6366F1.
 
-* **State:** Use a global client-side store (Zustand recommended) for the Wizard because we need to persist data (images, script) between steps without saving to the DB until the very end.  
-* **Scraper:** For this story, just return dummy data from the API to unblock UI dev.
+Input Options: Tabbed interface for "Amazon URL" (default) and "Manual Input".
+
+Validation: Amazon URL input validates format; Manual input requires Title/Description.
+
+State Persistence: Wizard data (URL, fetched metadata, images) persists across steps using a global store (Zustand).
+
+Scraper Stub: Backend route api/generate/scrape returns mock data for now to unblock UI dev.
+
+Tasks / Subtasks
+
+[ ] Task 1 (AC: 1, 2) Wizard Shell
+
+[ ] Create app/(dashboard)/wizard/layout.tsx.
+
+[ ] Implement WizardStepper component (Active step: Electric Indigo).
+
+[ ] Initialize useWizardStore (Zustand) with fields: step, url, metadata, script, images.
+
+[ ] Task 2 (AC: 3, 4) Input Step UI
+
+[ ] Create app/(dashboard)/wizard/page.tsx (Step 1).
+
+[ ] Implement Tabs (Shadcn/UI) for "Amazon" vs "Manual".
+
+[ ] Amazon Tab: Large, centered Input + "Fetch" button.
+
+[ ] Manual Tab: Inputs for Title, Desc, and File Upload (React Dropzone).
+
+[ ] Task 3 (AC: 6) Scraper API Stub
+
+[ ] Create api/generate/scrape.
+
+[ ] Mock response: { title: "Mock Product", description: "...", images: ["url1", "url2"] }.
+
+[ ] Connect "Fetch" button to this API. On success, update Store and push to Step 2.
+
+Dev Technical Guidance
+
+Styling: Use bg-layer-2 for the main form container to make it pop against the deep charcoal background.
+
+UX: Focus on the "Low Friction" goal. The input should be the most prominent element.

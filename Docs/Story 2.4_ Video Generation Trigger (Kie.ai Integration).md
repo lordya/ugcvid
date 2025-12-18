@@ -1,40 +1,51 @@
-# **Story 2.4: Video Generation Trigger (Kie.ai Integration)**
+Story 2.4: Video Generation Trigger (Kie.ai Integration)
 
-## **Status: Draft**
+Status: Draft
 
-## **Story**
+Story
 
-* As a User  
-* I want to click "Generate" to start the video creation  
-* so that I can get my final asset
+As a User
 
-## **Acceptance Criteria (ACs)**
+I want to click "Generate" to start the video creation process
 
-1. Backend API route /api/generate/video created.  
-2. Route verifies user has sufficient credits.  
-3. Route calls Kie.ai API with the final script and selected images.  
-4. Credits are tentatively deducted (or reserved).  
-5. Kie.ai task\_id is stored in a videos database table with status PROCESSING.  
-6. UI redirects user to the Dashboard/History view.
+so that I can get my final asset
 
-## **Tasks / Subtasks**
+Acceptance Criteria (ACs)
 
-* \[ \] Task 1 (AC: 1, 2\) Credit Check  
-  * \[ \] In API POST /api/generate/video, fetch user profile.  
-  * \[ \] Return 402 if credits\_balance \< 1\.  
-* \[ \] Task 2 (AC: 3\) Call Kie.ai  
-  * \[ \] Implement KieClient.createVideo(script, images).  
-  * \[ \] Handle API errors gracefully.  
-* \[ \] Task 3 (AC: 4, 5\) Transaction & DB  
-  * \[ \] Run Supabase Transaction:  
-    * \[ \] Insert videos row (status: PROCESSING, kie\_task\_id).  
-    * \[ \] Insert transactions row (type: GENERATION, amount: \-1).  
-    * \[ \] Trigger updates user balance.  
-* \[ \] Task 4 (AC: 6\) Redirect  
-  * \[ \] Frontend receives success (Video ID).  
-  * \[ \] Redirect to /library.
+API Route: api/generate/video handles the transaction.
 
-## **Dev Technical Guidance**
+Atomic Transaction: Verifies credit > 0, deducts 1 credit, creates videos record (PROCESSING), and creates transactions record.
 
-* **Atomic Operation:** The DB insert and Credit deduction MUST happen together.  
-* **Kie.ai:** Check documentation for required payload format (aspect ratio, duration).
+Kie.ai Trigger: Calls Kie.ai API to start the job.
+
+Optimistic UI: Frontend immediately redirects to Library with a "Generation Started" toast.
+
+Error Safety: If Kie.ai fails immediately, database transaction is rolled back (or refunded).
+
+Tasks / Subtasks
+
+[ ] Task 1 (AC: 1, 2) Transaction Logic
+
+[ ] Create api/generate/video.
+
+[ ] Use supabase-admin (Service Role) to perform the check-and-deduct.
+
+[ ] Task 2 (AC: 3) External API
+
+[ ] POST to Kie.ai with script, source_images, and aspect_ratio: 9:16.
+
+[ ] Get task_id.
+
+[ ] Task 3 (AC: 4, 5) Frontend Handoff
+
+[ ] On "Generate" click, call API.
+
+[ ] On Success: Clear Wizard Store, Redirect to /library.
+
+[ ] On Error: Show Toast, remain on Review step.
+
+Dev Technical Guidance
+
+Kie.ai: Ensure we send the selected images only.
+
+Data Integrity: The videos table MUST store the kie_task_id so we can poll it later in Epic 3.

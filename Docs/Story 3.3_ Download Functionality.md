@@ -1,26 +1,33 @@
-# **Story 3.3: Download Functionality**
+Story 3.3: Download Functionality
 
-## **Status: Draft**
+Status: Draft
 
-## **Story**
+Story
 
-* As a User  
-* I want to download the MP4 file  
-* so that I can upload it to TikTok or Reels
+As a User
 
-## **Acceptance Criteria (ACs)**
+I want to download the MP4 file
 
-1. "Download" button added to the Video Player view.  
-2. Clicking triggers a browser download of the MP4 file from the storage URL.  
-3. Filename is sanitized and meaningful (e.g., afp-ugc-{product-name}.mp4).
+so that I can upload it to TikTok or Reels
 
-## **Tasks / Subtasks**
+Acceptance Criteria (ACs)
 
-* \[ \] Task 1 (AC: 1, 2\) Download Button  
-  * \[ \] Add button to Player Modal.  
-  * \[ \] Implement downloadFile(url, filename) helper.  
-  * \[ \] Ensure CORS allows download from the storage bucket.
+"Download" button available in the Player Modal.
 
-## **Dev Technical Guidance**
+Clicking triggers a direct browser download.
 
-* **Proxies:** If the video URL is external (Kie.ai) and doesn't allow direct browser download (headers), might need a simple API route to proxy the stream or fetch-and-blob on the client.
+Filename is formatted as afp-ugc-{id}.mp4.
+
+Tasks / Subtasks
+
+[ ] Task 1 (AC: 1, 2) Download Logic
+
+[ ] Implement handleDownload function.
+
+[ ] If URL is direct, use a.download.
+
+[ ] If CORS issues arise, create a proxy route api/download/[id].
+
+Dev Technical Guidance
+
+Proxy: Start with direct download. Only build the proxy if cross-origin headers block the download attribute.

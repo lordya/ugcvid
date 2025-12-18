@@ -1,31 +1,43 @@
-# **Story 3.2: Dashboard & Video Player**
+Story 3.2: Dashboard & Video Player
 
-## **Status: Draft**
+Status: Draft
 
-## **Story**
+Story
 
-* As a User  
-* I want to see my generated videos and play them  
-* so that I can review the final output
+As a User
 
-## **Acceptance Criteria (ACs)**
+I want to see my generated videos and play them
 
-1. Dashboard grid view displaying all user videos.  
-2. Video cards show thumbnail and status badge (Processing, Done, Failed).  
-3. Clicking a "Done" video opens a modal or page with a Video Player.  
-4. Video player supports portrait playback.
+so that I can review the final output
 
-## **Tasks / Subtasks**
+Acceptance Criteria (ACs)
 
-* \[ \] Task 1 (AC: 1, 2\) Dashboard Grid  
-  * \[ \] Create app/(dashboard)/library/page.tsx.  
-  * \[ \] Fetch user videos (descending date).  
-  * \[ \] Render Cards with Thumbnail (if available) or Skeleton (if processing).  
-* \[ \] Task 2 (AC: 3, 4\) Player Modal  
-  * \[ \] Create a Dialog/Modal component.  
-  * \[ \] Embed \<video\> tag with controls.  
-  * \[ \] Ensure 9:16 aspect ratio is preserved.
+Library View: 4-column grid (Desktop) of video cards.
 
-## **Dev Technical Guidance**
+Card States:
 
-* **Thumbnails:** If Kie.ai provides a thumbnail URL, store/use it. If not, use a generic placeholder until user plays.
+Processing: Blurry thumbnail + Amber pulse.
+
+Ready: Clear thumbnail + Green checkmark.
+
+Failed: Red badge + "Retry" (Refunded).
+
+Player Modal: Clicking a Ready video opens a centered modal with the portrait video player.
+
+Tasks / Subtasks
+
+[ ] Task 1 (AC: 1, 2) Library UI
+
+[ ] Create app/(dashboard)/library/page.tsx.
+
+[ ] Implement VideoCard component with state variants.
+
+[ ] Task 2 (AC: 3) Player
+
+[ ] Create VideoModal component.
+
+[ ] Use HTML5 <video> tag or a library like vidstack.
+
+Dev Technical Guidance
+
+Thumbnails: If Kie.ai doesn't provide a thumb, use a generic placeholder or the first image from the input data.

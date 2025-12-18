@@ -1,28 +1,61 @@
-# **Story 4.2: System Analytics Dashboard**
+Story 4.2: System Analytics Dashboard
 
-## **Status: Draft**
+Status: Draft
 
-## **Story**
+Story
 
-* As an Admin  
-* I want to see high-level system stats  
-* so that I know how the SaaS is performing
+As an Admin
 
-## **Acceptance Criteria (ACs)**
+I want to see high-level system stats
 
-1. Admin Dashboard displays "Total Users" count.  
-2. Admin Dashboard displays "Total Videos Generated" count.  
-3. Admin Dashboard displays "Total Credits Consumed" count.
+so that I know how the SaaS is performing
 
-## **Tasks / Subtasks**
+Acceptance Criteria (ACs)
 
-* \[ \] Task 1 (AC: 1, 2, 3\) Stats Calculation  
-  * \[ \] Create API api/admin/stats.  
-  * \[ \] Perform COUNT(\*) queries on users and videos.  
-  * \[ \] Sum amount from transactions where type='GENERATION'.  
-* \[ \] Task 2 UI  
-  * \[ \] Display 3 Cards with big numbers on /admin/page.tsx.
+Dashboard: Display "Total Users", "Total Videos", and "Credits Consumed".
 
-## **Dev Technical Guidance**
+Visuals: Use big number cards with JetBrains Mono font for data.
 
-* **Performance:** For MVP, live counts are fine. Post-MVP, cache this or use Supabase approximate counts.
+Tasks / Subtasks
+
+[ ] Task 1 (AC: 1) Stats API
+
+[ ] Aggregate counts from DB.
+
+[ ] Task 2 (AC: 2) UI
+
+[ ] Render cards on /admin index page.
+
+Dev Technical Guidance
+
+Performance: Keep queries simple for MVP.Story 4.2: System Analytics Dashboard
+
+Status: Draft
+
+Story
+
+As an Admin
+
+I want to see high-level system stats
+
+so that I know how the SaaS is performing
+
+Acceptance Criteria (ACs)
+
+Dashboard: Display "Total Users", "Total Videos", and "Credits Consumed".
+
+Visuals: Use big number cards with JetBrains Mono font for data.
+
+Tasks / Subtasks
+
+[ ] Task 1 (AC: 1) Stats API
+
+[ ] Aggregate counts from DB.
+
+[ ] Task 2 (AC: 2) UI
+
+[ ] Render cards on /admin index page.
+
+Dev Technical Guidance
+
+Performance: Keep queries simple for MVP.

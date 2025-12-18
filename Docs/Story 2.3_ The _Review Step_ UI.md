@@ -1,34 +1,53 @@
-# **Story 2.3: The "Review Step" UI**
+Story 2.3: The "Review Step" UI (Trust Builder)
 
-## **Status: Draft**
+Status: Draft
 
-## **Story**
+Story
 
-* As a User  
-* I want to edit the AI-generated script and select images  
-* so that I can ensure the video message is accurate before spending credits
+As a User
 
-## **Acceptance Criteria (ACs)**
+I want to review/edit the script and select visual assets in a split-screen view
 
-1. "Review" step UI displays the editable Script text area.  
-2. UI displays a grid of available images (scraped or uploaded) allowing selection/deselection.  
-3. "Generate Video" button is disabled if no images are selected or script is empty.  
-4. "Generate Video" button displays the credit cost (e.g., "-1 Credit").
+so that I have full control over the output before spending credits
 
-## **Tasks / Subtasks**
+Acceptance Criteria (ACs)
 
-* \[ \] Task 1 (AC: 1\) Split Screen UI  
-  * \[ \] Create app/(dashboard)/wizard/script/page.tsx (Step 2).  
-  * \[ \] Left col: Static Product Info. Right col: Textarea for Script.  
-* \[ \] Task 2 (AC: 2\) Image Selection  
-  * \[ \] Display images grid.  
-  * \[ \] Implement click-to-select logic (update Wizard Context selectedImages).  
-* \[ \] Task 3 (AC: 3, 4\) Validation & CTA  
-  * \[ \] Add "Generate Video" button.  
-  * \[ \] Add label "Cost: 1 Credit".  
-  * \[ \] Disable if script.length \< 10 or selectedImages.length \=== 0\.
+Split-Screen Layout: Left Col (Reference/Assets) vs Right Col (Script Editor). Stacks on mobile.
 
-## **Dev Technical Guidance**
+Asset Selection: Grid of images from the scraper/upload. User must select 1-5 images. Selected state uses Electric Indigo border.
 
-* **UX:** Follow the UI Spec "High Control" philosophy.  
-* **Images:** If images are from Amazon (external URLs), ensure we handle CORS/Hotlinking issues (might need to proxy them or just display standard img tags if Amazon allows).
+Script Editor: Large textarea with live character count (Amber warning if <50 or >500).
+
+Primary CTA: Large "Generate Video" button explicitly labeled with cost ("-1 Credit").
+
+Validation: Button disabled if 0 images selected or script empty.
+
+Tasks / Subtasks
+
+[ ] Task 1 (AC: 1) Layout Implementation
+
+[ ] Create app/(dashboard)/wizard/script/page.tsx (if not created in 2.2).
+
+[ ] Use grid-cols-1 lg:grid-cols-2 for layout.
+
+[ ] Task 2 (AC: 2) Asset Grid
+
+[ ] Render images from store.
+
+[ ] Implement toggle selection logic (limit max 5).
+
+[ ] Visual feedback: Opacity for unselected, Border Ring for selected.
+
+[ ] Task 3 (AC: 3, 4, 5) Script & Actions
+
+[ ] Bind Textarea to useWizardStore.script.
+
+[ ] Add "Regenerate" button (Secondary) to re-trigger Story 2.2 logic.
+
+[ ] Add "Generate Video" button (Primary) with validation logic.
+
+Dev Technical Guidance
+
+Psychology: This is the "Control Paradox" step. Ensure the UI feels stable and editable. The user is the editor-in-chief here.
+
+Images: Handle potential CORS issues with external Amazon images by using referrerPolicy="no-referrer" or a simple proxy if needed.

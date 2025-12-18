@@ -1,28 +1,35 @@
-# **Story 4.1: Admin Content Moderation**
+Story 4.1: Admin Content Moderation
 
-## **Status: Draft**
+Status: Draft
 
-## **Story**
+Story
 
-* As an Admin  
-* I want to see a feed of all generated videos  
-* so that I can ban users generating abusive content
+As an Admin
 
-## **Acceptance Criteria (ACs)**
+I want to see a feed of all generated videos
 
-1. Admin route /admin/moderation created.  
-2. Grid view of all COMPLETED videos from all users, ordered by newest.  
-3. "Block User" or "Delete Video" actions available on each card.
+so that I can ban users generating abusive content
 
-## **Tasks / Subtasks**
+Acceptance Criteria (ACs)
 
-* \[ \] Task 1 (AC: 1, 2\) Moderation Feed  
-  * \[ \] Create page.  
-  * \[ \] Fetch global video list (Server Component \+ Supabase Admin).  
-* \[ \] Task 2 (AC: 3\) Actions  
-  * \[ \] Add "Delete" button (Updates videos status to DELETED or hard deletes).  
-  * \[ \] Add "Ban User" button (Updates users table or Supabase Auth status).
+Operations Console: Admin route /admin/moderation with a high-density grid view.
 
-## **Dev Technical Guidance**
+Video Feed: Display all COMPLETED videos sorted by newest.
 
-* **Privacy:** Only Admins should see this data.
+Actions: "Block User" (Destructive Red) and "Delete Video".
+
+Tasks / Subtasks
+
+[ ] Task 1 (AC: 1, 2) Feed UI
+
+[ ] Create page.
+
+[ ] Fetch videos using Service Role (bypass RLS).
+
+[ ] Task 2 (AC: 3) Actions
+
+[ ] Implement API actions to update users.banned or videos.status = 'DELETED'.
+
+Dev Technical Guidance
+
+Security: Ensure strict Admin role checking.

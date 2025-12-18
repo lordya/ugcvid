@@ -1,40 +1,57 @@
-# **Story 4.3: E2E Testing & Launch Polish**
+Story 4.3: E2E Testing & Launch Polish
 
-## **Status: Draft**
+Status: Draft
 
-## **Story**
+Story
 
-* As a Product Owner  
-* I want the critical paths tested automatically  
-* so that we don't break core features during updates
+As a Product Owner
 
-## **Acceptance Criteria (ACs)**
+I want the critical paths tested automatically
 
-1. Playwright E2E test written for the full "Happy Path" (Login \-\> Buy Credit \-\> Wizard \-\> Video Success).  
-2. UI polish pass (consistent spacing, loading states, error toasts) according to the Visual Identity System.  
-3. Landing page (or redirect to Login) configured for root URL.
+so that we don't break core features during updates
 
-## **Tasks / Subtasks**
+Acceptance Criteria (ACs)
 
-* \[ \] Task 1 (AC: 1\) Playwright Setup  
-  * \[ \] Install Playwright (npm init playwright@latest).  
-  * \[ \] Configure playwright.config.ts for local and CI execution.  
-  * \[ \] Set up global auth setup script to reuse login state in tests.  
-* \[ \] Task 2 (AC: 1\) Happy Path Test  
-  * \[ \] Write tests/happy-path.spec.ts.  
-  * \[ \] Step 1: Login mock user.  
-  * \[ \] Step 2: Navigate to /billing, click "Buy Credits" (Mock Stripe success redirect).  
-  * \[ \] Step 3: Navigate to /wizard, complete Input and Review steps.  
-  * \[ \] Step 4: Click "Generate", wait for "Video Ready" status (Mock API response).  
-  * \[ \] Step 5: Verify Video Card appears in Library.  
-* \[ \] Task 3 (AC: 2\) UI Polish  
-  * \[ \] Verify dark mode palette consistency (bg-layer-1, primary colors).  
-  * \[ \] Ensure all buttons have hover/active states.  
-  * \[ \] Add toast notifications for key actions (Purchase success, Generation started).  
-* \[ \] Task 4 (AC: 3\) Root Route  
-  * \[ \] Update app/page.tsx to redirect to /library (or render a simple Hero landing page).
+Playwright E2E test written for the full "Happy Path" (Login -> Buy Credit -> Wizard -> Video Success).
 
-## **Dev Technical Guidance**
+Payment flows (Lemon Squeezy & Cryptomus) and Kie.ai API calls are fully mocked in E2E tests to prevent external dependencies.
 
-* **Mocks:** Use Playwright's page.route() capability to mock network requests to /api/generate/video and /api/stripe/checkout. Do NOT hit real APIs in E2E tests.  
-* **Selectors:** Add data-testid attributes to critical UI elements (e.g., data-testid="generate-btn") to make tests resilient to styling changes.
+UI Audit completed: Consistent Dark Mode (#0A0E14), Electric Indigo buttons, correct font usage (Inter/JetBrains Mono), and responsive layouts verified.
+
+Landing page implemented at root / with a "Hero" section explaining the value prop and a "Get Started" CTA that redirects to /dashboard (or Login if unauth).
+
+Tasks / Subtasks
+
+[ ] Task 1 (AC: 1, 2) Playwright Setup & Happy Path
+
+[ ] Install Playwright.
+
+[ ] Create tests/e2e/happy-path.spec.ts.
+
+[ ] Implement page.route mocks for /api/payment/* and /api/generate/*.
+
+[ ] Write test: User logs in (mocked auth), adds credits (mocked), runs wizard, gets video (mocked).
+
+[ ] Task 2 (AC: 3) UI Polish Audit
+
+[ ] Check all buttons for hover states.
+
+[ ] Verify toast notifications appear for "Credit Added" and "Generation Started".
+
+[ ] Ensure mobile view for Wizard stacks correctly.
+
+[ ] Task 3 (AC: 4) Landing Page
+
+[ ] Create app/page.tsx (Root).
+
+[ ] Design Hero Section: Headline "Turn Amazon Products into Viral Videos", Subhead, "Start Creating" button.
+
+[ ] If user is authenticated (check session), "Start Creating" redirects to /library.
+
+[ ] If unauthenticated, it links to /signup.
+
+Dev Technical Guidance
+
+Mocking Strategy: For Payment, intercept the POST request to the checkout endpoint and manually trigger the "success" UI state or redirect to the success URL in the test. Do NOT rely on actual third-party sandboxes in CI.
+
+Landing Page: Keep it simple. High-impact headline, one primary CTA. Use the "Electric Indigo" gradient for visual flair on the dark background.
