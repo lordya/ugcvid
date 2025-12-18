@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -51,19 +51,7 @@ export default function BillingPage() {
   const searchParams = useSearchParams()
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'crypto'>('card')
 
-  useEffect(() => {
-    // Check for success parameter
-    if (searchParams.get('success') === 'true') {
-      // Refresh user data to show updated credits
-      fetchUserData()
-    }
-  }, [searchParams])
-
-  useEffect(() => {
-    fetchUserData()
-  }, [])
-
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     try {
       const supabase = createClient()
       const {
@@ -94,7 +82,19 @@ export default function BillingPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [router])
+
+  useEffect(() => {
+    // Check for success parameter
+    if (searchParams.get('success') === 'true') {
+      // Refresh user data to show updated credits
+      fetchUserData()
+    }
+  }, [searchParams, fetchUserData])
+
+  useEffect(() => {
+    fetchUserData()
+  }, [fetchUserData])
 
   const handleLemonSqueezyCheckout = async (plan: PricingPlan) => {
     try {

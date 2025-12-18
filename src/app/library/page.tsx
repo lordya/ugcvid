@@ -35,7 +35,7 @@ export default async function LibraryPage() {
         </div>
         <div className="rounded-lg border bg-[#161B22] p-12 text-center">
           <p className="text-muted-foreground text-lg">
-            Your video library is empty—let's create something
+            Your video library is empty—let&apos;s create something
           </p>
         </div>
       </div>
