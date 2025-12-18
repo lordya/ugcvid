@@ -54,6 +54,7 @@ export type Database = {
       }
       users: {
         Row: {
+          banned: boolean
           created_at: string
           credits_balance: number
           email: string
@@ -62,6 +63,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          banned?: boolean
           created_at?: string
           credits_balance?: number
           email: string
@@ -70,6 +72,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          banned?: boolean
           created_at?: string
           credits_balance?: number
           email?: string
