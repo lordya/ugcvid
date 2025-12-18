@@ -317,3 +317,74 @@ export async function blockUser(userId: string): Promise<{ success: boolean; err
   }
 }
 
+export interface SystemStats {
+  totalUsers: number
+  totalVideos: number
+  creditsConsumed: number
+}
+
+/**
+ * Get system-wide statistics for admin dashboard
+ * Uses service role key to bypass RLS
+ */
+export async function getSystemStats(): Promise<{ stats: SystemStats | null; error?: string }> {
+  const { isAdmin } = await checkAdminAccess()
+
+  if (!isAdmin) {
+    return { stats: null, error: 'Unauthorized: Admin access required' }
+  }
+
+  try {
+    const adminClient = createAdminClient()
+
+    // Get total users count
+    const { count: totalUsers, error: usersError } = await adminClient
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+
+    if (usersError) {
+      console.error('Error fetching total users:', usersError)
+      return { stats: null, error: `Failed to fetch users: ${usersError.message}` }
+    }
+
+    // Get total completed videos count
+    const { count: totalVideos, error: videosError } = await adminClient
+      .from('videos')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'COMPLETED')
+
+    if (videosError) {
+      console.error('Error fetching total videos:', videosError)
+      return { stats: null, error: `Failed to fetch videos: ${videosError.message}` }
+    }
+
+    // Get credits consumed (sum of ABS(amount) for GENERATION transactions)
+    // Since GENERATION transactions have negative amounts, we use ABS() to get the total consumed
+    const { data: transactions, error: transactionsError } = await adminClient
+      .from('transactions')
+      .select('amount')
+      .eq('type', 'GENERATION')
+
+    if (transactionsError) {
+      console.error('Error fetching transactions:', transactionsError)
+      return { stats: null, error: `Failed to fetch transactions: ${transactionsError.message}` }
+    }
+
+    // Calculate credits consumed by summing absolute values of generation transactions
+    const creditsConsumed = transactions
+      ? transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0)
+      : 0
+
+    return {
+      stats: {
+        totalUsers: totalUsers || 0,
+        totalVideos: totalVideos || 0,
+        creditsConsumed,
+      },
+    }
+  } catch (error) {
+    console.error('Error in getSystemStats:', error)
+    return { stats: null, error: 'Failed to fetch system statistics' }
+  }
+}
+
