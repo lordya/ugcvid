@@ -139,6 +139,7 @@ export function VideoCard({ video }: VideoCardProps) {
       {showPlayer && videoUrl && (
         <VideoPlayerModal
           videoUrl={videoUrl}
+          videoId={video.id}
           script={video.final_script || ''}
           onClose={() => setShowPlayer(false)}
         />
