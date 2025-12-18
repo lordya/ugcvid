@@ -25,7 +25,7 @@ A separate Frontend Architecture Document (docs/front-end-architecture.md) will 
 
 ## **Technical Summary**
 
-AFP UGC is a serverless, event-driven SaaS platform built on **Next.js** (App Router) and deployed on **Vercel**. It utilizes **Supabase** for PostgreSQL database, authentication, and object storage. The core value proposition—AI video generation—is orchestrated via a "Human-in-the-Loop" workflow: scraping product data (mock/custom), generating scripts with **OpenAI**, allowing user review, and generating videos via **Kie.ai**. The system is architected to handle asynchronous long-running video generation tasks through a polling mechanism suitable for Vercel's serverless environment, ensuring a responsive user experience ("Optimistic UI") and robust credit management.
+AFP UGC is a serverless, event-driven SaaS platform built on **Next.js** (App Router) and deployed on **Vercel**. It utilizes **Supabase** for PostgreSQL database, authentication, and object storage. The core value proposition—AI video generation—is orchestrated via a "Human-in-the-Loop" workflow: scraping product data from Amazon using **ScraperAPI**, generating scripts with **OpenAI**, allowing user review, and generating videos via **Kie.ai**. The system is architected to handle asynchronous long-running video generation tasks through a polling mechanism suitable for Vercel's serverless environment, ensuring a responsive user experience ("Optimistic UI") and robust credit management.
 
 ## **High-Level Overview**
 
@@ -129,9 +129,10 @@ afp-ugc/
 
 #### **POST /api/generate/scrape**
 
-* **Purpose:** Fetches product metadata from a URL.  
+* **Purpose:** Fetches product metadata from an Amazon URL using ScraperAPI.  
 * **Body:** { url: string }  
 * **Response:** { title: string, description: string, images: string\[\] }
+* **External Service:** ScraperAPI (with autoparse enabled)
 
 #### **POST /api/generate/script**
 
@@ -244,6 +245,7 @@ sequenceDiagram
 | **Styling** | **Tailwind CSS** | v3.x | Rapid UI development, matches "Pro Tool" aesthetic. |
 | **UI Library** | **Shadcn/UI** | Radix Primitives | Accessible, customizable components that you own. |
 | **Payments** | **Stripe** | Checkout | Industry standard for SaaS billing. |
+| **Scraping** | **ScraperAPI** | API | Amazon product data extraction with autoparse. |
 | **AI (Script)** | **OpenAI** | GPT-4o / 3.5 | Reliable, high-quality text generation. |
 | **AI (Video)** | **Kie.ai** | API | Aggregator offering cost-effective video generation (\~$0.40/video). |
 | **Testing** | **Playwright** | E2E | Reliable end-to-end testing for critical user flows. |

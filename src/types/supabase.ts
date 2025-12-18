@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -30,7 +30,7 @@ export type Database = {
           id?: string
           payment_id?: string | null
           provider?: Database["public"]["Enums"]["payment_provider"]
-          type: Database["public"]["Enums"]["transaction_type"]
+          type?: Database["public"]["Enums"]["transaction_type"]
           user_id: string
         }
         Update: {
@@ -54,29 +54,38 @@ export type Database = {
       }
       users: {
         Row: {
+          avatar_url: string | null
           banned: boolean
           created_at: string
           credits_balance: number
+          display_name: string | null
           email: string
           id: string
+          preferences: Json
           role: string
           updated_at: string
         }
         Insert: {
+          avatar_url?: string | null
           banned?: boolean
           created_at?: string
           credits_balance?: number
+          display_name?: string | null
           email: string
           id: string
+          preferences?: Json
           role?: string
           updated_at?: string
         }
         Update: {
+          avatar_url?: string | null
           banned?: boolean
           created_at?: string
           credits_balance?: number
+          display_name?: string | null
           email?: string
           id?: string
+          preferences?: Json
           role?: string
           updated_at?: string
         }

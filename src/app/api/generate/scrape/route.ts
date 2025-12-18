@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import axios from 'axios'
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,28 +13,91 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Simulate API delay (1-2 seconds)
-    await new Promise((resolve) => setTimeout(resolve, 1000 + Math.random() * 1000))
-
-    // Return mock data
-    const mockData = {
-      title: 'Mock Product - Premium Wireless Headphones',
-      description:
-        'Experience crystal-clear sound with our premium wireless headphones. Featuring active noise cancellation, 30-hour battery life, and comfortable over-ear design. Perfect for music lovers and professionals alike.',
-      images: [
-        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop',
-        'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=400&h=400&fit=crop',
-        'https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?w=400&h=400&fit=crop',
-        'https://images.unsplash.com/photo-1545127398-14699f92334b?w=400&h=400&fit=crop',
-        'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=400&h=400&fit=crop',
-      ],
+    // Check if ScraperAPI key is configured
+    const scraperApiKey = process.env.SCRAPERAPI_KEY
+    if (!scraperApiKey) {
+      console.error('SCRAPERAPI_KEY is not configured')
+      return NextResponse.json(
+        { error: 'ScraperAPI is not configured' },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json(mockData)
+    // Make request to ScraperAPI with autoparse enabled
+    const scraperApiUrl = 'https://api.scraperapi.com/'
+    const params = new URLSearchParams({
+      api_key: scraperApiKey,
+      url: url,
+      autoparse: 'true',
+    })
+
+    let response
+    try {
+      response = await axios.get(scraperApiUrl, {
+        params: params,
+        timeout: 30000, // 30 second timeout
+      })
+    } catch (axiosError: any) {
+      // Handle ScraperAPI errors
+      if (axiosError.response) {
+        const status = axiosError.response.status
+        if (status === 403 || status === 500) {
+          console.error('ScraperAPI error:', status, axiosError.response.data)
+          return NextResponse.json(
+            { error: 'Could not fetch product data' },
+            { status: 500 }
+          )
+        }
+      }
+      // Network or other errors
+      console.error('ScraperAPI request failed:', axiosError.message)
+      return NextResponse.json(
+        { error: 'Could not fetch product data' },
+        { status: 500 }
+      )
+    }
+
+    // Validate response structure
+    if (!response.data) {
+      console.error('ScraperAPI returned empty response')
+      return NextResponse.json(
+        { error: 'Could not fetch product data' },
+        { status: 500 }
+      )
+    }
+
+    const data = response.data
+
+    // Map ScraperAPI response to frontend format
+    const title = data.name || ''
+    const description = data.full_description || data.description || ''
+    const images = Array.isArray(data.images) ? data.images : []
+
+    // Validate required fields
+    if (!title || !description) {
+      console.error('ScraperAPI response missing required fields:', { title, description })
+      return NextResponse.json(
+        { error: 'Could not fetch product data' },
+        { status: 500 }
+      )
+    }
+
+    // Return mapped data
+    const mappedData = {
+      title,
+      description,
+      images: images.length > 0 ? images : [],
+      // Optional fields for future use
+      ...(data.pricing && { price: data.pricing }),
+      ...(data.average_rating && { rating: data.average_rating }),
+      ...(data.customers_say?.summary && { reviews_summary: data.customers_say.summary }),
+    }
+
+    return NextResponse.json(mappedData)
   } catch (error) {
     console.error('Scraper API error:', error)
     return NextResponse.json(
-      { error: 'Failed to scrape product data' },
+      { error: 'Could not fetch product data' },
       { status: 500 }
     )
   }

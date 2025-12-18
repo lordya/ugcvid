@@ -182,9 +182,11 @@ export async function uploadAvatar(formData: FormData): Promise<{
     }
 
     // Generate unique filename
+    // Path structure: avatars/{user_id}/{timestamp}.{ext}
+    // This matches the RLS policy which expects the first folder to be the user_id
     const fileExt = file.name.split('.').pop()
-    const fileName = `${user.id}-${Date.now()}.${fileExt}`
-    const filePath = `avatars/${fileName}`
+    const fileName = `${Date.now()}.${fileExt}`
+    const filePath = `avatars/${user.id}/${fileName}`
 
     // Upload to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -212,10 +214,16 @@ export async function uploadAvatar(formData: FormData): Promise<{
       .single()
 
     if (userData?.avatar_url) {
-      // Extract path from URL (remove domain)
-      const oldPath = userData.avatar_url.split('/avatars/')[1]
-      if (oldPath) {
-        await supabase.storage.from('avatars').remove([oldPath])
+      // Extract path from URL (remove domain and query params)
+      // Handles both old format: avatars/{user_id}-{timestamp}.{ext}
+      // and new format: avatars/{user_id}/{timestamp}.{ext}
+      const urlParts = userData.avatar_url.split('/avatars/')
+      if (urlParts.length > 1) {
+        // Get the path after '/avatars/' and remove any query params or fragments
+        const oldPath = urlParts[1].split('?')[0].split('#')[0]
+        if (oldPath) {
+          await supabase.storage.from('avatars').remove([oldPath])
+        }
       }
     }
 
