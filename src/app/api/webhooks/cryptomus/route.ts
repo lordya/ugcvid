@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       const { data: existingTransaction } = await supabase
         .from('transactions')
         .select('id')
-        .eq('provider', 'CRYPTO')
+        .eq('provider', 'CRYPTO' as const)
         .eq('payment_id', paymentId)
         .single()
 
@@ -76,8 +76,8 @@ export async function POST(request: NextRequest) {
       const { error: transactionError } = await supabase.from('transactions').insert({
         user_id: userId,
         amount: credits,
-        type: 'PURCHASE',
-        provider: 'CRYPTO',
+        type: 'PURCHASE' as const,
+        provider: 'CRYPTO' as const,
         payment_id: paymentId,
       })
 

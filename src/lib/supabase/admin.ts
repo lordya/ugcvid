@@ -14,7 +14,7 @@ if (!supabaseUrl || !supabaseServiceRoleKey) {
  * NEVER expose this client to the client-side.
  */
 export function createAdminClient() {
-  return createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
+  return createClient<Database>(supabaseUrl!, supabaseServiceRoleKey!, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,

@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     const { variantId, credits } = checkoutSchema.parse(body)
 
     // Create checkout session
-    const { data, error } = await createCheckout(storeId, variantId, {
+    const { data, error } = await createCheckout(storeId!, variantId, {
       checkoutOptions: {
         embed: false, // Use redirect checkout
         media: false,
@@ -51,7 +51,6 @@ export async function POST(request: NextRequest) {
         email: user.email || undefined,
       },
       productOptions: {
-        enabledVariants: [variantId],
         redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/billing?success=true`,
         receiptButtonText: 'Return to Dashboard',
         receiptThankYouNote: 'Thank you for your purchase! Your credits will be added automatically.',
@@ -69,7 +68,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Checkout creation error:', error)
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid request data', details: error.errors }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid request data', details: error.issues }, { status: 400 })
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

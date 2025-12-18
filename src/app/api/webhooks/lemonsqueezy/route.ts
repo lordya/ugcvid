@@ -23,7 +23,7 @@ function verifySignature(signature: string | null, body: string): boolean {
   }
 
   try {
-    const hmac = crypto.createHmac('sha256', webhookSecret)
+    const hmac = crypto.createHmac('sha256', webhookSecret!)
     const digest = hmac.update(body).digest('hex')
     // Compare signatures in constant time
     return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(digest))
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       const { data: existingTransaction } = await supabase
         .from('transactions')
         .select('id')
-        .eq('provider', 'LEMON')
+        .eq('provider', 'LEMON' as const)
         .eq('payment_id', orderId.toString())
         .single()
 
@@ -81,8 +81,8 @@ export async function POST(request: NextRequest) {
       const { error: transactionError } = await supabase.from('transactions').insert({
         user_id: userId,
         amount: credits,
-        type: 'PURCHASE',
-        provider: 'LEMON',
+        type: 'PURCHASE' as const,
+        provider: 'LEMON' as const,
         payment_id: orderId.toString(),
       })
 
