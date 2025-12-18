@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -42,7 +42,7 @@ const PRICING_PLANS: PricingPlan[] = [
   },
 ]
 
-export default function BillingPage() {
+function BillingContent() {
   const [user, setUser] = useState<any>(null)
   const [creditsBalance, setCreditsBalance] = useState<number>(0)
   const [loading, setLoading] = useState(true)
@@ -273,6 +273,22 @@ export default function BillingPage() {
         </Tabs>
       </div>
     </main>
+  )
+}
+
+export default function BillingPage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-screen bg-[#0A0E14] p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      </main>
+    }>
+      <BillingContent />
+    </Suspense>
   )
 }
 

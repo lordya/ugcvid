@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { signUp, signInWithGoogle } from '@/app/actions/auth'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 
-export default function SignUpPage() {
+function SignUpForm() {
   const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -138,6 +138,26 @@ export default function SignUpPage() {
         </CardFooter>
       </form>
     </Card>
+  )
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-semibold">Create Account</CardTitle>
+          <CardDescription>
+            Enter your email and password to create your account
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-4 text-muted-foreground">Loading...</div>
+        </CardContent>
+      </Card>
+    }>
+      <SignUpForm />
+    </Suspense>
   )
 }
 
