@@ -40,6 +40,10 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // Marketing routes are public - allow access
+  const marketingRoutes = ['/', '/features', '/pricing', '/about', '/contact', '/faq', '/terms', '/privacy']
+  const isMarketingRoute = marketingRoutes.includes(pathname) || pathname === '/'
+
   // Protected routes - redirect to login if not authenticated
   if ((pathname.startsWith('/library') || pathname.startsWith('/wizard') || pathname.startsWith('/billing')) && !user) {
     const redirectUrl = request.nextUrl.clone()
