@@ -51,25 +51,64 @@ avatars/{user_id}/{timestamp}.{extension}
 
 Example: `avatars/123e4567-e89b-12d3-a456-426614174000/1699123456789.jpg`
 
-## Videos Bucket (Conditional)
+## Videos Bucket Setup
 
-### When is it needed?
+### Step 1: Create the Bucket
 
-The `videos` bucket is only needed if Kie.ai video URLs are temporary (expire after a certain time). 
+The `videos` bucket stores generated video files. You can create it in two ways:
 
-**To determine if needed:**
-1. Check Kie.ai documentation for URL expiration policies
-2. Test by generating a video and checking if the URL remains accessible after 24+ hours
-3. If URLs expire, create the bucket and implement video download/upload logic
+**Option A: Using the Script (Recommended)**
+```bash
+# Make sure you have .env.local with SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+npx tsx scripts/create-videos-bucket.ts
+```
 
-### Setup (if needed)
+**Option B: Manual Creation**
+1. Navigate to your Supabase project dashboard
+2. Go to **Storage** section in the left sidebar
+3. Click **"New bucket"** button
+4. Configure the bucket:
+   - **Name**: `videos`
+   - **Public bucket**: Toggle OFF (videos should be private)
+   - **File size limit**: 100MB+ (adjust based on your plan)
+   - **Allowed MIME types**: `video/mp4`, `video/webm`, `video/quicktime` (optional)
+5. Click **"Create bucket"**
 
-1. Create bucket named `videos`
-2. Set to **Private** (videos should not be publicly accessible)
-3. Apply similar RLS policies as avatars
-4. File path structure: `videos/{user_id}/{video_id}.mp4`
-5. Update `src/app/api/generate/video/route.ts` to download from Kie.ai and upload to bucket
-6. Update `src/app/api/download/[id]/route.ts` to serve from bucket instead of Kie.ai URL
+### Step 2: Apply RLS Policies
+
+After creating the bucket, run the migration file to set up RLS policies:
+
+```bash
+# Apply the migration
+npx supabase migration up
+```
+
+Or manually run the SQL from `supabase/migrations/20240521000005_add_videos_bucket.sql` in the Supabase SQL Editor.
+
+### Step 3: Verify Policies
+
+The following policies should be created:
+
+- **INSERT**: Users can upload to `videos/{user_id}/*`
+- **SELECT**: Users can only view their own videos (private)
+- **UPDATE**: Users can only update their own videos
+- **DELETE**: Users can only delete their own videos
+
+### File Path Convention
+
+Video files should be uploaded with the following path structure:
+```
+videos/{user_id}/{video_id}.mp4
+```
+
+Example: `videos/123e4567-e89b-12d3-a456-426614174000/abc123-def456-ghi789.mp4`
+
+### Integration Notes
+
+When implementing video storage:
+1. Update `src/app/api/generate/video/route.ts` to download from Kie.ai and upload to bucket
+2. Update `src/app/api/download/[id]/route.ts` to serve from bucket instead of Kie.ai URL
+3. Update `video_url` in the database to point to the Supabase Storage path
 
 ## RLS Policy Details
 
