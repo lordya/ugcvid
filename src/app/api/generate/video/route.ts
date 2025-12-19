@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { createVideoTask } from '@/lib/kie'
+import { VideoGenerationRequest, UGCContent, Json } from '@/types/supabase'
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,12 +18,26 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Parse request body
-    const body = await request.json()
-    const { script, imageUrls, aspectRatio = '9:16' } = body
+    const body: VideoGenerationRequest = await request.json()
+    const { script, imageUrls, aspectRatio = 'portrait', ugcContent } = body
 
-    // Validate inputs
-    if (!script || typeof script !== 'string' || script.trim().length === 0) {
-      return NextResponse.json({ error: 'Script is required' }, { status: 400 })
+    // Validate inputs - accept either script or ugcContent
+    let finalPrompt: string;
+    let finalAspectRatio = aspectRatio;
+    let finalTitle = body.title;
+    let finalDescription = body.description;
+
+    if (ugcContent && ugcContent.Prompt) {
+      // Use structured UGC content from n8n workflow format
+      finalPrompt = ugcContent.Prompt;
+      finalAspectRatio = ugcContent.aspect_ratio || 'portrait';
+      finalTitle = ugcContent.Title;
+      finalDescription = ugcContent.Description;
+    } else if (script) {
+      // Backward compatibility with simple script
+      finalPrompt = script;
+    } else {
+      return NextResponse.json({ error: 'Either script or ugcContent.Prompt is required' }, { status: 400 })
     }
 
     if (!imageUrls || !Array.isArray(imageUrls) || imageUrls.length === 0) {
@@ -50,10 +65,11 @@ export async function POST(request: NextRequest) {
 
     // 5. Prepare metadata for video record
     const inputMetadata = {
-      title: body.title || null,
-      description: body.description || null,
+      title: finalTitle || body.title || null,
+      description: finalDescription || body.description || null,
       images: imageUrls,
-    }
+      ugcContent: ugcContent || null, // Store the full UGC content structure
+    } as Json
 
     // 6. Create video record first (status: PROCESSING)
     // We'll update it with kie_task_id after successful API call
@@ -95,9 +111,9 @@ export async function POST(request: NextRequest) {
     let kieTaskId: string
     try {
       kieTaskId = await createVideoTask({
-        script,
+        script: finalPrompt,
         imageUrls,
-        aspectRatio,
+        aspectRatio: finalAspectRatio,
       })
     } catch (kieError) {
       console.error('Kie.ai API error:', kieError)

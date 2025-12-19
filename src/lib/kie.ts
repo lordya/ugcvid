@@ -21,6 +21,7 @@ export interface CreateVideoTaskParams {
   script: string
   imageUrls: string[]
   aspectRatio?: string
+  quality?: string
 }
 
 export interface CreateVideoTaskResponse {
@@ -46,7 +47,8 @@ interface KieApiWrappedResponse<T = any> {
 export async function createVideoTask({
   script,
   imageUrls,
-  aspectRatio = '9:16',
+  aspectRatio = 'portrait',
+  quality = 'hd',
 }: CreateVideoTaskParams): Promise<string> {
   const apiKey = process.env.KIE_API_KEY
 
@@ -72,6 +74,7 @@ export async function createVideoTask({
         image_urls: imageUrls,
       },
       aspect_ratio: aspectRatio,
+      quality: quality,
     };
     await logDebug({location:'kie.ts:47',message:'createVideoTask: About to call Kie.ai API',data:{requestBody,imageUrlCount:imageUrls.length,aspectRatio},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D,E'});
     // #endregion

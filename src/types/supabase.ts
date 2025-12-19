@@ -296,3 +296,36 @@ export const Constants = {
     },
   },
 } as const
+
+// UGC Content Types (matching n8n workflow structure)
+export interface UGCContent {
+  Title: string // Exactly 100 characters (padded/truncated)
+  Caption: string // Social media caption
+  Description: string // Product description
+  Prompt: string // Video generation prompt for AI
+  aspect_ratio: 'portrait' // Always 'portrait' for TikTok/Instagram
+}
+
+export interface ScriptGenerationRequest {
+  title: string
+  description: string
+}
+
+export interface ScriptGenerationResponse {
+  ugcContent: UGCContent
+  // Backward compatibility fields
+  script: string
+  title: string
+  caption: string
+  description: string
+  aspectRatio: string
+}
+
+export interface VideoGenerationRequest {
+  script?: string // For backward compatibility
+  imageUrls: string[]
+  aspectRatio?: string
+  title?: string
+  description?: string
+  ugcContent?: UGCContent // New structured format
+}

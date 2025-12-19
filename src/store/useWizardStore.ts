@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { UGCContent } from '@/types/supabase'
 
 export interface ProductMetadata {
   title: string
@@ -11,6 +12,7 @@ interface WizardState {
   url: string
   metadata: ProductMetadata | null
   script: string
+  ugcContent: UGCContent | null // Structured UGC content from AI
   images: string[]
   selectedImages: string[] // Array of selected image URLs
   manualInput: {
@@ -22,6 +24,7 @@ interface WizardState {
   setUrl: (url: string) => void
   setMetadata: (metadata: ProductMetadata) => void
   setScript: (script: string) => void
+  setUgcContent: (ugcContent: UGCContent | null) => void
   setImages: (images: string[]) => void
   setSelectedImages: (images: string[]) => void
   toggleImageSelection: (imageUrl: string) => void
@@ -34,6 +37,7 @@ const initialState = {
   url: '',
   metadata: null,
   script: '',
+  ugcContent: null,
   images: [],
   selectedImages: [],
   manualInput: {
@@ -49,6 +53,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   setUrl: (url) => set({ url }),
   setMetadata: (metadata) => set({ metadata }),
   setScript: (script) => set({ script }),
+  setUgcContent: (ugcContent) => set({ ugcContent }),
   setImages: (images) => set({ images }),
   setSelectedImages: (images) => set({ selectedImages: images }),
   toggleImageSelection: (imageUrl) => {

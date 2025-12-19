@@ -23,6 +23,8 @@ export default function WizardScriptPage() {
     manualInput,
     script,
     setScript,
+    ugcContent,
+    setUgcContent,
     selectedImages,
     toggleImageSelection,
     setStep,
@@ -96,7 +98,13 @@ export default function WizardScriptPage() {
 
         const data = await response.json()
 
-        if (data.script) {
+        // Handle new structured UGC content response
+        if (data.ugcContent) {
+          setScript(data.ugcContent.Prompt)
+          // Store the full UGC content for video generation
+          setUgcContent(data.ugcContent)
+        } else if (data.script) {
+          // Backward compatibility
           setScript(data.script)
         } else {
           throw new Error('No script returned from API')
@@ -203,9 +211,10 @@ export default function WizardScriptPage() {
         body: JSON.stringify({
           script: script.trim(),
           imageUrls: selectedImages,
-          aspectRatio: '9:16',
+          aspectRatio: ugcContent?.aspect_ratio || 'portrait',
           title: productTitle,
           description: productDescription,
+          ugcContent: ugcContent,
         }),
       })
 
