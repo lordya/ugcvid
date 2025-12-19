@@ -164,7 +164,9 @@ export async function createVideoTask({
 }
 
 export interface TaskStatusResponse {
-  successFlag: number // 0 = processing, 1 = completed, 2 = failed, 3 = task created but generation failed, 4 = generation succeeded but callback failed
+  state?: string // Actual API format: "generating", "processing", "success", "failed"
+  successFlag?: number // Backward compatibility: 0 = processing, 1 = completed, 2 = failed, 3 = task created but generation failed, 4 = generation succeeded but callback failed
+  resultJson?: string // Actual API format - JSON string containing video URLs
   response?: {
     resultUrls?: string[]
     result_urls?: string[]
@@ -244,9 +246,74 @@ export async function getTaskStatus(taskId: string): Promise<GetTaskStatusResult
       throw new Error('Kie.ai did not return task data')
     }
 
-    // Map successFlag to our status enum
-    // successFlag: 0 = processing, 1 = completed, 2 = failed, 3 = task created but generation failed, 4 = generation succeeded but callback failed
-    switch (taskData.successFlag) {
+    // Debug logging to capture actual response structure
+    await logDebug({
+      location: 'kie.ts:getTaskStatus',
+      message: 'Received task data structure',
+      data: {
+        taskData,
+        hasState: 'state' in taskData,
+        hasSuccessFlag: 'successFlag' in taskData,
+        hasResultJson: 'resultJson' in taskData,
+        hasResponse: 'response' in taskData,
+        stateValue: taskData.state,
+        successFlagValue: taskData.successFlag,
+        resultJsonLength: taskData.resultJson?.length,
+      },
+      timestamp: Date.now(),
+      sessionId: 'debug-session',
+      runId: 'run1',
+      hypothesisId: 'status-parsing',
+    })
+
+    // Map state/successFlag to our status enum
+    // Priority: Check state (actual format) first, fallback to successFlag (old format)
+    const statusValue = taskData.state || taskData.successFlag
+
+    // Validate that we have a status value
+    if (statusValue === undefined) {
+      throw new Error(
+        `Kie.ai API error: Task data missing both 'state' and 'successFlag' fields. Available fields: ${Object.keys(taskData).join(', ')}`
+      )
+    }
+
+    // Helper function to extract video URL from both formats
+    const extractVideoUrl = (): string | undefined => {
+      // Try new format: parse resultJson JSON string
+      if (taskData.resultJson) {
+        try {
+          const resultData = JSON.parse(taskData.resultJson) as {
+            resultUrls?: string[]
+            result_urls?: string[]
+          }
+          return resultData.resultUrls?.[0] || resultData.result_urls?.[0]
+        } catch (parseError) {
+          // Log parse error but continue to try other formats
+          console.error(
+            'Failed to parse resultJson:',
+            parseError instanceof Error ? parseError.message : String(parseError)
+          )
+        }
+      }
+
+      // Fallback to old format: direct response object
+      if (taskData.response) {
+        return (
+          taskData.response.resultUrls?.[0] ||
+          taskData.response.result_urls?.[0] ||
+          taskData.response.videoUrl ||
+          taskData.response.video_url
+        )
+      }
+
+      return undefined
+    }
+
+    switch (statusValue) {
+      // New format: string states
+      case 'generating':
+      case 'processing':
+      // Old format: numeric successFlag
       case 0:
         // Still processing
         return {
@@ -254,16 +321,15 @@ export async function getTaskStatus(taskId: string): Promise<GetTaskStatusResult
           progress: taskData.progress ? parseFloat(taskData.progress) : undefined,
         }
 
+      // New format: success state
+      case 'success':
+      // Old format: completed
       case 1:
         // Completed successfully
-        const videoUrl =
-          taskData.response?.resultUrls?.[0] ||
-          taskData.response?.result_urls?.[0] ||
-          taskData.response?.videoUrl ||
-          taskData.response?.video_url
+        const videoUrl = extractVideoUrl()
 
         if (!videoUrl) {
-          throw new Error('Kie.ai returned success but no video URL')
+          throw new Error('Kie.ai returned success but no video URL found')
         }
 
         return {
@@ -271,37 +337,45 @@ export async function getTaskStatus(taskId: string): Promise<GetTaskStatusResult
           videoUrl,
         }
 
+      // New format: failed state
+      case 'failed':
+      // Old format: task creation or generation failed
       case 2:
       case 3:
-        // Failed (2 = task creation failed, 3 = generation failed)
+        // Failed
         return {
           status: 'FAILED',
-          errorMessage: taskData.errorMessage || `Generation failed (error code: ${taskData.errorCode || taskData.successFlag})`,
+          errorMessage:
+            taskData.errorMessage ||
+            `Generation failed (status: ${statusValue})`,
         }
 
+      // Old format: generation succeeded but callback failed
       case 4:
         // Generation succeeded but callback failed - we still have the video URL
-        const url =
-          taskData.response?.resultUrls?.[0] ||
-          taskData.response?.result_urls?.[0] ||
-          taskData.response?.videoUrl ||
-          taskData.response?.video_url
+        const url = extractVideoUrl()
 
         if (url) {
           return {
             status: 'COMPLETED',
             videoUrl: url,
-            errorMessage: taskData.errorMessage ? `Warning: ${taskData.errorMessage}` : undefined,
+            errorMessage: taskData.errorMessage
+              ? `Warning: ${taskData.errorMessage}`
+              : undefined,
           }
         }
 
         return {
           status: 'FAILED',
-          errorMessage: taskData.errorMessage || 'Generation completed but callback failed',
+          errorMessage:
+            taskData.errorMessage ||
+            'Generation completed but callback failed',
         }
 
       default:
-        throw new Error(`Unknown task status: ${taskData.successFlag}`)
+        throw new Error(
+          `Unknown task status: ${statusValue} (type: ${typeof statusValue}). Available fields: state=${taskData.state}, successFlag=${taskData.successFlag}, hasResultJson=${!!taskData.resultJson}, hasResponse=${!!taskData.response}`
+        )
     }
   } catch (error) {
     // Re-throw with more context if it's not already an Error
