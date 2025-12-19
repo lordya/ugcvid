@@ -203,7 +203,7 @@ export async function getTaskStatus(taskId: string): Promise<GetTaskStatusResult
 
   try {
     const response = await fetch(
-      `${KIE_API_BASE_URL}/jobs/record-info?taskId=${encodeURIComponent(taskId)}`,
+      `${KIE_API_BASE_URL}/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`,
       {
         method: 'GET',
         headers: {
