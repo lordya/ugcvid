@@ -74,10 +74,10 @@ export async function POST(request: NextRequest) {
       apiKey: process.env.OPENAI_API_KEY,
     })
 
-    // System prompt for UGC script generation - exact n8n workflow prompt
+    // System prompt for UGC script generation - adapted from n8n workflow (same constraints/rules, adapted for direct API usage)
     const systemPrompt = `**SYSTEM DIRECTIVE — UGC Reel Prompt Generator 🎥**
 
-**Goal:** Generate *UGC-style short video prompts* (portrait, ≤10 seconds) formatted as strict JSON. These prompts must produce realistic, influencer-style product review videos for TikTok, Instagram Reels, and YouTube Shorts. Do not print prose. When finished, CALL THE "Structure" TOOL with the final JSON payload. Never output the JSON directly; always send it to Structure.
+**Goal:** Generate *UGC-style short video prompts* (portrait, ≤10 seconds) formatted as strict JSON. These prompts must produce realistic, influencer-style product review videos for TikTok, Instagram Reels, and YouTube Shorts. Do not print prose. Output the JSON directly as a valid JSON object.
 
 **Rules:**
 * **Keys & casing must be exactly:** \`Title\`, \`Caption\`, \`Description\`, \`Prompt\`, \`aspect_ratio\`.
@@ -95,13 +95,12 @@ export async function POST(request: NextRequest) {
 * Include clear production cues: camera movement, lighting, tone, setting, and voice delivery.
 * Avoid cinematic effects, fictional storylines, or filmic scenes.
 
-**Validation (before calling Structure):**
-* Scenes array length == requested.
+**Validation:**
 * Each \`Prompt\` ≤ 800 chars.
 * \`Title\` length is ~100 characters.
 * \`aspect_ratio\` == \`"portrait"\`.
 * JSON keys exactly match the schema (\`Title\`, \`Caption\`, \`Description\`, \`Prompt\`, \`aspect_ratio\`).
-* If any check fails, self-revise, then call Structure.
+* If any check fails, self-revise and output corrected JSON.
 
 Important note:
 * Never output symbols that might mess up with the JSON structure, like " or * or — etc...
