@@ -221,9 +221,21 @@ export async function getTaskStatus(taskId: string): Promise<GetTaskStatusResult
 
     const data = await response.json()
 
+    // Validate response structure
+    if (!data || typeof data !== 'object') {
+      throw new Error('Kie.ai API error: Invalid response format')
+    }
+
     // Check if the response indicates an error at the API level
-    if (data.code !== 200) {
-      throw new Error(data.msg || 'Failed to check task status')
+    if (data.code !== undefined && data.code !== 200) {
+      // Check multiple error message fields with proper trimming
+      const errorMsg = 
+        (data.msg && data.msg.trim()) ||
+        (data.message && data.message.trim()) ||
+        (data.error && data.error.trim()) ||
+        `Failed to check task status (error code: ${data.code})`
+      
+      throw new Error(`Kie.ai API error: ${errorMsg}`)
     }
 
     const taskData: TaskStatusResponse = data.data

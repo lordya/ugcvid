@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { getSignedVideoUrl } from '@/lib/video-storage'
 
 export async function GET(
   request: NextRequest,
@@ -43,16 +44,44 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // 4. Check if video is completed and has a URL
-    if (video.status !== 'COMPLETED' || !video.video_url) {
+    // 4. Check if video is completed
+    if (video.status !== 'COMPLETED') {
       return NextResponse.json(
         { error: 'Video is not ready for download' },
         { status: 400 }
       )
     }
 
-    // 5. Fetch the video file from the URL
-    const videoResponse = await fetch(video.video_url)
+    // 5. Determine video URL: prefer Supabase Storage, fallback to Kie.ai URL
+    let videoUrl: string | null = null
+
+    // Check if video is stored in Supabase Storage
+    if (video.storage_path) {
+      try {
+        const signedUrl = await getSignedVideoUrl(video.storage_path)
+        if (signedUrl) {
+          videoUrl = signedUrl
+        }
+      } catch (error) {
+        console.error('Error generating signed URL for storage:', error)
+        // Fall through to Kie.ai URL fallback
+      }
+    }
+
+    // Fallback to Kie.ai URL if storage is not available
+    if (!videoUrl && video.video_url) {
+      videoUrl = video.video_url
+    }
+
+    if (!videoUrl) {
+      return NextResponse.json(
+        { error: 'Video URL is not available' },
+        { status: 404 }
+      )
+    }
+
+    // 6. Fetch the video file from the URL
+    const videoResponse = await fetch(videoUrl)
 
     if (!videoResponse.ok) {
       console.error('Failed to fetch video from URL:', videoResponse.statusText)
@@ -62,10 +91,10 @@ export async function GET(
       )
     }
 
-    // 6. Get the video blob
+    // 7. Get the video blob
     const videoBlob = await videoResponse.blob()
 
-    // 7. Stream the video to the client with proper headers
+    // 8. Stream the video to the client with proper headers
     const filename = `afp-ugc-${videoId}.mp4`
 
     return new NextResponse(videoBlob, {

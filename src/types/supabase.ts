@@ -100,6 +100,7 @@ export type Database = {
           input_metadata: Json | null
           kie_task_id: string | null
           status: Database["public"]["Enums"]["video_status"]
+          storage_path: string | null
           updated_at: string
           user_id: string
           video_url: string | null
@@ -112,6 +113,7 @@ export type Database = {
           input_metadata?: Json | null
           kie_task_id?: string | null
           status?: Database["public"]["Enums"]["video_status"]
+          storage_path?: string | null
           updated_at?: string
           user_id: string
           video_url?: string | null
@@ -124,6 +126,7 @@ export type Database = {
           input_metadata?: Json | null
           kie_task_id?: string | null
           status?: Database["public"]["Enums"]["video_status"]
+          storage_path?: string | null
           updated_at?: string
           user_id?: string
           video_url?: string | null

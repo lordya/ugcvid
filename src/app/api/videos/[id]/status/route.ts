@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { getTaskStatus } from '@/lib/kie'
+import { storeVideoFromKie, getSignedVideoUrl } from '@/lib/video-storage'
 
 export async function GET(
   request: NextRequest,
@@ -79,14 +80,41 @@ export async function GET(
         const kieStatus = await getTaskStatus(video.kie_task_id)
 
         if (kieStatus.status === 'COMPLETED' && kieStatus.videoUrl) {
-          // Update video record with completed status and URL
+          // Try to download and store video in Supabase Storage
+          let storagePath: string | null = null
+          let signedUrl: string | null = null
+
+          try {
+            storagePath = await storeVideoFromKie(kieStatus.videoUrl, user.id, videoId)
+            
+            if (storagePath) {
+              // Generate signed URL for the stored video
+              signedUrl = await getSignedVideoUrl(storagePath)
+            }
+          } catch (storageError) {
+            console.error('Error storing video in Supabase Storage:', storageError)
+            // Continue with Kie.ai URL as fallback
+          }
+
+          // Update video record with completed status, URL, and storage path
+          const updateData: {
+            status: 'COMPLETED'
+            video_url: string
+            updated_at: string
+            storage_path?: string | null
+          } = {
+            status: 'COMPLETED',
+            video_url: kieStatus.videoUrl,
+            updated_at: new Date().toISOString(),
+          }
+
+          if (storagePath) {
+            updateData.storage_path = storagePath
+          }
+
           const { error: updateError } = await adminClient
             .from('videos')
-            .update({
-              status: 'COMPLETED',
-              video_url: kieStatus.videoUrl,
-              updated_at: new Date().toISOString(),
-            })
+            .update(updateData)
             .eq('id', videoId)
 
           if (updateError) {
@@ -94,10 +122,11 @@ export async function GET(
             // Still return the status even if update fails
           }
 
+          // Return signed URL from storage if available, otherwise fallback to Kie.ai URL
           return NextResponse.json({
             id: video.id,
             status: 'COMPLETED',
-            videoUrl: kieStatus.videoUrl,
+            videoUrl: signedUrl || kieStatus.videoUrl,
           })
         } else if (kieStatus.status === 'FAILED') {
           // Update video record with failed status and error
