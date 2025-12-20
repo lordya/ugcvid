@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { ScriptGenerationRequest, ScriptGenerationResponse, UGCContent } from '@/types/supabase'
+import {
+  UGC_SCRIPT_GENERATION_SYSTEM_PROMPT,
+  generateScriptGenerationUserPrompt,
+  validateUGCContent,
+  normalizeUGCContent,
+  VIDEO_GENERATION_CONFIG
+} from '@/lib/prompts'
 
 // Helper to determine if model uses GPT-5 style parameters
 function isGPT5Model(model: string): boolean {
@@ -74,53 +81,15 @@ export async function POST(request: NextRequest) {
       apiKey: process.env.OPENAI_API_KEY,
     })
 
-    // System prompt for UGC script generation - adapted from n8n workflow (same constraints/rules, adapted for direct API usage)
-    const systemPrompt = `**SYSTEM DIRECTIVE — UGC Reel Prompt Generator 🎥**
+    // Generate user prompt using the structured prompts module
+    const userPrompt = generateScriptGenerationUserPrompt({
+      productName: title,
+      productDescription: description,
+      customersSay: description, // Using description as fallback for customers_say
+    })
 
-**Goal:** Generate *UGC-style short video prompts* (portrait, ≤10 seconds) formatted as strict JSON. These prompts must produce realistic, influencer-style product review videos for TikTok, Instagram Reels, and YouTube Shorts. Do not print prose. Output the JSON directly as a valid JSON object.
-
-**Rules:**
-* **Keys & casing must be exactly:** \`Title\`, \`Caption\`, \`Description\`, \`Prompt\`, \`aspect_ratio\`.
-* **Title:** Must be exactly 100 characters (pad or trim as necessary to fit length).
-* **Description:** Provide a clear summary/description of the product being reviewed.
-* **Length:** Each \`Prompt\` ≤ 1000 characters.
-* **aspect_ratio:** Only "portrait".
-* No extra keys. No markdown fences. No commentary.
-
-**Style:**
-* Output only **UGC review-style videos**: natural handheld framing, selfie angles, casual influencer tone, and realistic lighting.
-* Focus on **authentic dialogue**, product showcasing, and quick engaging movements.
-* Use **realistic home, studio, or lifestyle backgrounds**.
-* Match the user's brand tone.
-* Include clear production cues: camera movement, lighting, tone, setting, and voice delivery.
-* Avoid cinematic effects, fictional storylines, or filmic scenes.
-
-**Validation:**
-* Each \`Prompt\` ≤ 800 chars.
-* \`Title\` length is ~100 characters.
-* \`aspect_ratio\` == \`"portrait"\`.
-* JSON keys exactly match the schema (\`Title\`, \`Caption\`, \`Description\`, \`Prompt\`, \`aspect_ratio\`).
-* If any check fails, self-revise and output corrected JSON.
-
-Important note:
-* Never output symbols that might mess up with the JSON structure, like " or * or — etc...
-* Never mention that this is a UGC review in the title, caption, and the description.
-* NEVER WRITE EM DASH —
-
-**Example of a UGC-style short video prompt:**
-> *Context: Promoting a luxury red handbag inspired by the Dior Lady Bag.*
-> "Generate a 10-second vertical UGC-style video for TikTok, Instagram Reels, and YouTube Shorts. A stylish young woman stands in her apartment reviewing a luxury red handbag inspired by the Dior Lady Bag. She holds it close to the camera, smiles naturally, and says, 'I finally got the red Dior Lady Bag — it's so chic and classy!' Show quick handheld close-ups of the quilted leather texture and gold hardware under soft daylight. Keep lighting natural and the tone casual, confident, and influencer-like. End with her admiring the bag and saying, 'It's giving pure elegance.'"`;
-
-    const userPrompt = `The aspect ratio is: portrait
-
-Product name: ${title}
-
-Product description: ${description}
-
-Here's what customers say about the product, take something positive they said and put it in the prompt (a good quality about the products the influencer can say): ${description}`;
-
-    const model = process.env.OPENAI_MODEL || 'gpt-4.1' // Use gpt-4.1 like n8n workflow
-    const params = buildModelParams(model, systemPrompt, userPrompt)
+    const model = process.env.OPENAI_MODEL || 'gpt-4.1'
+    const params = buildModelParams(model, UGC_SCRIPT_GENERATION_SYSTEM_PROMPT, userPrompt)
 
     const completion = await openai.chat.completions.create(params)
 
@@ -159,24 +128,15 @@ Here's what customers say about the product, take something positive they said a
       }
     }
 
-    // Validate the response structure
-    if (!ugcContent.Title || !ugcContent.Caption || !ugcContent.Description ||
-        !ugcContent.Prompt || !ugcContent.aspect_ratio) {
-      return NextResponse.json(
-        { error: 'Incomplete UGC content structure' },
-        { status: 500 }
-      );
+    // Validate the response structure using the prompts module
+    const validation = validateUGCContent(ugcContent)
+    if (!validation.isValid) {
+      console.warn('UGC content validation failed:', validation.errors)
+      // Continue anyway, but log the issues
     }
 
-    // Ensure aspect_ratio is "portrait"
-    ugcContent.aspect_ratio = 'portrait';
-
-    // Ensure Title is exactly 100 characters (pad or trim)
-    if (ugcContent.Title.length < 100) {
-      ugcContent.Title = ugcContent.Title.padEnd(100, '!');
-    } else if (ugcContent.Title.length > 100) {
-      ugcContent.Title = ugcContent.Title.substring(0, 100);
-    }
+    // Normalize the UGC content to ensure compliance
+    ugcContent = normalizeUGCContent(ugcContent)
 
     return NextResponse.json({
       ugcContent,

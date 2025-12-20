@@ -5,6 +5,7 @@
 
 import { appendFile } from 'fs/promises'
 import { join } from 'path'
+import { generateVideoGenerationPayload, VideoGenerationParams } from './prompts'
 
 const KIE_API_BASE_URL = 'https://api.kie.ai/api/v1'
 const LOG_PATH = join(process.cwd(), '.cursor', 'debug.log')
@@ -66,16 +67,14 @@ export async function createVideoTask({
   }
 
   try {
-    // #region agent log
-    const requestBody = {
-      model: 'sora-2-text-to-video',
-      input: {
-        prompt: script,
-        image_urls: imageUrls,
-      },
-      aspect_ratio: aspectRatio,
-      quality: quality,
-    };
+    // Generate the request payload using the structured prompts module
+    const requestBody = generateVideoGenerationPayload({
+      prompt: script,
+      imageUrls,
+      aspectRatio,
+      quality,
+    })
+
     await logDebug({location:'kie.ts:47',message:'createVideoTask: About to call Kie.ai API',data:{requestBody,imageUrlCount:imageUrls.length,aspectRatio},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D,E'});
     // #endregion
 
