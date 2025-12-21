@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Upload, Loader2 } from 'lucide-react'
+import StyleSelector from '@/components/wizard/StyleSelector'
 
 export default function WizardInputPage() {
   const router = useRouter()
@@ -108,13 +109,16 @@ export default function WizardInputPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-semibold mb-2">Create Your Video</h1>
         <p className="text-muted-foreground">
           Start by providing product information or an Amazon URL
         </p>
       </div>
+
+      {/* Creative Strategy Step */}
+      <StyleSelector />
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'amazon' | 'manual')}>
         <TabsList className="w-full bg-layer-3 border border-border">
