@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useWizardStore } from '@/store/useWizardStore'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Sparkles, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
+import { Sparkles, ChevronDown, ChevronUp, RotateCcw, Eye, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -16,6 +17,24 @@ const PROCESSING_MESSAGES = [
   'Polishing content...',
 ]
 
+// Helper function to extract time range from visual cue string
+function extractTimeRange(visualCue: string): string {
+  const match = visualCue.match(/^(\d+-\d+s):/)
+  return match ? match[1] : '0-0s'
+}
+
+// Helper function to extract description from visual cue string
+function extractVisualDescription(visualCue: string): string {
+  const match = visualCue.match(/^\d+-\d+s:\s*(.+)$/)
+  return match ? match[1] : visualCue
+}
+
+// Helper function to extract description from voiceover string
+function extractVoiceoverText(voiceover: string): string {
+  const match = voiceover.match(/^[^(]*\(([^)]+)\):\s*(.+)$/)
+  return match ? match[2] : voiceover
+}
+
 export default function WizardScriptPage() {
   const router = useRouter()
   const {
@@ -25,6 +44,11 @@ export default function WizardScriptPage() {
     setScript,
     ugcContent,
     setUgcContent,
+    structuredScript,
+    setStructuredScript,
+    editedVoiceover,
+    setEditedVoiceover,
+    updateVoiceoverSegment,
     selectedImages,
     toggleImageSelection,
     setStep,
@@ -98,11 +122,21 @@ export default function WizardScriptPage() {
 
         const data = await response.json()
 
-        // Handle new structured UGC content response
-        if (data.ugcContent) {
-          setScript(data.ugcContent.Prompt)
-          // Store the full UGC content for video generation
-          setUgcContent(data.ugcContent)
+        // Handle structured script content response
+        if (data.scriptContent) {
+          setStructuredScript(data.scriptContent)
+          // Initialize edited voiceover with the generated voiceover
+          setEditedVoiceover(data.scriptContent.voiceover || [])
+          // Set script for backward compatibility (combine voiceover)
+          setScript(data.scriptContent.voiceover?.join(' ') || '')
+          // Store UGC content for video generation (create basic structure)
+          setUgcContent({
+            Title: data.scriptContent.style || 'Generated Script',
+            Caption: data.scriptContent.voiceover?.join(' ') || '',
+            Description: data.scriptContent.tone_instructions || '',
+            Prompt: data.scriptContent.voiceover?.join(' ') || '',
+            aspect_ratio: 'portrait'
+          })
         } else if (data.script) {
           // Backward compatibility
           setScript(data.script)
@@ -160,8 +194,14 @@ export default function WizardScriptPage() {
 
       const data = await response.json()
 
-      if (data.script) {
+      if (data.scriptContent) {
+        setStructuredScript(data.scriptContent)
+        setEditedVoiceover(data.scriptContent.voiceover || [])
+        setScript(data.scriptContent.voiceover?.join(' ') || '')
+      } else if (data.script) {
         setScript(data.script)
+        setStructuredScript(null)
+        setEditedVoiceover([])
       } else {
         throw new Error('No script returned from API')
       }
@@ -189,7 +229,7 @@ export default function WizardScriptPage() {
   }
 
   const handleGenerateVideo = async () => {
-    if (!script.trim() || selectedImages.length === 0) {
+    if ((!script.trim() && !structuredScript) || selectedImages.length === 0) {
       return
     }
 
@@ -203,18 +243,32 @@ export default function WizardScriptPage() {
     })
 
     try {
+      // Prepare the script content for Kie.ai
+      let finalScript = script.trim()
+
+      if (structuredScript && editedVoiceover.length > 0) {
+        // Combine visual cues and edited voiceover for structured content
+        const combinedScenes = structuredScript.visual_cues?.map((visualCue, index) => {
+          const voiceoverText = editedVoiceover[index] || extractVoiceoverText(structuredScript.voiceover?.[index] || '')
+          return `Scene ${index + 1} (${extractTimeRange(visualCue)}): [Visual] ${extractVisualDescription(visualCue)}\n[Audio] ${voiceoverText}`
+        }) || []
+
+        finalScript = combinedScenes.join('\n\n')
+      }
+
       const response = await fetch('/api/generate/video', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          script: script.trim(),
+          script: finalScript,
           imageUrls: selectedImages,
           aspectRatio: ugcContent?.aspect_ratio || 'portrait',
           title: productTitle,
           description: productDescription,
           ugcContent: ugcContent,
+          structuredScript: structuredScript,
         }),
       })
 
@@ -268,11 +322,15 @@ export default function WizardScriptPage() {
     }
   }
 
-  const scriptLength = script.length
+  // Calculate script length from either structured script or plain script
+  const scriptLength = structuredScript
+    ? editedVoiceover.join(' ').length
+    : script.length
+
   const isScriptValid = scriptLength >= 50 && scriptLength <= 500
   const isScriptTooShort = scriptLength > 0 && scriptLength < 50
   const isScriptTooLong = scriptLength > 500
-  const canGenerate = script.trim().length > 0 && selectedImages.length > 0
+  const canGenerate = scriptLength > 0 && selectedImages.length > 0
 
   // Show loading state
   if (loading) {
@@ -435,35 +493,111 @@ export default function WizardScriptPage() {
               <CardTitle className="text-lg">Script Editor</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Script Textarea */}
-              <div className="space-y-2">
-                <label htmlFor="script-input" className="text-sm font-medium">
-                  Video Script
-                </label>
-                <textarea
-                  id="script-input"
-                  value={script}
-                  onChange={(e) => setScript(e.target.value)}
-                  placeholder="Your script will appear here..."
-                  className={cn(
-                    'flex min-h-[300px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none font-mono',
-                    (isScriptTooShort || isScriptTooLong) && 'border-warning'
+              {/* Structured Script Blocks */}
+              {structuredScript ? (
+                <div className="space-y-4">
+                  {/* Scene Blocks */}
+                  {structuredScript.visual_cues?.map((visualCue, index) => {
+                    const timeRange = extractTimeRange(visualCue)
+                    const visualDesc = extractVisualDescription(visualCue)
+                    const voiceoverText = editedVoiceover[index] || extractVoiceoverText(structuredScript.voiceover?.[index] || '')
+
+                    return (
+                      <Card key={index} className="border border-border/50">
+                        <CardContent className="p-4">
+                          <div className="space-y-3">
+                            {/* Time Range Header */}
+                            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                              <Clock className="w-4 h-4" />
+                              <span>{timeRange}</span>
+                            </div>
+
+                            {/* Visual Cue (Read-only) */}
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                <Eye className="w-4 h-4" />
+                                <span>Director Notes</span>
+                              </div>
+                              <div className="p-3 bg-muted/30 rounded-md text-sm text-muted-foreground border-l-2 border-muted">
+                                {visualDesc}
+                              </div>
+                            </div>
+
+                            {/* Voiceover Input */}
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">
+                                Voiceover Script
+                              </label>
+                              <Textarea
+                                value={voiceoverText}
+                                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updateVoiceoverSegment(index, e.target.value)}
+                                placeholder="Enter your voiceover script..."
+                                className="min-h-[80px] resize-none"
+                                rows={3}
+                              />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+
+                  {/* Text Overlays Section */}
+                  {structuredScript.text_overlay && structuredScript.text_overlay.length > 0 && (
+                    <Card className="border border-border/50">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base">Text Overlays</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {structuredScript.text_overlay.map((overlay, index) => (
+                            <div key={index} className="p-3 bg-muted/20 rounded-md border">
+                              <div className="text-sm">
+                                <span className="font-medium text-muted-foreground">
+                                  {extractTimeRange(overlay)}:
+                                </span>
+                                <span className="ml-2">
+                                  {extractVisualDescription(overlay)}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
                   )}
-                  rows={12}
-                />
-                <div className="flex items-center justify-between">
-                  <p
-                    className={cn(
-                      'text-xs',
-                      isScriptTooShort || isScriptTooLong ? 'text-warning font-medium' : 'text-muted-foreground'
-                    )}
-                  >
-                    {scriptLength} characters
-                    {isScriptTooShort && ' • Too short (min 50)'}
-                    {isScriptTooLong && ' • Too long (max 500)'}
-                  </p>
                 </div>
-              </div>
+              ) : (
+                /* Fallback to textarea for backward compatibility */
+                <div className="space-y-2">
+                  <label htmlFor="script-input" className="text-sm font-medium">
+                    Video Script
+                  </label>
+                  <textarea
+                    id="script-input"
+                    value={script}
+                    onChange={(e) => setScript(e.target.value)}
+                    placeholder="Your script will appear here..."
+                    className={cn(
+                      'flex min-h-[300px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none font-mono',
+                      (isScriptTooShort || isScriptTooLong) && 'border-warning'
+                    )}
+                    rows={12}
+                  />
+                  <div className="flex items-center justify-between">
+                    <p
+                      className={cn(
+                        'text-xs',
+                        isScriptTooShort || isScriptTooLong ? 'text-warning font-medium' : 'text-muted-foreground'
+                      )}
+                    >
+                      {scriptLength} characters
+                      {isScriptTooShort && ' • Too short (min 50)'}
+                      {isScriptTooLong && ' • Too long (max 500)'}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 pt-4">

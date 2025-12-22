@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { UGCContent } from '@/types/supabase'
+import { UGCContent, StructuredScriptContent } from '@/types/supabase'
 
 export interface ProductMetadata {
   title: string
@@ -15,6 +15,8 @@ interface WizardState {
   metadata: ProductMetadata | null
   script: string
   ugcContent: UGCContent | null // Structured UGC content from AI
+  structuredScript: StructuredScriptContent | null // Structured script content with visual cues, voiceover, etc.
+  editedVoiceover: string[] // User-edited voiceover segments
   images: string[]
   selectedImages: string[] // Array of selected image URLs
   manualInput: {
@@ -29,6 +31,9 @@ interface WizardState {
   setMetadata: (metadata: ProductMetadata) => void
   setScript: (script: string) => void
   setUgcContent: (ugcContent: UGCContent | null) => void
+  setStructuredScript: (structuredScript: StructuredScriptContent | null) => void
+  setEditedVoiceover: (editedVoiceover: string[]) => void
+  updateVoiceoverSegment: (index: number, text: string) => void
   setImages: (images: string[]) => void
   setSelectedImages: (images: string[]) => void
   toggleImageSelection: (imageUrl: string) => void
@@ -44,6 +49,8 @@ const initialState = {
   metadata: null,
   script: '',
   ugcContent: null,
+  structuredScript: null,
+  editedVoiceover: [],
   images: [],
   selectedImages: [],
   manualInput: {
@@ -62,6 +69,14 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   setMetadata: (metadata) => set({ metadata }),
   setScript: (script) => set({ script }),
   setUgcContent: (ugcContent) => set({ ugcContent }),
+  setStructuredScript: (structuredScript) => set({ structuredScript }),
+  setEditedVoiceover: (editedVoiceover) => set({ editedVoiceover }),
+  updateVoiceoverSegment: (index, text) => {
+    const { editedVoiceover } = get()
+    const updated = [...editedVoiceover]
+    updated[index] = text
+    set({ editedVoiceover: updated })
+  },
   setImages: (images) => set({ images }),
   setSelectedImages: (images) => set({ selectedImages: images }),
   toggleImageSelection: (imageUrl) => {

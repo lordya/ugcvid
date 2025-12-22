@@ -306,6 +306,25 @@ export interface UGCContent {
   aspect_ratio: 'portrait' // Always 'portrait' for TikTok/Instagram
 }
 
+// Structured script content from AI generation
+export interface StructuredScriptContent {
+  style: string
+  tone_instructions?: string
+  visual_cues: string[]
+  voiceover: string[]
+  text_overlay?: string[]
+  music_recommendation?: string
+  hashtags?: string
+  background_content_suggestions?: string[]
+  audio_design?: string[]
+  pacing_and_editing?: string[]
+  lighting_and_composition?: string[]
+  filming_guidelines?: string[]
+  transition_effects?: string[]
+  color_grading?: string
+  aspect_ratio?: string
+}
+
 export interface ScriptGenerationRequest {
   title: string
   description: string
