@@ -484,6 +484,15 @@ export function getSystemPrompt(key: string): string {
 }
 
 /**
+ * Escapes special characters in replacement strings for safe regex replacement
+ * @param str - String to escape
+ * @returns Escaped string safe for use as replacement in regex
+ */
+function escapeRegexReplacement(str: string): string {
+  return str.replace(/[\\$&`]/g, '\\$&')
+}
+
+/**
  * Replaces placeholders in system prompt
  * @param prompt - The system prompt template
  * @param productName - Product name to replace [PRODUCT_NAME]
@@ -496,8 +505,8 @@ export function replacePromptPlaceholders(
   productDescription: string
 ): string {
   return prompt
-    .replace(/\[PRODUCT_NAME\]/g, productName)
-    .replace(/\[PRODUCT_DESCRIPTION\]/g, productDescription)
+    .replace(/\[PRODUCT_NAME\]/g, escapeRegexReplacement(productName))
+    .replace(/\[PRODUCT_DESCRIPTION\]/g, escapeRegexReplacement(productDescription))
 }
 
 /**

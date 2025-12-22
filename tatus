@@ -1,0 +1,110 @@
+[1mdiff --git a/CODE_QUALITY_REPORT.md b/CODE_QUALITY_REPORT.md[m
+[1mindex 63a744c..89da1f5 100644[m
+[1m--- a/CODE_QUALITY_REPORT.md[m
+[1m+++ b/CODE_QUALITY_REPORT.md[m
+[36m@@ -212,3 +212,4 @@[m [mThe codebase is in excellent condition with:[m
+ [m
+ [m
+ [m
+[41m+[m
+[1mdiff --git a/src/app/(dashboard)/wizard/script/page.tsx b/src/app/(dashboard)/wizard/script/page.tsx[m
+[1mindex 4567d20..a1a8a1f 100644[m
+[1m--- a/src/app/(dashboard)/wizard/script/page.tsx[m
+[1m+++ b/src/app/(dashboard)/wizard/script/page.tsx[m
+[36m@@ -53,6 +53,8 @@[m [mexport default function WizardScriptPage() {[m
+     toggleImageSelection,[m
+     setStep,[m
+     reset,[m
+[32m+[m[32m    style,[m
+[32m+[m[32m    duration,[m
+   } = useWizardStore()[m
+ [m
+   const [loading, setLoading] = useState(false)[m
+[36m@@ -154,7 +156,7 @@[m [mexport default function WizardScriptPage() {[m
+     }[m
+ [m
+     generateScript()[m
+[31m-  }, [script, productTitle, productDescription, setScript, router])[m
+[32m+[m[32m  }, [script, productTitle, productDescription, setScript, router, style, duration])[m
+ [m
+   const handleRegenerateScript = async () => {[m
+     if (!productTitle || !productDescription) {[m
+[36m@@ -184,6 +186,8 @@[m [mexport default function WizardScriptPage() {[m
+         body: JSON.stringify({[m
+           title: productTitle,[m
+           description: productDescription,[m
+[32m+[m[32m          style,[m
+[32m+[m[32m          duration,[m
+         }),[m
+       })[m
+ [m
+[36m@@ -269,6 +273,8 @@[m [mexport default function WizardScriptPage() {[m
+           description: productDescription,[m
+           ugcContent: ugcContent,[m
+           structuredScript: structuredScript,[m
+[32m+[m[32m          style,[m
+[32m+[m[32m          duration,[m
+         }),[m
+       })[m
+ [m
+[1mdiff --git a/src/components/wizard/StyleSelector.tsx b/src/components/wizard/StyleSelector.tsx[m
+[1mindex 0a6cc7c..a7a0a29 100644[m
+[1m--- a/src/components/wizard/StyleSelector.tsx[m
+[1m+++ b/src/components/wizard/StyleSelector.tsx[m
+[36m@@ -15,7 +15,7 @@[m [minterface StyleOption {[m
+ [m
+ const STYLE_OPTIONS: StyleOption[] = [[m
+   {[m
+[31m-    id: 'ugc',[m
+[32m+[m[32m    id: 'ugc_auth',[m
+     title: 'UGC',[m
+     icon: UserCheck,[m
+     description10s: 'Stop the scroll instantly',[m
+[36m@@ -29,14 +29,14 @@[m [mconst STYLE_OPTIONS: StyleOption[] = [[m
+     description30s: 'Tell compelling stories with effects',[m
+   },[m
+   {[m
+[31m-    id: 'pas',[m
+[32m+[m[32m    id: 'pas_framework',[m
+     title: 'PAS',[m
+     icon: AlertTriangle,[m
+     description10s: 'Identify the problem fast',[m
+     description30s: 'Build desire through storytelling',[m
+   },[m
+   {[m
+[31m-    id: 'asmr',[m
+[32m+[m[32m    id: 'asmr_visual',[m
+     title: 'ASMR',[m
+     icon: Sparkles,[m
+     description10s: 'Create instant curiosity',[m
+[1mdiff --git a/src/lib/prompts.ts b/src/lib/prompts.ts[m
+[1mindex 7bddc9f..e535dd7 100644[m
+[1m--- a/src/lib/prompts.ts[m
+[1m+++ b/src/lib/prompts.ts[m
+[36m@@ -483,6 +483,15 @@[m [mexport function getSystemPrompt(key: string): string {[m
+   return prompt[m
+ }[m
+ [m
+[32m+[m[32m/**[m
+[32m+[m[32m * Escapes special characters in replacement strings for safe regex replacement[m
+[32m+[m[32m * @param str - String to escape[m
+[32m+[m[32m * @returns Escaped string safe for use as replacement in regex[m
+[32m+[m[32m */[m
+[32m+[m[32mfunction escapeRegexReplacement(str: string): string {[m
+[32m+[m[32m  return str.replace(/[\\$&`]/g, '\\$&')[m
+[32m+[m[32m}[m
+[32m+[m
+ /**[m
+  * Replaces placeholders in system prompt[m
+  * @param prompt - The system prompt template[m
+[36m@@ -496,8 +505,8 @@[m [mexport function replacePromptPlaceholders([m
+   productDescription: string[m
+ ): string {[m
+   return prompt[m
+[31m-    .replace(/\[PRODUCT_NAME\]/g, productName)[m
+[31m-    .replace(/\[PRODUCT_DESCRIPTION\]/g, productDescription)[m
+[32m+[m[32m    .replace(/\[PRODUCT_NAME\]/g, escapeRegexReplacement(productName))[m
+[32m+[m[32m    .replace(/\[PRODUCT_DESCRIPTION\]/g, escapeRegexReplacement(productDescription))[m
+ }[m
+ [m
+ /**[m

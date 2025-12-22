@@ -15,7 +15,7 @@ interface StyleOption {
 
 const STYLE_OPTIONS: StyleOption[] = [
   {
-    id: 'ugc',
+    id: 'ugc_auth',
     title: 'UGC',
     icon: UserCheck,
     description10s: 'Stop the scroll instantly',
@@ -29,14 +29,14 @@ const STYLE_OPTIONS: StyleOption[] = [
     description30s: 'Tell compelling stories with effects',
   },
   {
-    id: 'pas',
+    id: 'pas_framework',
     title: 'PAS',
     icon: AlertTriangle,
     description10s: 'Identify the problem fast',
     description30s: 'Build desire through storytelling',
   },
   {
-    id: 'asmr',
+    id: 'asmr_visual',
     title: 'ASMR',
     icon: Sparkles,
     description10s: 'Create instant curiosity',

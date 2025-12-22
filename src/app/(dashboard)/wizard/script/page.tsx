@@ -53,6 +53,8 @@ export default function WizardScriptPage() {
     toggleImageSelection,
     setStep,
     reset,
+    style,
+    duration,
   } = useWizardStore()
 
   const [loading, setLoading] = useState(false)
@@ -154,7 +156,7 @@ export default function WizardScriptPage() {
     }
 
     generateScript()
-  }, [script, productTitle, productDescription, setScript, router])
+  }, [script, productTitle, productDescription, setScript, router, style, duration])
 
   const handleRegenerateScript = async () => {
     if (!productTitle || !productDescription) {
@@ -184,6 +186,8 @@ export default function WizardScriptPage() {
         body: JSON.stringify({
           title: productTitle,
           description: productDescription,
+          style,
+          duration,
         }),
       })
 
@@ -269,6 +273,8 @@ export default function WizardScriptPage() {
           description: productDescription,
           ugcContent: ugcContent,
           structuredScript: structuredScript,
+          style,
+          duration,
         }),
       })
 
