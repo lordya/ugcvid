@@ -309,6 +309,8 @@ export interface UGCContent {
 export interface ScriptGenerationRequest {
   title: string
   description: string
+  style: string
+  duration: string
 }
 
 export interface ScriptGenerationResponse {

@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
-import { ScriptGenerationRequest, ScriptGenerationResponse, UGCContent } from '@/types/supabase'
+import { ScriptGenerationRequest, ScriptGenerationResponse } from '@/types/supabase'
 import {
-  UGC_SCRIPT_GENERATION_SYSTEM_PROMPT,
   generateScriptGenerationUserPrompt,
-  validateUGCContent,
-  normalizeUGCContent,
-  VIDEO_GENERATION_CONFIG
+  getSystemPrompt,
+  replacePromptPlaceholders
 } from '@/lib/prompts'
 
 // Helper to determine if model uses GPT-5 style parameters
@@ -59,11 +57,11 @@ function buildModelParams(
 export async function POST(request: NextRequest) {
   try {
     const body: ScriptGenerationRequest = await request.json()
-    const { title, description } = body
+    const { title, description, style, duration } = body
 
-    if (!title || !description) {
+    if (!title || !description || !style || !duration) {
       return NextResponse.json(
-        { error: 'Title and description are required' },
+        { error: 'Title, description, style, and duration are required' },
         { status: 400 }
       )
     }
@@ -81,15 +79,56 @@ export async function POST(request: NextRequest) {
       apiKey: process.env.OPENAI_API_KEY,
     })
 
-    // Generate user prompt using the structured prompts module
+    // Construct the prompt key as ${style}_${duration}
+    const promptKey = `${style}_${duration}`
+
+    // Get the system prompt from the registry
+    const systemPromptTemplate = getSystemPrompt(promptKey)
+
+    // Replace placeholders in the system prompt
+    const systemPrompt = replacePromptPlaceholders(systemPromptTemplate, title, description)
+
+    // Generate user prompt
     const userPrompt = generateScriptGenerationUserPrompt({
       productName: title,
       productDescription: description,
-      customersSay: description, // Using description as fallback for customers_say
+      style,
+      duration
     })
 
-    const model = process.env.OPENAI_MODEL || 'gpt-4.1'
-    const params = buildModelParams(model, UGC_SCRIPT_GENERATION_SYSTEM_PROMPT, userPrompt)
+    const model = process.env.OPENAI_MODEL || 'gpt-4o'
+
+    // Build OpenAI parameters with JSON response format
+    let params: any = {
+      model,
+      messages: [
+        { role: 'system' as const, content: systemPrompt },
+        { role: 'user' as const, content: userPrompt },
+      ],
+      response_format: { type: "json_object" }
+    }
+
+    // Add model-specific parameters
+    if (isGPT5Model(model)) {
+      // GPT-5 models use reasoning_effort, verbosity, max_completion_tokens
+      params.reasoning_effort = (process.env.OPENAI_REASONING_EFFORT || 'minimal') as
+        | 'minimal'
+        | 'low'
+        | 'medium'
+        | 'high'
+      params.verbosity = (process.env.OPENAI_VERBOSITY || 'medium') as
+        | 'low'
+        | 'medium'
+        | 'high'
+      params.max_completion_tokens = parseInt(
+        process.env.OPENAI_MAX_COMPLETION_TOKENS || '2000',
+        10
+      )
+    } else {
+      // Traditional models use temperature, max_tokens
+      params.temperature = parseFloat(process.env.OPENAI_TEMPERATURE || '0.8')
+      params.max_tokens = parseInt(process.env.OPENAI_MAX_TOKENS || '2000', 10)
+    }
 
     const completion = await openai.chat.completions.create(params)
 
@@ -103,53 +142,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse the JSON response
-    let ugcContent: UGCContent;
+    let scriptContent;
 
     try {
-      // The AI should return JSON directly, but we need to handle it carefully
-      ugcContent = JSON.parse(rawContent);
+      scriptContent = JSON.parse(rawContent);
     } catch (parseError) {
-      // If parsing fails, try to extract JSON from the response
-      const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          ugcContent = JSON.parse(jsonMatch[0]);
-        } catch (e) {
-          return NextResponse.json(
-            { error: 'Failed to parse AI response as JSON' },
-            { status: 500 }
-          );
-        }
-      } else {
-        return NextResponse.json(
-          { error: 'AI response is not valid JSON' },
-          { status: 500 }
-        );
-      }
+      console.error('Failed to parse AI response as JSON:', parseError)
+      return NextResponse.json(
+        { error: 'AI response is not valid JSON' },
+        { status: 500 }
+      )
     }
-
-    // Validate the response structure using the prompts module
-    const validation = validateUGCContent(ugcContent)
-    if (!validation.isValid) {
-      console.warn('UGC content validation failed:', validation.errors)
-      // Continue anyway, but log the issues
-    }
-
-    // Normalize the UGC content to ensure compliance
-    ugcContent = normalizeUGCContent(ugcContent)
 
     return NextResponse.json({
-      ugcContent,
-      // Keep backward compatibility
-      script: ugcContent.Prompt,
-      title: ugcContent.Title,
-      caption: ugcContent.Caption,
-      description: ugcContent.Description,
-      aspectRatio: ugcContent.aspect_ratio
+      scriptContent,
+      // Keep backward compatibility - extract key fields if they exist
+      script: scriptContent?.voiceover?.join(' ') || scriptContent?.script || '',
+      title: scriptContent?.style || `${style} (${duration})`,
+      description: scriptContent?.description || description,
     })
   } catch (error) {
     console.error('Script generation API error:', error)
-    
+
     // Handle OpenAI-specific errors
     if (error instanceof OpenAI.APIError) {
       return NextResponse.json(
