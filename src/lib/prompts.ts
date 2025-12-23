@@ -534,11 +534,19 @@ export interface VideoGenerationParams {
  * @param params - Video generation parameters
  * @returns Request payload for Kie.ai API
  */
-export function generateVideoGenerationPayload(params: VideoGenerationParams) {
-  const { prompt, imageUrls, aspectRatio = VIDEO_GENERATION_CONFIG.DEFAULT_ASPECT_RATIO, quality = VIDEO_GENERATION_CONFIG.DEFAULT_QUALITY } = params
+export function generateVideoGenerationPayload(
+  params: VideoGenerationParams & { model?: string }
+) {
+  const { 
+    prompt, 
+    imageUrls, 
+    aspectRatio = VIDEO_GENERATION_CONFIG.DEFAULT_ASPECT_RATIO, 
+    quality = VIDEO_GENERATION_CONFIG.DEFAULT_QUALITY,
+    model = VIDEO_GENERATION_CONFIG.MODEL // Default fallback to Sora 2
+  } = params
 
   return {
-    model: VIDEO_GENERATION_CONFIG.MODEL,
+    model, // Use provided model or default to Sora 2
     input: {
       prompt,
       image_urls: imageUrls,

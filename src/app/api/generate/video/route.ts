@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { createVideoTask } from '@/lib/kie'
+import { getFormatKey, selectModelForFormat, calculateVideoCost, usdToCredits } from '@/lib/kie-models'
 import { VideoGenerationRequest, UGCContent, Json } from '@/types/supabase'
 
 export async function POST(request: NextRequest) {
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body: VideoGenerationRequest = await request.json()
-    const { script, imageUrls, aspectRatio = 'portrait', ugcContent } = body
+    const { script, imageUrls, aspectRatio = 'portrait', ugcContent, style, duration } = body
 
     // Validate inputs - accept either script or ugcContent
     let finalPrompt: string;
@@ -44,10 +45,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'At least one image URL is required' }, { status: 400 })
     }
 
+    // 2.5. Determine format and select optimal model
+    const format = style && duration 
+      ? getFormatKey(style, duration) 
+      : 'ugc_auth_30s' // Default fallback
+    
+    const selectedModel = selectModelForFormat(format)
+    const targetDuration = duration === '10s' ? 10 : 30
+    
+    // Calculate actual cost based on model and duration
+    const costUsd = calculateVideoCost(selectedModel, targetDuration)
+    const costCredits = usdToCredits(costUsd)
+    
+    console.log(`[Video Generation] Format: ${format}, Model: ${selectedModel.name}, Duration: ${targetDuration}s, Cost: $${costUsd.toFixed(4)} (${costCredits} credits)`)
+
     // 3. Use admin client for atomic transaction
     const adminClient = createAdminClient()
 
-    // 4. Check user's credit balance (must be > 0)
+    // 4. Check user's credit balance (must be >= costCredits)
     const { data: userData, error: userError } = await adminClient
       .from('users')
       .select('credits_balance')
@@ -59,8 +74,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch user data' }, { status: 500 })
     }
 
-    if (userData.credits_balance <= 0) {
-      return NextResponse.json({ error: 'Insufficient credits' }, { status: 402 })
+    if (userData.credits_balance < costCredits) {
+      return NextResponse.json({ 
+        error: `Insufficient credits. Need ${costCredits}, have ${userData.credits_balance}` 
+      }, { status: 402 })
     }
 
     // 5. Prepare metadata for video record
@@ -69,6 +86,11 @@ export async function POST(request: NextRequest) {
       description: finalDescription || body.description || null,
       images: imageUrls,
       ugcContent: ugcContent || null, // Store the full UGC content structure
+      model: selectedModel.id,
+      format,
+      duration: targetDuration,
+      costUsd,
+      costCredits,
     } as Json
 
     // 6. Create video record first (status: PROCESSING)
@@ -90,14 +112,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create video record' }, { status: 500 })
     }
 
-    // 7. Create GENERATION transaction (amount: -1)
-    // This will automatically deduct 1 credit via database trigger
+    // 7. Create GENERATION transaction with actual cost
+    // This will automatically deduct costCredits via database trigger
     const { error: transactionError } = await adminClient.from('transactions').insert({
       user_id: user.id,
-      amount: -1,
+      amount: -costCredits, // Dynamic cost instead of fixed -1
       type: 'GENERATION' as const,
-      provider: 'SYSTEM' as const,
+      provider: 'KIE_AI' as const, // More specific than 'SYSTEM'
       payment_id: null,
+      metadata: { 
+        model: selectedModel.id, 
+        modelName: selectedModel.name,
+        format,
+        duration: targetDuration,
+        costUsd,
+        costCredits
+      } as Json
     })
 
     if (transactionError) {
@@ -107,24 +137,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 })
     }
 
-    // 8. Call Kie.ai API to create the video task
+    // 8. Call Kie.ai API to create the video task with selected model
     let kieTaskId: string
     try {
       kieTaskId = await createVideoTask({
         script: finalPrompt,
         imageUrls,
         aspectRatio: finalAspectRatio,
+        model: selectedModel.kieApiModelName, // Use selected model
       })
     } catch (kieError) {
       console.error('Kie.ai API error:', kieError)
 
-      // 9. If Kie.ai fails, create a REFUND transaction to restore the credit
+      // 9. If Kie.ai fails, create a REFUND transaction to restore the actual cost
       const { error: refundError } = await adminClient.from('transactions').insert({
         user_id: user.id,
-        amount: 1, // Positive amount to refund
+        amount: costCredits, // Refund actual cost instead of fixed 1
         type: 'REFUND' as const,
-        provider: 'SYSTEM' as const,
+        provider: 'KIE_AI' as const,
         payment_id: null,
+        metadata: { 
+          reason: 'Kie.ai API failure', 
+          originalModel: selectedModel.id,
+          originalCostUsd: costUsd,
+          originalCostCredits: costCredits
+        } as Json
       })
 
       if (refundError) {
@@ -151,11 +188,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 10. Update video record with kie_task_id
+    // 10. Update video record with kie_task_id (metadata already includes model info)
     const { error: updateError } = await adminClient
       .from('videos')
       .update({
         kie_task_id: kieTaskId,
+        input_metadata: inputMetadata, // Ensure model info is stored
       })
       .eq('id', videoRecord.id)
 
