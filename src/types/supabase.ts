@@ -98,7 +98,11 @@ export type Database = {
           final_script: string | null
           id: string
           input_metadata: Json | null
+          is_high_performer: boolean | null
+          is_low_performer: boolean | null
           kie_task_id: string | null
+          performance_calculated_at: string | null
+          performance_score: number | null
           status: Database["public"]["Enums"]["video_status"]
           storage_path: string | null
           updated_at: string
@@ -111,7 +115,11 @@ export type Database = {
           final_script?: string | null
           id?: string
           input_metadata?: Json | null
+          is_high_performer?: boolean | null
+          is_low_performer?: boolean | null
           kie_task_id?: string | null
+          performance_calculated_at?: string | null
+          performance_score?: number | null
           status?: Database["public"]["Enums"]["video_status"]
           storage_path?: string | null
           updated_at?: string
@@ -124,7 +132,11 @@ export type Database = {
           final_script?: string | null
           id?: string
           input_metadata?: Json | null
+          is_high_performer?: boolean | null
+          is_low_performer?: boolean | null
           kie_task_id?: string | null
+          performance_calculated_at?: string | null
+          performance_score?: number | null
           status?: Database["public"]["Enums"]["video_status"]
           storage_path?: string | null
           updated_at?: string

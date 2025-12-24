@@ -3,7 +3,7 @@
 import { useVideoStatus, VideoStatus } from '@/hooks/useVideoStatus'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { CheckCircle2, XCircle, Loader2, Play, MoreVertical, Share2 } from 'lucide-react'
+import { CheckCircle2, XCircle, Loader2, Play, MoreVertical, Share2, Flame } from 'lucide-react'
 import { useState } from 'react'
 import { VideoPlayerModal } from './VideoPlayerModal'
 import { SocialPostModal } from './SocialPostModal'
@@ -22,6 +22,7 @@ interface VideoCardProps {
       images?: string[]
     } | null
     created_at: string
+    is_high_performer?: boolean | null
   }
   videoPosts?: VideoPost[]
   onRetryPost?: (videoPostId: string) => void
@@ -172,6 +173,11 @@ export function VideoCard({ video, videoPosts = [], onRetryPost }: VideoCardProp
             {isProcessing && (
               <div className="bg-[#F59E0B]/90 rounded-full p-1.5 shadow-lg animate-pulse">
                 <Loader2 className="h-4 w-4 text-white animate-spin" />
+              </div>
+            )}
+            {isCompleted && video.is_high_performer && (
+              <div className="bg-orange-500/90 rounded-full p-1.5 shadow-lg">
+                <Flame className="h-4 w-4 text-white" />
               </div>
             )}
           </div>

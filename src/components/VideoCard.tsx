@@ -2,7 +2,7 @@
 
 import { useVideoStatus, VideoStatus } from '@/hooks/useVideoStatus'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { CheckCircle2, XCircle, Loader2, Flame } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { VideoStatusIndicator } from './VideoStatusIndicator'
 import { VideoPost } from '@/app/actions/video-posts'
@@ -19,6 +19,7 @@ interface VideoCardProps {
   createdAt: string
   videoPosts?: VideoPost[]
   onRetryPost?: (videoPostId: string) => void
+  isHighPerformer?: boolean | null
 }
 
 export function VideoCard({
@@ -27,7 +28,8 @@ export function VideoCard({
   inputMetadata,
   createdAt,
   videoPosts = [],
-  onRetryPost
+  onRetryPost,
+  isHighPerformer = false
 }: VideoCardProps) {
   const { data, isLoading } = useVideoStatus({
     videoId,
@@ -80,7 +82,7 @@ export function VideoCard({
           )}
 
           {/* Status Badge */}
-          <div className="absolute top-2 right-2">
+          <div className="absolute top-2 right-2 flex gap-1">
             {isCompleted && (
               <div className="bg-green-500/90 rounded-full p-1.5 shadow-lg">
                 <CheckCircle2 className="h-4 w-4 text-white" />
@@ -94,6 +96,11 @@ export function VideoCard({
             {isProcessing && (
               <div className="bg-amber-500/90 rounded-full p-1.5 shadow-lg animate-pulse">
                 <Loader2 className="h-4 w-4 text-white animate-spin" />
+              </div>
+            )}
+            {isCompleted && isHighPerformer && (
+              <div className="bg-orange-500/90 rounded-full p-1.5 shadow-lg">
+                <Flame className="h-4 w-4 text-white" />
               </div>
             )}
           </div>

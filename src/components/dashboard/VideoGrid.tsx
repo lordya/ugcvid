@@ -14,6 +14,7 @@ interface Video {
     images?: string[]
   } | null
   created_at: string
+  is_high_performer?: boolean | null
 }
 
 interface VideoGridProps {

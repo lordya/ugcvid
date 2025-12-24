@@ -73,6 +73,7 @@ export default async function LibraryPage() {
                 images?: string[]
               } | null,
               created_at: video.created_at,
+              is_high_performer: video.is_high_performer,
             }))}
           />
         )}
