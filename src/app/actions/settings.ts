@@ -248,3 +248,156 @@ export async function uploadAvatar(formData: FormData): Promise<{
   }
 }
 
+/**
+ * Get user social media integrations
+ */
+export async function getUserIntegrations(): Promise<{
+  integrations: Array<{
+    id: string
+    provider: string
+    provider_username: string | null
+    provider_display_name: string | null
+    created_at: string
+  }>
+  error?: string
+}> {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return { integrations: [], error: 'Unauthorized' }
+    }
+
+    const { data: integrations, error } = await supabase
+      .from('user_integrations')
+      .select('id, provider, provider_username, provider_display_name, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching integrations:', error)
+      return { integrations: [], error: error.message }
+    }
+
+    return { integrations: integrations || [] }
+  } catch (error) {
+    console.error('Error in getUserIntegrations:', error)
+    return { integrations: [], error: 'An unexpected error occurred' }
+  }
+}
+
+/**
+ * Disconnect a social media integration
+ */
+export async function disconnectIntegration(provider: string): Promise<{
+  success: boolean
+  error?: string
+}> {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    // Validate provider
+    const validProviders = ['TIKTOK', 'YOUTUBE', 'INSTAGRAM']
+    if (!validProviders.includes(provider.toUpperCase())) {
+      return { success: false, error: 'Invalid provider' }
+    }
+
+    const { error } = await supabase
+      .from('user_integrations')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('provider', provider.toUpperCase())
+
+    if (error) {
+      console.error('Error disconnecting integration:', error)
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/settings')
+    return { success: true }
+  } catch (error) {
+    console.error('Error in disconnectIntegration:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+/**
+ * Store OAuth tokens after successful authentication
+ * This is called from OAuth callback endpoints
+ */
+export async function storeOAuthTokens(data: {
+  provider: string
+  providerUserId: string
+  providerUsername?: string
+  providerDisplayName?: string
+  accessToken: string
+  refreshToken?: string
+  tokenExpiresAt?: Date
+  metadata?: Record<string, any>
+}): Promise<{
+  success: boolean
+  error?: string
+}> {
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    // Validate provider
+    const validProviders = ['TIKTOK', 'YOUTUBE', 'INSTAGRAM']
+    if (!validProviders.includes(data.provider.toUpperCase())) {
+      return { success: false, error: 'Invalid provider' }
+    }
+
+    // Encrypt tokens before storing
+    const encryptedAccessToken = `encrypted:${btoa(data.accessToken)}` // Simple base64 encoding for now
+    const encryptedRefreshToken = data.refreshToken
+      ? `encrypted:${btoa(data.refreshToken)}`
+      : null
+
+    const { error } = await supabase
+      .from('user_integrations')
+      .upsert({
+        user_id: user.id,
+        provider: data.provider.toUpperCase(),
+        provider_user_id: data.providerUserId,
+        provider_username: data.providerUsername,
+        provider_display_name: data.providerDisplayName,
+        access_token: encryptedAccessToken,
+        refresh_token: encryptedRefreshToken,
+        token_expires_at: data.tokenExpiresAt?.toISOString(),
+        metadata: data.metadata || {},
+        updated_at: new Date().toISOString(),
+      })
+
+    if (error) {
+      console.error('Error storing OAuth tokens:', error)
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/settings')
+    return { success: true }
+  } catch (error) {
+    console.error('Error in storeOAuthTokens:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+

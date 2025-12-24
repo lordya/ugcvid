@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { SettingsClient } from './settings-client'
+import { getUserIntegrations } from '@/app/actions/settings'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -23,6 +24,9 @@ export default async function SettingsPage() {
     console.error('Error fetching user data:', userError)
   }
 
+  // Fetch user integrations
+  const { integrations: userIntegrations } = await getUserIntegrations()
+
   const preferences = (userData?.preferences as Record<string, any>) || {}
   const emailNotifications = preferences.email_notifications ?? true
 
@@ -33,6 +37,7 @@ export default async function SettingsPage() {
       initialEmailNotifications={emailNotifications}
       initialCreditsBalance={userData?.credits_balance || 0}
       userEmail={user.email || ''}
+      initialIntegrations={userIntegrations}
     />
   )
 }

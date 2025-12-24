@@ -9,11 +9,11 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { updateProfile, updatePreferences, uploadAvatar, getUserTransactions } from '@/app/actions/settings'
+import { updateProfile, updatePreferences, uploadAvatar, getUserTransactions, getUserIntegrations, disconnectIntegration } from '@/app/actions/settings'
 import { useTheme } from 'next-themes'
 import { useEffect } from 'react'
 import { format } from 'date-fns'
-import { Loader2 } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, ExternalLink, Unlink } from 'lucide-react'
 import Image from 'next/image'
 
 interface SettingsClientProps {
@@ -22,6 +22,13 @@ interface SettingsClientProps {
   initialEmailNotifications: boolean
   initialCreditsBalance: number
   userEmail: string
+  initialIntegrations: Array<{
+    id: string
+    provider: string
+    provider_username: string | null
+    provider_display_name: string | null
+    created_at: string
+  }>
 }
 
 export function SettingsClient({
@@ -30,6 +37,7 @@ export function SettingsClient({
   initialEmailNotifications,
   initialCreditsBalance,
   userEmail,
+  initialIntegrations,
 }: SettingsClientProps) {
   const [displayName, setDisplayName] = useState(initialDisplayName)
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl)
@@ -43,8 +51,11 @@ export function SettingsClient({
     created_at: string
     payment_id: string | null
   }>>([])
+  const [integrations, setIntegrations] = useState(initialIntegrations)
   const [loadingTransactions, setLoadingTransactions] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [disconnectingProvider, setDisconnectingProvider] = useState<string | null>(null)
+  const [connectingProvider, setConnectingProvider] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
@@ -58,6 +69,52 @@ export function SettingsClient({
   // Load transactions on mount
   useEffect(() => {
     loadTransactions()
+  }, [])
+
+  // Handle OAuth success/error messages from URL params
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+
+    if (urlParams.get('success')) {
+      const provider = urlParams.get('success')?.replace('_connected', '')
+      if (provider) {
+        // Refresh integrations data
+        const refreshIntegrations = async () => {
+          try {
+            const { integrations: updatedIntegrations } = await getUserIntegrations()
+            setIntegrations(updatedIntegrations)
+          } catch (error) {
+            console.error('Error refreshing integrations:', error)
+          }
+        }
+        refreshIntegrations()
+
+        // Show success message (you might want to use a toast library here)
+        alert(`${getProviderDisplayName(provider.toUpperCase())} connected successfully!`)
+
+        // Clean up URL
+        window.history.replaceState({}, '', '/settings')
+      }
+    }
+
+    if (urlParams.get('error')) {
+      const errorType = urlParams.get('error')
+      const provider = urlParams.get('provider')
+
+      let errorMessage = 'An error occurred during authentication.'
+      if (errorType === 'oauth_failed') {
+        errorMessage = `Failed to authenticate with ${getProviderDisplayName(provider?.toUpperCase() || '')}.`
+      } else if (errorType === 'missing_code') {
+        errorMessage = 'Authentication code was missing from the response.'
+      } else if (errorType === 'oauth_error') {
+        errorMessage = `An error occurred while connecting to ${getProviderDisplayName(provider?.toUpperCase() || '')}.`
+      }
+
+      alert(errorMessage)
+
+      // Clean up URL
+      window.history.replaceState({}, '', '/settings')
+    }
   }, [])
 
   const loadTransactions = async () => {
@@ -141,6 +198,72 @@ export function SettingsClient({
     return type.charAt(0) + type.slice(1).toLowerCase().replace('_', ' ')
   }
 
+  const handleDisconnectIntegration = async (provider: string) => {
+    setDisconnectingProvider(provider)
+    try {
+      const result = await disconnectIntegration(provider)
+      if (result.success) {
+        // Remove from local state
+        setIntegrations(prev => prev.filter(integration => integration.provider !== provider))
+        console.log(`${provider} disconnected successfully`)
+      } else {
+        console.error('Error disconnecting integration:', result.error)
+        alert(result.error || 'Failed to disconnect integration')
+      }
+    } catch (error) {
+      console.error('Error disconnecting integration:', error)
+      alert('Failed to disconnect integration')
+    } finally {
+      setDisconnectingProvider(null)
+    }
+  }
+
+  const handleConnectIntegration = async (provider: string) => {
+    setConnectingProvider(provider)
+    try {
+      // Redirect to OAuth flow
+      window.location.href = `/api/auth/oauth/${provider.toLowerCase()}?action=connect`
+    } catch (error) {
+      console.error('Error connecting integration:', error)
+      alert('Failed to connect integration')
+      setConnectingProvider(null)
+    }
+  }
+
+  const getProviderIcon = (provider: string) => {
+    switch (provider) {
+      case 'TIKTOK':
+        return '🎵'
+      case 'YOUTUBE':
+        return '📺'
+      case 'INSTAGRAM':
+        return '📸'
+      default:
+        return '🔗'
+    }
+  }
+
+  const getProviderDisplayName = (provider: string) => {
+    switch (provider) {
+      case 'TIKTOK':
+        return 'TikTok'
+      case 'YOUTUBE':
+        return 'YouTube'
+      case 'INSTAGRAM':
+        return 'Instagram'
+      default:
+        return provider
+    }
+  }
+
+  const isProviderConnected = (provider: string) => {
+    return integrations.some(integration => integration.provider === provider)
+  }
+
+  const getConnectedIntegration = (provider: string) => {
+    return integrations.find(integration => integration.provider === provider)
+  }
+
   return (
     <div className="min-h-screen bg-[#0A0E14] p-8">
       <div className="max-w-4xl mx-auto">
@@ -153,6 +276,9 @@ export function SettingsClient({
           <TabsList className="bg-[#161B22] border border-border">
             <TabsTrigger value="profile" className="data-[state=active]:bg-[#1F2937]">
               Profile
+            </TabsTrigger>
+            <TabsTrigger value="integrations" className="data-[state=active]:bg-[#1F2937]">
+              Integrations
             </TabsTrigger>
             <TabsTrigger value="billing" className="data-[state=active]:bg-[#1F2937]">
               Billing
@@ -229,6 +355,173 @@ export function SettingsClient({
                     )}
                   </Button>
                 </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Integrations Tab */}
+          <TabsContent value="integrations" className="space-y-6">
+            <Card className="bg-[#161B22] border-border">
+              <CardHeader>
+                <CardTitle>Social Media Integrations</CardTitle>
+                <CardDescription>
+                  Connect your social media accounts to enable automated posting of your videos.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* TikTok Integration */}
+                <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{getProviderIcon('TIKTOK')}</span>
+                    <div>
+                      <h3 className="font-medium">TikTok</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {isProviderConnected('TIKTOK')
+                          ? `Connected as ${getConnectedIntegration('TIKTOK')?.provider_display_name || getConnectedIntegration('TIKTOK')?.provider_username}`
+                          : 'Connect your TikTok account to post videos automatically'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isProviderConnected('TIKTOK') ? (
+                      <>
+                        <CheckCircle className="h-5 w-5 text-success" />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDisconnectIntegration('TIKTOK')}
+                          disabled={disconnectingProvider === 'TIKTOK'}
+                        >
+                          {disconnectingProvider === 'TIKTOK' ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          ) : (
+                            <Unlink className="h-4 w-4 mr-2" />
+                          )}
+                          Disconnect
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        onClick={() => handleConnectIntegration('TIKTOK')}
+                        disabled={connectingProvider === 'TIKTOK'}
+                        className="bg-[#6366F1] hover:bg-[#5855EB]"
+                      >
+                        {connectingProvider === 'TIKTOK' ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                        )}
+                        Connect
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* YouTube Integration */}
+                <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{getProviderIcon('YOUTUBE')}</span>
+                    <div>
+                      <h3 className="font-medium">YouTube</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {isProviderConnected('YOUTUBE')
+                          ? `Connected as ${getConnectedIntegration('YOUTUBE')?.provider_display_name || getConnectedIntegration('YOUTUBE')?.provider_username}`
+                          : 'Connect your YouTube channel to post videos automatically'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isProviderConnected('YOUTUBE') ? (
+                      <>
+                        <CheckCircle className="h-5 w-5 text-success" />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDisconnectIntegration('YOUTUBE')}
+                          disabled={disconnectingProvider === 'YOUTUBE'}
+                        >
+                          {disconnectingProvider === 'YOUTUBE' ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          ) : (
+                            <Unlink className="h-4 w-4 mr-2" />
+                          )}
+                          Disconnect
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        onClick={() => handleConnectIntegration('YOUTUBE')}
+                        disabled={connectingProvider === 'YOUTUBE'}
+                        className="bg-[#6366F1] hover:bg-[#5855EB]"
+                      >
+                        {connectingProvider === 'YOUTUBE' ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                        )}
+                        Connect
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Instagram Integration */}
+                <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{getProviderIcon('INSTAGRAM')}</span>
+                    <div>
+                      <h3 className="font-medium">Instagram</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {isProviderConnected('INSTAGRAM')
+                          ? `Connected as ${getConnectedIntegration('INSTAGRAM')?.provider_display_name || getConnectedIntegration('INSTAGRAM')?.provider_username}`
+                          : 'Connect your Instagram business account to post videos automatically'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isProviderConnected('INSTAGRAM') ? (
+                      <>
+                        <CheckCircle className="h-5 w-5 text-success" />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDisconnectIntegration('INSTAGRAM')}
+                          disabled={disconnectingProvider === 'INSTAGRAM'}
+                        >
+                          {disconnectingProvider === 'INSTAGRAM' ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          ) : (
+                            <Unlink className="h-4 w-4 mr-2" />
+                          )}
+                          Disconnect
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        onClick={() => handleConnectIntegration('INSTAGRAM')}
+                        disabled={connectingProvider === 'INSTAGRAM'}
+                        className="bg-[#6366F1] hover:bg-[#5855EB]"
+                      >
+                        {connectingProvider === 'INSTAGRAM' ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                        )}
+                        Connect
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-4 border border-amber-500/20 bg-amber-500/10 rounded-lg">
+                  <p className="text-amber-200 text-sm">
+                    <strong>Note:</strong> Connecting your social media accounts allows the platform to post videos on your behalf.
+                    Make sure you trust this service with your account credentials.
+                  </p>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

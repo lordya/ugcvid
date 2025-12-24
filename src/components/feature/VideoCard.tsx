@@ -2,9 +2,11 @@
 
 import { useVideoStatus, VideoStatus } from '@/hooks/useVideoStatus'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
-import { CheckCircle2, XCircle, Loader2, Play } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { CheckCircle2, XCircle, Loader2, Play, MoreVertical, Share2 } from 'lucide-react'
 import { useState } from 'react'
 import { VideoPlayerModal } from './VideoPlayerModal'
+import { SocialPostModal } from './SocialPostModal'
 
 interface VideoCardProps {
   video: {
@@ -29,6 +31,8 @@ export function VideoCard({ video }: VideoCardProps) {
   })
 
   const [showPlayer, setShowPlayer] = useState(false)
+  const [showSocialPostModal, setShowSocialPostModal] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
 
   // Use the latest status from polling if available
   const status = data?.status || video.status
@@ -49,6 +53,34 @@ export function VideoCard({ video }: VideoCardProps) {
     }
   }
 
+  const handleSocialPost = async (data: {
+    videoId: string
+    platforms: string[]
+    caption: string
+    tags: string[]
+  }) => {
+    try {
+      const response = await fetch('/api/social/publish', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to post to social media')
+      }
+
+      return result
+    } catch (error) {
+      console.error('Error posting to social media:', error)
+      throw error
+    }
+  }
+
   return (
     <>
       <Card
@@ -57,7 +89,10 @@ export function VideoCard({ video }: VideoCardProps) {
             ? 'hover:border-primary/50 cursor-pointer'
             : 'cursor-default'
         } ${isFailed ? 'opacity-75' : ''}`}
-        onClick={handleCardClick}
+        onClick={() => {
+          setShowMenu(false)
+          handleCardClick()
+        }}
       >
         <div className="relative aspect-[9/16] w-full">
           {/* Thumbnail */}
@@ -83,8 +118,43 @@ export function VideoCard({ video }: VideoCardProps) {
             </div>
           )}
 
-          {/* Status Badge */}
-          <div className="absolute top-2 right-2">
+          {/* Status Badge and Menu */}
+          <div className="absolute top-2 right-2 flex items-center gap-2">
+            {/* Menu Button */}
+            {isCompleted && (
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 bg-black/50 hover:bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowMenu(!showMenu)
+                  }}
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+
+                {/* Dropdown Menu */}
+                {showMenu && (
+                  <div className="absolute top-full right-0 mt-1 bg-[#161B22] border border-border rounded-md shadow-lg z-10 min-w-[120px]">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowMenu(false)
+                        setShowSocialPostModal(true)
+                      }}
+                      className="w-full px-3 py-2 text-left text-sm text-white hover:bg-[#1F2937] flex items-center gap-2"
+                    >
+                      <Share2 className="h-4 w-4" />
+                      Share
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Status Badge */}
             {isCompleted && (
               <div className="bg-[#10B981]/90 rounded-full p-1.5 shadow-lg">
                 <CheckCircle2 className="h-4 w-4 text-white" />
@@ -144,6 +214,15 @@ export function VideoCard({ video }: VideoCardProps) {
           onClose={() => setShowPlayer(false)}
         />
       )}
+
+      {/* Social Post Modal */}
+      <SocialPostModal
+        isOpen={showSocialPostModal}
+        onClose={() => setShowSocialPostModal(false)}
+        videoId={video.id}
+        videoDescription={video.input_metadata?.description || video.final_script || 'Check out this amazing video!'}
+        onPost={handleSocialPost}
+      />
     </>
   )
 }

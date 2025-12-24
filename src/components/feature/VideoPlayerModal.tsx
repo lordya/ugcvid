@@ -5,9 +5,10 @@ import {
   DialogContent,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Download, Loader2 } from 'lucide-react'
+import { Download, Loader2, Share2 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { SocialPostModal } from './SocialPostModal'
 
 interface VideoPlayerModalProps {
   videoUrl: string
@@ -18,6 +19,7 @@ interface VideoPlayerModalProps {
 
 export function VideoPlayerModal({ videoUrl, videoId, script, onClose }: VideoPlayerModalProps) {
   const [isDownloading, setIsDownloading] = useState(false)
+  const [showSocialPostModal, setShowSocialPostModal] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   const showToast = (message: string, type: 'success' | 'error') => {
@@ -88,6 +90,34 @@ export function VideoPlayerModal({ videoUrl, videoId, script, onClose }: VideoPl
     }
   }
 
+  const handleSocialPost = async (data: {
+    videoId: string
+    platforms: string[]
+    caption: string
+    tags: string[]
+  }) => {
+    try {
+      const response = await fetch('/api/social/publish', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to post to social media')
+      }
+
+      return result
+    } catch (error) {
+      console.error('Error posting to social media:', error)
+      throw error
+    }
+  }
+
   return (
     <>
       <Dialog open={true} onOpenChange={onClose}>
@@ -116,49 +146,78 @@ export function VideoPlayerModal({ videoUrl, videoId, script, onClose }: VideoPl
                       {script}
                     </p>
                   </div>
-                  <Button
-                    onClick={handleDownload}
-                    disabled={isDownloading}
-                    className="w-full bg-[#6366F1] hover:bg-[#6366F1]/90 disabled:opacity-50"
-                  >
-                    {isDownloading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Downloading...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-4 w-4 mr-2" />
-                        Download MP4
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowSocialPostModal(true)}
+                      className="flex-1 border-border hover:bg-[#1F2937]"
+                    >
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share
+                    </Button>
+                    <Button
+                      onClick={handleDownload}
+                      disabled={isDownloading}
+                      className="flex-1 bg-[#6366F1] hover:bg-[#6366F1]/90 disabled:opacity-50"
+                    >
+                      {isDownloading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Downloading...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4 mr-2" />
+                          Download MP4
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </>
               ) : (
                 <div className="flex-1 flex items-center justify-center">
-                  <Button
-                    onClick={handleDownload}
-                    disabled={isDownloading}
-                    className="w-full bg-[#6366F1] hover:bg-[#6366F1]/90 disabled:opacity-50"
-                  >
-                    {isDownloading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Downloading...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-4 w-4 mr-2" />
-                        Download MP4
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-3 w-full">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowSocialPostModal(true)}
+                      className="flex-1 border-border hover:bg-[#1F2937]"
+                    >
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share
+                    </Button>
+                    <Button
+                      onClick={handleDownload}
+                      disabled={isDownloading}
+                      className="flex-1 bg-[#6366F1] hover:bg-[#6366F1]/90 disabled:opacity-50"
+                    >
+                      {isDownloading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Downloading...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4 mr-2" />
+                          Download MP4
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Social Post Modal */}
+      <SocialPostModal
+        isOpen={showSocialPostModal}
+        onClose={() => setShowSocialPostModal(false)}
+        videoId={videoId}
+        videoDescription={script || 'Check out this amazing video!'}
+        onPost={handleSocialPost}
+      />
 
       {/* Toast Notification */}
       {toast && (
