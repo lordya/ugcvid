@@ -8,6 +8,26 @@ import { decryptToken } from '@/lib/utils'
 
 export async function GET(request: NextRequest) {
   try {
+    // Validate authorization header for security
+    const authHeader = request.headers.get('authorization')
+    const expectedToken = process.env.CRON_SECRET_TOKEN
+
+    if (!expectedToken) {
+      console.error('CRON_SECRET_TOKEN not configured')
+      return NextResponse.json(
+        { success: false, error: 'Server configuration error' },
+        { status: 500 }
+      )
+    }
+
+    if (!authHeader || authHeader !== `Bearer ${expectedToken}`) {
+      console.error('Unauthorized cron request')
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     console.log('Starting social analytics polling cron job')
 
     const supabase = await createClient()
