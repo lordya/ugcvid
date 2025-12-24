@@ -13,6 +13,7 @@ export interface CreateVideoTaskParams {
   imageUrls: string[]
   aspectRatio?: string
   quality?: string
+  duration?: number // Duration in seconds
   model?: string // Model name for Kie.ai API (e.g., 'sora-2-text-to-video', 'wan-2-6-text-to-video')
 }
 
@@ -41,6 +42,7 @@ export async function createVideoTask({
   imageUrls,
   aspectRatio = 'portrait',
   quality = 'hd',
+  duration, // Optional duration parameter
   model, // Optional model parameter
 }: CreateVideoTaskParams): Promise<string> {
   const apiKey = process.env.KIE_API_KEY
@@ -65,6 +67,7 @@ export async function createVideoTask({
       imageUrls,
       aspectRatio,
       quality,
+      duration, // Pass duration to payload generator
       model, // Pass model to payload generator
     })
 

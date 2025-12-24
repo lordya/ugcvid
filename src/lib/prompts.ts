@@ -526,6 +526,7 @@ export interface VideoGenerationParams {
   imageUrls: string[]
   aspectRatio?: string
   quality?: string
+  duration?: number
 }
 
 /**
@@ -537,11 +538,12 @@ export interface VideoGenerationParams {
 export function generateVideoGenerationPayload(
   params: VideoGenerationParams & { model?: string }
 ) {
-  const { 
-    prompt, 
-    imageUrls, 
-    aspectRatio = VIDEO_GENERATION_CONFIG.DEFAULT_ASPECT_RATIO, 
+  const {
+    prompt,
+    imageUrls,
+    aspectRatio = VIDEO_GENERATION_CONFIG.DEFAULT_ASPECT_RATIO,
     quality = VIDEO_GENERATION_CONFIG.DEFAULT_QUALITY,
+    duration, // Duration in seconds
     model = VIDEO_GENERATION_CONFIG.MODEL // Default fallback to Sora 2
   } = params
 
@@ -553,5 +555,6 @@ export function generateVideoGenerationPayload(
     },
     aspect_ratio: aspectRatio,
     quality,
+    ...(duration && { duration }), // Include duration if provided
   }
 }

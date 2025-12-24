@@ -144,6 +144,7 @@ export async function POST(request: NextRequest) {
         script: finalPrompt,
         imageUrls,
         aspectRatio: finalAspectRatio,
+        duration: targetDuration, // Pass calculated duration
         model: selectedModel.kieApiModelName, // Use selected model
       })
     } catch (kieError) {
