@@ -1,4 +1,4 @@
-Story 10.3: Dynamic Prompt Injection (The "Brain")
+# Story 10.3: Dynamic Prompt Injection (The "Brain")
 
 Parent Epic: Epic 10 - The AI Feedback Loop (Performance Analytics)
 

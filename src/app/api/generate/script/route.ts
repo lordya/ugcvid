@@ -4,8 +4,10 @@ import { ScriptGenerationRequest, ScriptGenerationResponse } from '@/types/supab
 import {
   generateScriptGenerationUserPrompt,
   getSystemPrompt,
-  replacePromptPlaceholders
+  replacePromptPlaceholdersWithExamples
 } from '@/lib/prompts'
+import { getSuccessfulExamplesForPrompt, formatExamplesForPrompt } from '@/lib/success-examples'
+import { createClient } from '@/lib/supabase/server'
 
 // Helper to determine if model uses GPT-5 style parameters
 function isGPT5Model(model: string): boolean {
@@ -88,6 +90,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Initialize Supabase client to get user ID
+    const supabase = await createClient()
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    // Fetch successful examples for the user (with global fallback)
+    const successfulExamples = await getSuccessfulExamplesForPrompt(user.id)
+    const formattedExamples = formatExamplesForPrompt(successfulExamples)
+
     // Initialize OpenAI client only when needed (not at module level)
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
@@ -99,8 +116,13 @@ export async function POST(request: NextRequest) {
     // Get the system prompt from the registry
     const systemPromptTemplate = getSystemPrompt(promptKey)
 
-    // Replace placeholders in the system prompt
-    const systemPrompt = replacePromptPlaceholders(systemPromptTemplate, title, description)
+    // Replace placeholders in the system prompt and inject successful examples
+    const systemPrompt = replacePromptPlaceholdersWithExamples(
+      systemPromptTemplate,
+      title,
+      description,
+      formattedExamples
+    )
 
     // Generate user prompt
     const userPrompt = generateScriptGenerationUserPrompt({

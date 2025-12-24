@@ -520,6 +520,42 @@ export function replacePromptPlaceholders(
 }
 
 /**
+ * Replaces placeholders in system prompt and injects successful examples
+ * @param prompt - The system prompt template
+ * @param productName - Product name to replace [PRODUCT_NAME]
+ * @param productDescription - Product description to replace [PRODUCT_DESCRIPTION]
+ * @param successExamples - Formatted successful examples string (optional)
+ * @returns Prompt with placeholders replaced and examples injected
+ */
+export function replacePromptPlaceholdersWithExamples(
+  prompt: string,
+  productName: string,
+  productDescription: string,
+  successExamples?: string
+): string {
+  let enhancedPrompt = prompt
+    .replace(/\[PRODUCT_NAME\]/g, escapeRegexReplacement(productName))
+    .replace(/\[PRODUCT_DESCRIPTION\]/g, escapeRegexReplacement(productDescription))
+
+  // Inject successful examples before the CRITICAL RULES section if provided
+  if (successExamples) {
+    // Find the CRITICAL RULES section and insert examples before it
+    const criticalRulesIndex = enhancedPrompt.indexOf('CRITICAL RULES:')
+    if (criticalRulesIndex !== -1) {
+      enhancedPrompt = enhancedPrompt.slice(0, criticalRulesIndex) +
+                       successExamples +
+                       '\n' +
+                       enhancedPrompt.slice(criticalRulesIndex)
+    } else {
+      // If no CRITICAL RULES section found, append to end
+      enhancedPrompt += successExamples
+    }
+  }
+
+  return enhancedPrompt
+}
+
+/**
  * Video generation configuration constants
  * Based on AFP UGC n8n workflow "Create Video" node
  */
