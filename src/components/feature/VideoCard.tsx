@@ -7,6 +7,8 @@ import { CheckCircle2, XCircle, Loader2, Play, MoreVertical, Share2 } from 'luci
 import { useState } from 'react'
 import { VideoPlayerModal } from './VideoPlayerModal'
 import { SocialPostModal } from './SocialPostModal'
+import { VideoStatusIndicator } from '../VideoStatusIndicator'
+import { VideoPost } from '@/app/actions/video-posts'
 
 interface VideoCardProps {
   video: {
@@ -21,9 +23,11 @@ interface VideoCardProps {
     } | null
     created_at: string
   }
+  videoPosts?: VideoPost[]
+  onRetryPost?: (videoPostId: string) => void
 }
 
-export function VideoCard({ video }: VideoCardProps) {
+export function VideoCard({ video, videoPosts = [], onRetryPost }: VideoCardProps) {
   const { data } = useVideoStatus({
     videoId: video.id,
     initialStatus: video.status,
@@ -187,9 +191,17 @@ export function VideoCard({ video }: VideoCardProps) {
           <h3 className="font-semibold text-sm mb-1 line-clamp-2">
             {video.input_metadata?.title || 'Untitled Video'}
           </h3>
-          <p className="text-xs text-muted-foreground line-clamp-2">
+          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
             {video.input_metadata?.description || 'No description'}
           </p>
+
+          {/* Social Status Indicator */}
+          {videoPosts.length > 0 && (
+            <VideoStatusIndicator
+              videoPosts={videoPosts}
+              onRetry={onRetryPost}
+            />
+          )}
         </CardContent>
 
         <CardFooter className="p-4 pt-0 flex items-center justify-between">

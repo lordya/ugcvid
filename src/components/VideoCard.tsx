@@ -4,6 +4,8 @@ import { useVideoStatus, VideoStatus } from '@/hooks/useVideoStatus'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { VideoStatusIndicator } from './VideoStatusIndicator'
+import { VideoPost } from '@/app/actions/video-posts'
 import { useState } from 'react'
 
 interface VideoCardProps {
@@ -15,9 +17,18 @@ interface VideoCardProps {
     images?: string[]
   } | null
   createdAt: string
+  videoPosts?: VideoPost[]
+  onRetryPost?: (videoPostId: string) => void
 }
 
-export function VideoCard({ videoId, initialStatus, inputMetadata, createdAt }: VideoCardProps) {
+export function VideoCard({
+  videoId,
+  initialStatus,
+  inputMetadata,
+  createdAt,
+  videoPosts = [],
+  onRetryPost
+}: VideoCardProps) {
   const { data, isLoading } = useVideoStatus({
     videoId,
     initialStatus,
@@ -104,9 +115,17 @@ export function VideoCard({ videoId, initialStatus, inputMetadata, createdAt }: 
           <h3 className="font-semibold text-sm mb-1 line-clamp-2">
             {inputMetadata?.title || 'Untitled Video'}
           </h3>
-          <p className="text-xs text-muted-foreground line-clamp-2">
+          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
             {inputMetadata?.description || 'No description'}
           </p>
+
+          {/* Social Status Indicator */}
+          {videoPosts.length > 0 && (
+            <VideoStatusIndicator
+              videoPosts={videoPosts}
+              onRetry={onRetryPost}
+            />
+          )}
         </CardContent>
 
         <CardFooter className="p-4 pt-0 flex items-center justify-between">

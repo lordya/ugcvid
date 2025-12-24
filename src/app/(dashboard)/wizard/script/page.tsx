@@ -156,7 +156,7 @@ export default function WizardScriptPage() {
     }
 
     generateScript()
-  }, [script, productTitle, productDescription, setScript, router, style, duration])
+  }, [script, productTitle, productDescription, setScript, router, style, duration, setEditedVoiceover, setStructuredScript, setUgcContent])
 
   const handleRegenerateScript = async () => {
     if (!productTitle || !productDescription) {

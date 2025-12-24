@@ -169,7 +169,7 @@ export function SocialPostModal({
                   >
                     <Checkbox
                       checked={selectedPlatforms.includes(platform.id)}
-                      onChange={(checked) => handlePlatformToggle(platform.id, checked)}
+                      onCheckedChange={(checked) => handlePlatformToggle(platform.id, checked === true)}
                       className="data-[state=checked]:bg-[#6366F1] data-[state=checked]:border-[#6366F1]"
                     />
                     <span className="text-xl">{platform.icon}</span>

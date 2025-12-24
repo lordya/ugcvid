@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { decryptToken } from '@/lib/utils'
+import { createVideoPost, updateVideoPost } from './video-posts'
 
 // Platform-specific APIs and posting logic would go here
 // For now, this is a placeholder implementation
@@ -80,6 +81,24 @@ export async function publishToSocialMedia(data: SocialPostData): Promise<{
       }
 
       try {
+        // Create a video_posts record for tracking this attempt
+        const videoPostResult = await createVideoPost({
+          videoId: data.videoId,
+          integrationId: integration.id,
+          status: 'PENDING',
+        })
+
+        if (!videoPostResult.success) {
+          results.push({
+            platform,
+            success: false,
+            error: 'Failed to create post tracking record',
+          })
+          continue
+        }
+
+        const videoPostId = videoPostResult.videoPost!.id
+
         // Decrypt access token
         const accessToken = decryptToken(integration.access_token)
 
@@ -96,6 +115,21 @@ export async function publishToSocialMedia(data: SocialPostData): Promise<{
           metadata: integration.metadata,
         })
 
+        // Update the video_posts record based on the result
+        const updateData: any = {
+          id: videoPostId,
+          status: postResult.success ? 'PUBLISHED' : 'FAILED',
+        }
+
+        if (postResult.success) {
+          updateData.externalPostId = postResult.postId
+          updateData.postedAt = new Date().toISOString()
+        } else {
+          updateData.errorMessage = postResult.error
+        }
+
+        await updateVideoPost(updateData)
+
         results.push({
           platform,
           success: postResult.success,
@@ -105,6 +139,8 @@ export async function publishToSocialMedia(data: SocialPostData): Promise<{
 
       } catch (error) {
         console.error(`Error posting to ${platform}:`, error)
+
+        // Update the video_posts record with the error
         results.push({
           platform,
           success: false,

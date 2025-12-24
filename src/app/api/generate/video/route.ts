@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
       user_id: user.id,
       amount: -costCredits, // Dynamic cost instead of fixed -1
       type: 'GENERATION' as const,
-      provider: 'KIE_AI' as const, // More specific than 'SYSTEM'
+      provider: 'SYSTEM' as const, // System-generated transaction for video generation
       payment_id: null,
       metadata: { 
         model: selectedModel.id, 
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         amount: costCredits, // Refund actual cost instead of fixed 1
         type: 'REFUND' as const,
-        provider: 'KIE_AI' as const,
+        provider: 'SYSTEM' as const,
         payment_id: null,
         metadata: { 
           reason: 'Kie.ai API failure', 

@@ -141,6 +141,57 @@ export type Database = {
           },
         ]
       }
+      video_posts: {
+        Row: {
+          id: string
+          video_id: string
+          integration_id: string
+          external_post_id: string | null
+          status: Database["public"]["Enums"]["video_post_status"]
+          error_message: string | null
+          posted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          video_id: string
+          integration_id: string
+          external_post_id?: string | null
+          status?: Database["public"]["Enums"]["video_post_status"]
+          error_message?: string | null
+          posted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          video_id?: string
+          integration_id?: string
+          external_post_id?: string | null
+          status?: Database["public"]["Enums"]["video_post_status"]
+          error_message?: string | null
+          posted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_posts_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_posts_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "user_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -156,6 +207,10 @@ export type Database = {
         | "SCRIPT_GENERATED"
         | "PROCESSING"
         | "COMPLETED"
+        | "FAILED"
+      video_post_status:
+        | "PENDING"
+        | "PUBLISHED"
         | "FAILED"
     }
     CompositeTypes: {
@@ -291,6 +346,11 @@ export const Constants = {
         "SCRIPT_GENERATED",
         "PROCESSING",
         "COMPLETED",
+        "FAILED",
+      ],
+      video_post_status: [
+        "PENDING",
+        "PUBLISHED",
         "FAILED",
       ],
     },

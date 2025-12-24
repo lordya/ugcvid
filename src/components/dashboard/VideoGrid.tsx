@@ -23,6 +23,8 @@ interface VideoGridProps {
   isSelectionMode: boolean
   selectedVideoIds: Set<string>
   onVideoSelect: (videoId: string, selected: boolean) => void
+  videoPostsMap?: Record<string, any[]>
+  onRetryPost?: (videoPostId: string) => void
 }
 
 export function VideoGrid({
@@ -32,6 +34,8 @@ export function VideoGrid({
   isSelectionMode,
   selectedVideoIds,
   onVideoSelect,
+  videoPostsMap = {},
+  onRetryPost,
 }: VideoGridProps) {
   // Filter videos by status
   const filteredVideos = videos.filter((video) => {
@@ -89,7 +93,11 @@ export function VideoGrid({
             </div>
           )}
           <div className={isSelectionMode ? 'opacity-90' : ''}>
-            <VideoCard video={video} />
+            <VideoCard
+              video={video}
+              videoPosts={videoPostsMap[video.id] || []}
+              onRetryPost={onRetryPost}
+            />
           </div>
         </div>
       ))}
