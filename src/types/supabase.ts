@@ -150,6 +150,10 @@ export type Database = {
           status: Database["public"]["Enums"]["video_post_status"]
           error_message: string | null
           posted_at: string | null
+          view_count: number | null
+          like_count: number | null
+          share_count: number | null
+          analytics_last_updated: string | null
           created_at: string
           updated_at: string
         }
@@ -161,6 +165,10 @@ export type Database = {
           status?: Database["public"]["Enums"]["video_post_status"]
           error_message?: string | null
           posted_at?: string | null
+          view_count?: number | null
+          like_count?: number | null
+          share_count?: number | null
+          analytics_last_updated?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -172,6 +180,10 @@ export type Database = {
           status?: Database["public"]["Enums"]["video_post_status"]
           error_message?: string | null
           posted_at?: string | null
+          view_count?: number | null
+          like_count?: number | null
+          share_count?: number | null
+          analytics_last_updated?: string | null
           created_at?: string
           updated_at?: string
         }

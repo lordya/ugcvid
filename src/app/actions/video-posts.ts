@@ -25,6 +25,10 @@ const updateVideoPostSchema = z.object({
   externalPostId: z.string().optional(),
   errorMessage: z.string().optional(),
   postedAt: z.string().optional(),
+  viewCount: z.number().optional(),
+  likeCount: z.number().optional(),
+  shareCount: z.number().optional(),
+  analyticsLastUpdated: z.string().optional(),
 })
 
 // Schema for getting video posts by video ID
@@ -124,6 +128,10 @@ export async function updateVideoPost(data: {
   externalPostId?: string
   errorMessage?: string
   postedAt?: string
+  viewCount?: number
+  likeCount?: number
+  shareCount?: number
+  analyticsLastUpdated?: string
 }): Promise<{ success: boolean; videoPost?: VideoPost; error?: string }> {
   try {
     const validationResult = updateVideoPostSchema.safeParse(data)
@@ -152,6 +160,10 @@ export async function updateVideoPost(data: {
     if (data.externalPostId !== undefined) updateData.external_post_id = data.externalPostId
     if (data.errorMessage !== undefined) updateData.error_message = data.errorMessage
     if (data.postedAt !== undefined) updateData.posted_at = data.postedAt ? new Date(data.postedAt).toISOString() : null
+    if (data.viewCount !== undefined) updateData.view_count = data.viewCount
+    if (data.likeCount !== undefined) updateData.like_count = data.likeCount
+    if (data.shareCount !== undefined) updateData.share_count = data.shareCount
+    if (data.analyticsLastUpdated !== undefined) updateData.analytics_last_updated = data.analyticsLastUpdated ? new Date(data.analyticsLastUpdated).toISOString() : null
 
     const { data: videoPost, error: updateError } = await supabase
       .from('video_posts')

@@ -153,6 +153,36 @@ export function VideoStatusIndicator({ videoPosts, onRetry, isRetrying }: VideoS
                       </p>
                     )}
 
+                    {/* Analytics Display */}
+                    {latestPost.status === 'PUBLISHED' && latestPost.analytics_last_updated && (
+                      <div className="space-y-1 pt-1 border-t border-gray-600">
+                        <p className="text-xs text-gray-400">Analytics</p>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div className="text-center">
+                            <div className="font-medium text-blue-400">
+                              {latestPost.view_count?.toLocaleString() || '0'}
+                            </div>
+                            <div className="text-gray-500">Views</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium text-red-400">
+                              {latestPost.like_count?.toLocaleString() || '0'}
+                            </div>
+                            <div className="text-gray-500">Likes</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="font-medium text-green-400">
+                              {latestPost.share_count?.toLocaleString() || '0'}
+                            </div>
+                            <div className="text-gray-500">Shares</div>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          Updated {formatTimestamp(latestPost.analytics_last_updated)}
+                        </p>
+                      </div>
+                    )}
+
                     {latestPost.status === 'FAILED' && latestPost.error_message && (
                       <div className="space-y-1">
                         <p className="text-xs text-red-400 font-medium">Error:</p>

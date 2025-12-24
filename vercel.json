@@ -1,4 +1,10 @@
 {
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/social-stats",
+      "schedule": "0 2 * * *"
+    }
+  ]
 }
 
