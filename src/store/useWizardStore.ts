@@ -60,7 +60,7 @@ export interface BatchItemStatus {
 }
 
 interface WizardState {
-  step: number // 1: Input, 2: Review, 3: Processing
+  step: number // Regular: 1: Input, 2: Review, 3: Processing | Bulk: 1: Upload, 2: Validate, 3: Review, 4: Process
   style: string // Video style: 'ugc', 'green_screen', 'pas', 'asmr', 'before_after'
   duration: '10s' | '30s' // Video duration
   url: string

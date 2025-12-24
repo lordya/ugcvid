@@ -13,7 +13,8 @@ const regularSteps = [
 const bulkSteps = [
   { number: 1, label: 'Upload', path: '/wizard' },
   { number: 2, label: 'Validate', path: '/wizard' },
-  { number: 3, label: 'Process', path: '/wizard/bulk-process' },
+  { number: 3, label: 'Review', path: '/wizard/batch/[id]' },
+  { number: 4, label: 'Process', path: '/wizard/bulk-process' },
 ]
 
 export default function WizardLayout({

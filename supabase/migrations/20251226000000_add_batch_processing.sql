@@ -164,6 +164,42 @@ CREATE TRIGGER update_batch_progress_trigger
   AFTER INSERT OR UPDATE OR DELETE ON batch_video_items
   FOR EACH ROW EXECUTE FUNCTION update_batch_progress();
 
+-- Function to delete batch item and refund credits
+CREATE OR REPLACE FUNCTION delete_batch_item_with_refund(
+  p_batch_id UUID,
+  p_item_id UUID,
+  p_user_id UUID
+)
+RETURNS VOID AS $$
+DECLARE
+  v_credits_used INTEGER;
+  v_batch_status TEXT;
+BEGIN
+  -- Get credits used by the item
+  SELECT credits_used INTO v_credits_used
+  FROM batch_video_items
+  WHERE id = p_item_id AND batch_id = p_batch_id;
+
+  -- Delete the batch item
+  DELETE FROM batch_video_items
+  WHERE id = p_item_id AND batch_id = p_batch_id;
+
+  -- Refund credits to user if credits were used
+  IF v_credits_used > 0 THEN
+    UPDATE users
+    SET credits_balance = credits_balance + v_credits_used,
+        updated_at = NOW()
+    WHERE id = p_user_id;
+  END IF;
+
+  -- Record the refund transaction
+  IF v_credits_used > 0 THEN
+    INSERT INTO transactions (user_id, amount, type, provider, payment_id)
+    VALUES (p_user_id, v_credits_used, 'REFUND', 'SYSTEM', 'batch_item_deletion_' || p_item_id);
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- Function to get batch statistics for a user
 CREATE OR REPLACE FUNCTION get_batch_statistics(user_uuid UUID)
 RETURNS TABLE (
