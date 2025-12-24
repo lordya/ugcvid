@@ -20,9 +20,16 @@ interface VideoCardProps {
       title?: string
       description?: string
       images?: string[]
+      batch_id?: string
+      batch_item_row_index?: number
     } | null
     created_at: string
     is_high_performer?: boolean | null
+    batchInfo?: {
+      batchId: string
+      rowIndex: number
+      batchStatus?: string
+    } | null
   }
   videoPosts?: VideoPost[]
   onRetryPost?: (videoPostId: string) => void
@@ -200,6 +207,15 @@ export function VideoCard({ video, videoPosts = [], onRetryPost }: VideoCardProp
           <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
             {video.input_metadata?.description || 'No description'}
           </p>
+
+          {/* Batch Indicator */}
+          {video.batchInfo && (
+            <div className="mb-2">
+              <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-primary/10 text-primary border border-primary/20">
+                Batch #{video.batchInfo.batchId.slice(-6)} • Row {video.batchInfo.rowIndex}
+              </span>
+            </div>
+          )}
 
           {/* Social Status Indicator */}
           {videoPosts.length > 0 && (

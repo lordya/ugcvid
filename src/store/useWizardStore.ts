@@ -24,6 +24,41 @@ export interface BulkValidationResult {
   rows: BulkCSVRow[]
 }
 
+export interface BatchStatus {
+  id: string
+  status: string
+  totalItems: number
+  processedItems: number
+  failedItems: number
+  pendingItems: number
+  progress: number
+  totalCreditsReserved: number
+  errorMessage?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BatchItemStatus {
+  id: string
+  rowIndex: number
+  url: string
+  customTitle?: string
+  style?: string
+  status: string
+  errorMessage?: string
+  creditsUsed: number
+  video?: {
+    id: string
+    status: string
+    videoUrl?: string
+    errorReason?: string
+    createdAt: string
+    updatedAt: string
+  }
+  createdAt: string
+  updatedAt: string
+}
+
 interface WizardState {
   step: number // 1: Input, 2: Review, 3: Processing
   style: string // Video style: 'ugc', 'green_screen', 'pas', 'asmr', 'before_after'
@@ -47,6 +82,10 @@ interface WizardState {
   bulkValidationResult: BulkValidationResult | null
   bulkCorrectedRows: BulkCSVRow[]
   bulkProcessingStatus: 'idle' | 'processing' | 'completed' | 'error'
+  // Batch management
+  currentBatchId: string | null
+  batchStatus: BatchStatus | null
+  batchItems: BatchItemStatus[]
   setStep: (step: number) => void
   setStyle: (style: string) => void
   setDuration: (duration: '10s' | '30s') => void
@@ -67,6 +106,10 @@ interface WizardState {
   setBulkValidationResult: (result: BulkValidationResult | null) => void
   setBulkCorrectedRows: (rows: BulkCSVRow[]) => void
   setBulkProcessingStatus: (status: 'idle' | 'processing' | 'completed' | 'error') => void
+  // Batch management actions
+  startBatch: (batchId: string) => void
+  updateBatchStatus: (status: BatchStatus, items: BatchItemStatus[]) => void
+  clearBatch: () => void
   reset: () => void
 }
 
@@ -93,6 +136,10 @@ const initialState = {
   bulkValidationResult: null,
   bulkCorrectedRows: [],
   bulkProcessingStatus: 'idle' as const,
+  // Batch management initial state
+  currentBatchId: null,
+  batchStatus: null,
+  batchItems: [],
 }
 
 export const useWizardStore = create<WizardState>((set, get) => ({
@@ -133,6 +180,23 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   setBulkValidationResult: (result) => set({ bulkValidationResult: result }),
   setBulkCorrectedRows: (rows) => set({ bulkCorrectedRows: rows }),
   setBulkProcessingStatus: (status) => set({ bulkProcessingStatus: status }),
+  // Batch management actions
+  startBatch: (batchId) => set({
+    currentBatchId: batchId,
+    bulkProcessingStatus: 'processing'
+  }),
+  updateBatchStatus: (status, items) => set({
+    batchStatus: status,
+    batchItems: items,
+    bulkProcessingStatus: status.status === 'COMPLETED' ? 'completed' :
+                         status.status === 'FAILED' ? 'error' : 'processing'
+  }),
+  clearBatch: () => set({
+    currentBatchId: null,
+    batchStatus: null,
+    batchItems: [],
+    bulkProcessingStatus: 'idle'
+  }),
   reset: () => set(initialState),
 }))
 

@@ -14,9 +14,16 @@ interface Video {
     title?: string
     description?: string
     images?: string[]
+    batch_id?: string
+    batch_item_row_index?: number
   } | null
   created_at: string
   is_high_performer?: boolean | null
+  batchInfo?: {
+    batchId: string
+    rowIndex: number
+    batchStatus?: string
+  } | null
 }
 
 interface LibraryClientProps {

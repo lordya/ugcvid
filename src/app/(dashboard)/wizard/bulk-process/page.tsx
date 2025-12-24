@@ -2,270 +2,380 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { useWizardStore } from '@/store/useWizardStore'
+import { useWizardStore, BatchStatus, BatchItemStatus } from '@/store/useWizardStore'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { CheckCircle, AlertCircle, Loader2, ArrowRight } from 'lucide-react'
-import { BulkCSVRow } from '@/store/useWizardStore'
+import { CheckCircle, AlertCircle, Loader2, ArrowRight, RefreshCw } from 'lucide-react'
 
-interface BulkJob {
-  id: string
-  rowIndex: number
-  url: string
-  custom_title?: string
-  status: 'pending' | 'processing' | 'completed' | 'failed'
-  videoId?: string
-  error?: string
+interface BatchStatusResponse {
+  batch: BatchStatus
+  items: BatchItemStatus[]
+  processingCount: number
 }
 
 export default function BulkProcessPage() {
   const router = useRouter()
   const {
     bulkCorrectedRows,
-    bulkProcessingStatus,
-    setBulkProcessingStatus
+    currentBatchId,
+    batchStatus,
+    batchItems,
+    startBatch,
+    updateBatchStatus,
+    clearBatch
   } = useWizardStore()
 
-  const [jobs, setJobs] = useState<BulkJob[]>([])
-  const [currentJobIndex, setCurrentJobIndex] = useState(0)
-  const [completedJobs, setCompletedJobs] = useState(0)
-  const [failedJobs, setFailedJobs] = useState(0)
+  const [isStartingBatch, setIsStartingBatch] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
 
-  const startBulkProcessing = useCallback(async (initialJobs: BulkJob[]) => {
-    for (let i = 0; i < initialJobs.length; i++) {
-      setCurrentJobIndex(i)
-
-      const job = initialJobs[i]
-      try {
-        // Update job status to processing
-        setJobs(prev => prev.map(j =>
-          j.id === job.id ? { ...j, status: 'processing' } : j
-        ))
-
-        // Call bulk generation API
-        const response = await fetch('/api/bulk/generate', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            url: job.url,
-            custom_title: job.custom_title,
-            style: 'ugc_auth', // Default style, could be made configurable
-            duration: '30s' // Default duration
-          }),
-        })
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`)
-        }
-
-        const result = await response.json()
-
-        // Update job as completed
-        setJobs(prev => prev.map(j =>
-          j.id === job.id
-            ? { ...j, status: 'completed', videoId: result.videoId }
-            : j
-        ))
-        setCompletedJobs(prev => prev + 1)
-
-      } catch (error) {
-        console.error(`Failed to process job ${job.id}:`, error)
-
-        // Update job as failed
-        setJobs(prev => prev.map(j =>
-          j.id === job.id
-            ? { ...j, status: 'failed', error: error instanceof Error ? error.message : 'Unknown error' }
-            : j
-        ))
-        setFailedJobs(prev => prev + 1)
-      }
-
-      // Small delay between jobs to avoid overwhelming the API
-      if (i < initialJobs.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1000))
-      }
+  // Start batch processing
+  const initiateBatchProcessing = useCallback(async () => {
+    if (!bulkCorrectedRows.length) {
+      router.push('/wizard')
+      return
     }
 
-    // Mark bulk processing as completed
-    setBulkProcessingStatus('completed')
-  }, [setJobs, setCurrentJobIndex, setCompletedJobs, setFailedJobs, setBulkProcessingStatus])
+    setIsStartingBatch(true)
+    setError(null)
 
+    try {
+      // Prepare items for batch processing
+      const batchItems = bulkCorrectedRows.map((row, index) => ({
+        url: row.url,
+        custom_title: row.custom_title || undefined,
+        style: row.style || 'ugc_auth',
+        row_index: row.rowIndex
+      }))
+
+      // Start batch via API
+      const response = await fetch('/api/bulk/start-batch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items: batchItems,
+          default_style: 'ugc_auth',
+          default_duration: '30s'
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to start batch processing')
+      }
+
+      const result = await response.json()
+
+      // Update store with batch ID
+      startBatch(result.batchId)
+
+    } catch (err) {
+      console.error('Error starting batch:', err)
+      setError(err instanceof Error ? err.message : 'Failed to start batch processing')
+    } finally {
+      setIsStartingBatch(false)
+    }
+  }, [bulkCorrectedRows, router, startBatch])
+
+  // Poll for batch status updates
+  const pollBatchStatus = useCallback(async () => {
+    if (!currentBatchId) return
+
+    try {
+      const response = await fetch(`/api/bulk/batch/${currentBatchId}/status`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch batch status')
+      }
+
+      const data: BatchStatusResponse = await response.json()
+      updateBatchStatus(data.batch, data.items)
+      setLastUpdate(new Date())
+
+      // Stop polling if batch is completed or failed
+      if (data.batch.status === 'COMPLETED' || data.batch.status === 'FAILED') {
+        return false // Stop polling
+      }
+
+      return true // Continue polling
+    } catch (err) {
+      console.error('Error polling batch status:', err)
+      return true // Continue polling despite errors
+    }
+  }, [currentBatchId, updateBatchStatus])
+
+  // Effect to start batch processing on mount
   useEffect(() => {
     if (bulkCorrectedRows.length === 0) {
       router.push('/wizard')
       return
     }
 
-    // Initialize jobs from corrected rows
-    const initialJobs: BulkJob[] = bulkCorrectedRows.map((row, index) => ({
-      id: `job-${index + 1}`,
-      rowIndex: row.rowIndex,
-      url: row.url,
-      custom_title: row.custom_title,
-      status: 'pending'
-    }))
+    // If we don't have a batch ID yet, start the batch
+    if (!currentBatchId && !isStartingBatch) {
+      initiateBatchProcessing()
+    }
+  }, [bulkCorrectedRows, currentBatchId, isStartingBatch, router, initiateBatchProcessing])
 
-    setJobs(initialJobs)
-    setBulkProcessingStatus('processing')
-    startBulkProcessing(initialJobs)
-  }, [bulkCorrectedRows, router, setBulkProcessingStatus, startBulkProcessing])
+  // Effect to poll batch status
+  useEffect(() => {
+    if (!currentBatchId) return
 
-  const progress = jobs.length > 0 ? ((completedJobs + failedJobs) / jobs.length) * 100 : 0
+    // Initial poll
+    pollBatchStatus()
+
+    // Set up polling interval
+    const interval = setInterval(() => {
+      pollBatchStatus()
+    }, 5000) // Poll every 5 seconds
+
+    return () => clearInterval(interval)
+  }, [currentBatchId, pollBatchStatus])
 
   const handleGoToLibrary = () => {
+    clearBatch()
     router.push('/library')
   }
 
-  const getStatusIcon = (status: BulkJob['status']) => {
+  const handleManualRefresh = () => {
+    pollBatchStatus()
+  }
+
+  const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'COMPLETED':
         return <CheckCircle className="h-4 w-4 text-success" />
-      case 'failed':
+      case 'FAILED':
         return <AlertCircle className="h-4 w-4 text-destructive" />
-      case 'processing':
+      case 'PROCESSING':
         return <Loader2 className="h-4 w-4 animate-spin text-primary" />
       default:
         return <div className="h-4 w-4 rounded-full border-2 border-muted-foreground" />
     }
   }
 
-  const getStatusBadgeVariant = (status: BulkJob['status']) => {
+  const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'COMPLETED':
         return 'default'
-      case 'failed':
+      case 'FAILED':
         return 'destructive'
-      case 'processing':
+      case 'PROCESSING':
         return 'secondary'
       default:
         return 'outline'
     }
   }
 
+  // Show loading state while starting batch
+  if (isStartingBatch) {
+    return (
+      <div className="space-y-8">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-semibold mb-2">Bulk Video Generation</h1>
+          <p className="text-muted-foreground">Starting batch processing...</p>
+        </div>
+
+        <Card className="bg-layer-2 border-border">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-center space-x-4 py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div>
+                <p className="font-medium">Initializing Batch</p>
+                <p className="text-sm text-muted-foreground">Preparing {bulkCorrectedRows.length} videos for processing</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error && !batchStatus) {
+    return (
+      <div className="space-y-8">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-semibold mb-2">Bulk Video Generation</h1>
+          <p className="text-muted-foreground">Failed to start batch processing</p>
+        </div>
+
+        <Card className="bg-layer-2 border-border">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4 py-12">
+              <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+              <div>
+                <h3 className="text-lg font-semibold text-destructive">Batch Start Failed</h3>
+                <p className="text-muted-foreground">{error}</p>
+              </div>
+              <Button onClick={() => router.push('/wizard')} variant="outline">
+                Return to Wizard
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Show batch processing UI
   return (
     <div className="space-y-8">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-semibold mb-2">Bulk Video Generation</h1>
         <p className="text-muted-foreground">
-          Processing {jobs.length} video{jobs.length > 1 ? 's' : ''} from your CSV upload
+          Processing {batchStatus?.totalItems || 0} video{(batchStatus?.totalItems || 0) > 1 ? 's' : ''} from your CSV upload
         </p>
+        {currentBatchId && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Batch ID: {currentBatchId}
+          </p>
+        )}
       </div>
 
       {/* Progress Overview */}
-      <Card className="bg-layer-2 border-border">
-        <CardContent className="pt-6">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Processing Progress</h2>
-              <div className="flex items-center space-x-4">
-                <Badge variant="default" className="bg-success/10 text-success">
-                  {completedJobs} Completed
-                </Badge>
-                <Badge variant="destructive" className="bg-destructive/10 text-destructive">
-                  {failedJobs} Failed
-                </Badge>
-                <Badge variant="outline">
-                  {jobs.length - completedJobs - failedJobs} Remaining
-                </Badge>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Overall Progress</span>
-                <span>{Math.round(progress)}%</span>
-              </div>
-              <Progress value={progress} className="h-2" />
-            </div>
-
-            {bulkProcessingStatus === 'completed' && (
-              <div className="text-center space-y-4">
-                <div className="flex justify-center">
-                  <CheckCircle className="h-12 w-12 text-success" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-success">Bulk Generation Complete!</h3>
-                  <p className="text-muted-foreground">
-                    {completedJobs} video{completedJobs > 1 ? 's' : ''} successfully created
-                    {failedJobs > 0 && `, ${failedJobs} failed`}
-                  </p>
-                </div>
-                <Button onClick={handleGoToLibrary} size="lg">
-                  View Videos in Library
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Job List */}
-      <Card className="bg-layer-2 border-border">
-        <CardContent className="pt-6">
-          <h2 className="text-xl font-semibold mb-4">Processing Details</h2>
-
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {jobs.map((job, index) => (
-              <div
-                key={job.id}
-                className={`flex items-center justify-between p-4 rounded-lg border ${
-                  job.status === 'processing'
-                    ? 'bg-primary/5 border-primary/20'
-                    : job.status === 'completed'
-                      ? 'bg-success/5 border-success/20'
-                      : job.status === 'failed'
-                        ? 'bg-destructive/5 border-destructive/20'
-                        : 'bg-layer-3 border-border'
-                }`}
-              >
+      {batchStatus && (
+        <Card className="bg-layer-2 border-border">
+          <CardContent className="pt-6">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  {getStatusIcon(job.status)}
+                  <h2 className="text-xl font-semibold">Processing Progress</h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleManualRefresh}
+                    className="h-8 w-8 p-0"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <Badge variant="default" className="bg-success/10 text-success">
+                    {batchStatus.processedItems - batchStatus.failedItems} Completed
+                  </Badge>
+                  <Badge variant="destructive" className="bg-destructive/10 text-destructive">
+                    {batchStatus.failedItems} Failed
+                  </Badge>
+                  <Badge variant="outline">
+                    {batchStatus.pendingItems} Remaining
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Overall Progress</span>
+                  <span>{batchStatus.progress}%</span>
+                </div>
+                <Progress value={batchStatus.progress} className="h-2" />
+                <p className="text-xs text-muted-foreground">
+                  Last updated: {lastUpdate.toLocaleTimeString()}
+                </p>
+              </div>
+
+              {batchStatus.status === 'COMPLETED' && (
+                <div className="text-center space-y-4">
+                  <div className="flex justify-center">
+                    <CheckCircle className="h-12 w-12 text-success" />
+                  </div>
                   <div>
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium">Row {job.rowIndex}</span>
-                      <Badge variant={getStatusBadgeVariant(job.status)} className="text-xs">
-                        {job.status}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground truncate max-w-md">
-                      {job.url}
+                    <h3 className="text-lg font-semibold text-success">Bulk Generation Complete!</h3>
+                    <p className="text-muted-foreground">
+                      {batchStatus.processedItems - batchStatus.failedItems} video{(batchStatus.processedItems - batchStatus.failedItems) > 1 ? 's' : ''} successfully created
+                      {batchStatus.failedItems > 0 && `, ${batchStatus.failedItems} failed`}
                     </p>
-                    {job.custom_title && (
-                      <p className="text-sm text-primary truncate max-w-md">
-                        {job.custom_title}
+                  </div>
+                  <Button onClick={handleGoToLibrary} size="lg">
+                    View Videos in Library
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+
+              {batchStatus.status === 'FAILED' && batchStatus.errorMessage && (
+                <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md">
+                  <div className="flex items-center space-x-2">
+                    <AlertCircle className="h-4 w-4 text-destructive" />
+                    <p className="text-sm text-destructive">{batchStatus.errorMessage}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Batch Items List */}
+      {batchItems.length > 0 && (
+        <Card className="bg-layer-2 border-border">
+          <CardContent className="pt-6">
+            <h2 className="text-xl font-semibold mb-4">Processing Details</h2>
+
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {batchItems.map((item) => (
+                <div
+                  key={item.id}
+                  className={`flex items-center justify-between p-4 rounded-lg border ${
+                    item.status === 'PROCESSING'
+                      ? 'bg-primary/5 border-primary/20'
+                      : item.status === 'COMPLETED'
+                        ? 'bg-success/5 border-success/20'
+                        : item.status === 'FAILED'
+                          ? 'bg-destructive/5 border-destructive/20'
+                          : 'bg-layer-3 border-border'
+                  }`}
+                >
+                  <div className="flex items-center space-x-4">
+                    {getStatusIcon(item.status)}
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium">Row {item.rowIndex}</span>
+                        <Badge variant={getStatusBadgeVariant(item.status)} className="text-xs">
+                          {item.status.toLowerCase()}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate max-w-md">
+                        {item.url}
                       </p>
+                      {item.customTitle && (
+                        <p className="text-sm text-primary truncate max-w-md">
+                          {item.customTitle}
+                        </p>
+                      )}
+                      {item.errorMessage && (
+                        <p className="text-sm text-destructive mt-1">
+                          {item.errorMessage}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    {item.status === 'PROCESSING' && (
+                      <div className="flex items-center space-x-2 text-sm text-primary">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Processing...</span>
+                      </div>
                     )}
-                    {job.error && (
-                      <p className="text-sm text-destructive mt-1">
-                        {job.error}
-                      </p>
+                    {item.video && (
+                      <div className="text-xs text-muted-foreground">
+                        <p>Video ID: {item.video.id}</p>
+                        {item.video.videoUrl && (
+                          <p className="text-success">Ready to download</p>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
-
-                <div className="text-right">
-                  {job.status === 'processing' && index === currentJobIndex && (
-                    <div className="flex items-center space-x-2 text-sm text-primary">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Processing...</span>
-                    </div>
-                  )}
-                  {job.videoId && (
-                    <p className="text-xs text-muted-foreground">
-                      Video ID: {job.videoId}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

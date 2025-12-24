@@ -126,15 +126,15 @@ export default function WizardInputPage() {
     setBulkFile(file)
   }
 
-  const handleBulkConfirm = (correctedRows: any[]) => {
-    // Store corrected rows and navigate to processing
+  const handleBulkConfirm = async (correctedRows: any[]) => {
+    // Store corrected rows
     const { setBulkCorrectedRows, setBulkMode, setStep } = useWizardStore.getState()
     setBulkCorrectedRows(correctedRows)
     setBulkMode(true)
     setStep(2) // Go to processing step
     setShowValidationModal(false)
 
-    // Navigate to processing (we'll create this route)
+    // Navigate to processing page
     router.push('/wizard/bulk-process')
   }
 

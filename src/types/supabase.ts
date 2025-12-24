@@ -216,6 +216,119 @@ export type Database = {
           },
         ]
       }
+      video_batches: {
+        Row: {
+          id: string
+          user_id: string
+          status: Database["public"]["Enums"]["batch_status"]
+          total_items: number
+          processed_items: number
+          failed_items: number
+          total_credits_reserved: number
+          error_message: string | null
+          metadata: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          status?: Database["public"]["Enums"]["batch_status"]
+          total_items: number
+          processed_items?: number
+          failed_items?: number
+          total_credits_reserved?: number
+          error_message?: string | null
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          status?: Database["public"]["Enums"]["batch_status"]
+          total_items?: number
+          processed_items?: number
+          failed_items?: number
+          total_credits_reserved?: number
+          error_message?: string | null
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_batches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      batch_video_items: {
+        Row: {
+          id: string
+          batch_id: string
+          video_id: string | null
+          row_index: number
+          url: string
+          custom_title: string | null
+          style: string | null
+          status: Database["public"]["Enums"]["batch_item_status"]
+          error_message: string | null
+          credits_used: number
+          metadata: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          batch_id: string
+          video_id?: string | null
+          row_index: number
+          url: string
+          custom_title?: string | null
+          style?: string | null
+          status?: Database["public"]["Enums"]["batch_item_status"]
+          error_message?: string | null
+          credits_used?: number
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          batch_id?: string
+          video_id?: string | null
+          row_index?: number
+          url?: string
+          custom_title?: string | null
+          style?: string | null
+          status?: Database["public"]["Enums"]["batch_item_status"]
+          error_message?: string | null
+          credits_used?: number
+          metadata?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_video_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "video_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "batch_video_items_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -229,6 +342,17 @@ export type Database = {
       video_status:
         | "DRAFT"
         | "SCRIPT_GENERATED"
+        | "PROCESSING"
+        | "COMPLETED"
+        | "FAILED"
+      batch_status:
+        | "PENDING"
+        | "PROCESSING"
+        | "COMPLETED"
+        | "FAILED"
+        | "CANCELLED"
+      batch_item_status:
+        | "PENDING"
         | "PROCESSING"
         | "COMPLETED"
         | "FAILED"
@@ -368,6 +492,19 @@ export const Constants = {
       video_status: [
         "DRAFT",
         "SCRIPT_GENERATED",
+        "PROCESSING",
+        "COMPLETED",
+        "FAILED",
+      ],
+      batch_status: [
+        "PENDING",
+        "PROCESSING",
+        "COMPLETED",
+        "FAILED",
+        "CANCELLED",
+      ],
+      batch_item_status: [
+        "PENDING",
         "PROCESSING",
         "COMPLETED",
         "FAILED",
