@@ -45,7 +45,50 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // 4. If status is already COMPLETED or FAILED, return immediately (no external call)
+    // 4. TTL Check: If video has been PROCESSING for more than 60 minutes, mark as FAILED
+    if (video.status === 'PROCESSING') {
+      const updatedAt = new Date(video.updated_at)
+      const now = new Date()
+      const timeDiff = now.getTime() - updatedAt.getTime()
+      const sixtyMinutes = 60 * 60 * 1000 // 60 minutes in milliseconds
+
+      if (timeDiff > sixtyMinutes) {
+        // Mark as failed and create refund
+        const { error: updateError } = await adminClient
+          .from('videos')
+          .update({
+            status: 'FAILED',
+            error_reason: 'Video generation timed out after 60 minutes',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', videoId)
+
+        if (updateError) {
+          console.error('Error updating timed-out video:', updateError)
+        }
+
+        // Create REFUND transaction to restore the credit
+        const { error: refundError } = await adminClient.from('transactions').insert({
+          user_id: user.id,
+          amount: 1, // Positive amount to refund
+          type: 'REFUND',
+          provider: 'SYSTEM',
+          payment_id: null,
+        })
+
+        if (refundError) {
+          console.error('CRITICAL: Error creating refund transaction for timed-out video:', refundError)
+        }
+
+        return NextResponse.json({
+          id: video.id,
+          status: 'FAILED',
+          errorReason: 'Video generation timed out after 60 minutes',
+        })
+      }
+    }
+
+    // 6. If status is already COMPLETED or FAILED, return immediately (no external call)
     if (video.status === 'COMPLETED' || video.status === 'FAILED') {
       return NextResponse.json({
         id: video.id,
@@ -55,7 +98,7 @@ export async function GET(
       })
     }
 
-    // 5. If status is PROCESSING, check Kie.ai status
+    // 7. If status is PROCESSING, check Kie.ai status
     if (video.status === 'PROCESSING') {
       if (!video.kie_task_id) {
         // Video is in PROCESSING state but has no task_id - this shouldn't happen
@@ -186,7 +229,7 @@ export async function GET(
       }
     }
 
-    // 6. For any other status (DRAFT, SCRIPT_GENERATED), return as-is
+    // 8. For any other status (DRAFT, SCRIPT_GENERATED), return as-is
     return NextResponse.json({
       id: video.id,
       status: video.status,

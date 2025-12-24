@@ -212,11 +212,46 @@ export async function getTaskStatus(taskId: string): Promise<GetTaskStatusResult
       }
     )
 
+    // HANDLE HTTP ERROR CODES EXPLICITLY
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      const errorMessage =
-        errorData.message || errorData.error || errorData.msg || `HTTP ${response.status}: ${response.statusText}`
-      throw new Error(`Kie.ai API error: ${errorMessage}`)
+      const status = response.status;
+      let errorMsg = `HTTP ${status}: ${response.statusText}`;
+
+      // Try to parse error details
+      try {
+        const errorData = await response.json();
+        errorMsg = errorData.message || errorData.error || errorData.msg || errorMsg;
+      } catch (e) { /* ignore parse error */ }
+
+      // Map specific HTTP codes to "FAILED" status immediately
+      // 402: Insufficient Credits
+      // 422: Validation Error
+      // 501: Generation Failed
+      if (status === 402 || status === 422 || status === 501) {
+         return {
+            status: 'FAILED',
+            errorMessage: `Provider Error (${status}): ${errorMsg}`,
+         };
+      }
+
+      // 404: Not Found (Task ID invalid/expired) -> Also Fail
+      if (status === 404) {
+          return {
+            status: 'FAILED',
+            errorMessage: `Task Not Found (404): The video generation task no longer exists.`,
+         };
+      }
+
+      // 500/505/429: These might be transient, but usually fatal for a specific task check
+      // For now, treat 500 as FAILED to stop the spinner.
+      if (status >= 500) {
+          return {
+            status: 'FAILED',
+            errorMessage: `Provider Server Error (${status}): ${errorMsg}`,
+         };
+      }
+
+      throw new Error(`Kie.ai API error: ${errorMsg}`)
     }
 
     const data = await response.json()

@@ -15,7 +15,7 @@ export interface VideoStatusData {
 interface UseVideoStatusOptions {
   videoId: string
   initialStatus?: VideoStatus
-  pollInterval?: number // milliseconds, default 5000 (5 seconds)
+  pollInterval?: number // milliseconds, default 30000 (30 seconds)
   enabled?: boolean // whether polling is enabled, default true
 }
 
@@ -28,13 +28,13 @@ interface UseVideoStatusResult {
 
 /**
  * Custom hook to poll video status from the API
- * Automatically polls every 5 seconds when status is PROCESSING
+ * Automatically polls every 30 seconds when status is PROCESSING
  * Stops polling when status reaches COMPLETED or FAILED
  */
 export function useVideoStatus({
   videoId,
   initialStatus,
-  pollInterval = 5000,
+  pollInterval = 30000,
   enabled = true,
 }: UseVideoStatusOptions): UseVideoStatusResult {
   const [data, setData] = useState<VideoStatusData | null>(
