@@ -4,10 +4,16 @@ import { useWizardStore } from '@/store/useWizardStore'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const steps = [
+const regularSteps = [
   { number: 1, label: 'Input', path: '/wizard' },
   { number: 2, label: 'Review', path: '/wizard/script' },
   { number: 3, label: 'Processing', path: '/wizard/processing' },
+]
+
+const bulkSteps = [
+  { number: 1, label: 'Upload', path: '/wizard' },
+  { number: 2, label: 'Validate', path: '/wizard' },
+  { number: 3, label: 'Process', path: '/wizard/bulk-process' },
 ]
 
 export default function WizardLayout({
@@ -16,6 +22,9 @@ export default function WizardLayout({
   children: React.ReactNode
 }) {
   const currentStep = useWizardStore((state) => state.step)
+  const isBulkMode = useWizardStore((state) => state.isBulkMode)
+
+  const steps = isBulkMode ? bulkSteps : regularSteps
 
   return (
     <div className="min-h-screen bg-layer-1">

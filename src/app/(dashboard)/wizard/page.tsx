@@ -10,11 +10,13 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Upload, Loader2 } from 'lucide-react'
 import StyleSelector from '@/components/wizard/StyleSelector'
+import CSVUploader, { CSVValidationResult } from '@/components/wizard/CSVUploader'
+import CSVValidationModal from '@/components/wizard/CSVValidationModal'
 
 export default function WizardInputPage() {
   const router = useRouter()
   const { setUrl, setMetadata, setStep, setManualInput } = useWizardStore()
-  const [activeTab, setActiveTab] = useState<'amazon' | 'manual'>('amazon')
+  const [activeTab, setActiveTab] = useState<'amazon' | 'manual' | 'bulk'>('amazon')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -25,6 +27,10 @@ export default function WizardInputPage() {
   const [manualTitle, setManualTitle] = useState('')
   const [manualDescription, setManualDescription] = useState('')
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+
+  // Bulk upload state
+  const [showValidationModal, setShowValidationModal] = useState(false)
+  const [bulkValidationResult, setBulkValidationResult] = useState<CSVValidationResult | null>(null)
 
   const validateAmazonUrl = (url: string): boolean => {
     if (!url.trim()) return false
@@ -108,6 +114,30 @@ export default function WizardInputPage() {
     setUploadedFiles(limitedFiles)
   }
 
+  // Bulk upload handlers
+  const handleBulkValidationComplete = (result: CSVValidationResult) => {
+    setBulkValidationResult(result)
+    setShowValidationModal(true)
+  }
+
+  const handleBulkFileSelect = (file: File) => {
+    // Store file in wizard store for later use
+    const { setBulkFile } = useWizardStore.getState()
+    setBulkFile(file)
+  }
+
+  const handleBulkConfirm = (correctedRows: any[]) => {
+    // Store corrected rows and navigate to processing
+    const { setBulkCorrectedRows, setBulkMode, setStep } = useWizardStore.getState()
+    setBulkCorrectedRows(correctedRows)
+    setBulkMode(true)
+    setStep(2) // Go to processing step
+    setShowValidationModal(false)
+
+    // Navigate to processing (we'll create this route)
+    router.push('/wizard/bulk-process')
+  }
+
   return (
     <div className="space-y-8">
       <div className="text-center mb-8">
@@ -120,13 +150,16 @@ export default function WizardInputPage() {
       {/* Creative Strategy Step */}
       <StyleSelector />
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'amazon' | 'manual')}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'amazon' | 'manual' | 'bulk')}>
         <TabsList className="w-full bg-layer-3 border border-border">
           <TabsTrigger value="amazon" className="flex-1 data-[state=active]:bg-layer-2">
             Amazon URL
           </TabsTrigger>
           <TabsTrigger value="manual" className="flex-1 data-[state=active]:bg-layer-2">
             Manual Input
+          </TabsTrigger>
+          <TabsTrigger value="bulk" className="flex-1 data-[state=active]:bg-layer-2">
+            Bulk Generate
           </TabsTrigger>
         </TabsList>
 
@@ -283,7 +316,49 @@ export default function WizardInputPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Bulk Upload Tab */}
+        <TabsContent value="bulk" className="mt-6">
+          <Card className="bg-layer-2 border-border">
+            <CardContent className="pt-6">
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <h3 className="text-lg font-semibold">Bulk Video Generation</h3>
+                  <p className="text-muted-foreground">
+                    Upload a CSV file with multiple Amazon product URLs to generate videos in batch
+                  </p>
+                </div>
+
+                <div className="bg-layer-3 border border-border rounded-lg p-4">
+                  <h4 className="font-medium mb-2">CSV Format Requirements</h4>
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p>• <strong>url</strong> (required): Amazon product URL</p>
+                    <p>• <strong>custom_title</strong> (optional): Override product title</p>
+                    <p>• <strong>style</strong> (optional): Video style (ugc_auth, green_screen, pas_framework, asmr_visual, before_after)</p>
+                    <p>• Maximum 50 rows per upload</p>
+                    <p>• File size limit: 2MB</p>
+                  </div>
+                </div>
+
+                <CSVUploader
+                  onValidationComplete={handleBulkValidationComplete}
+                  onFileSelect={handleBulkFileSelect}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Bulk Validation Modal */}
+      {showValidationModal && bulkValidationResult && (
+        <CSVValidationModal
+          isOpen={showValidationModal}
+          onClose={() => setShowValidationModal(false)}
+          validationResult={bulkValidationResult}
+          onConfirm={handleBulkConfirm}
+        />
+      )}
     </div>
   )
 }

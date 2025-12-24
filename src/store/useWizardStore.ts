@@ -7,6 +7,23 @@ export interface ProductMetadata {
   images: string[]
 }
 
+export interface BulkCSVRow {
+  url: string
+  custom_title?: string
+  style?: string
+  rowIndex: number
+  isValid?: boolean
+  error?: string
+}
+
+export interface BulkValidationResult {
+  total: number
+  valid: number
+  invalid: number
+  invalidRows: number[]
+  rows: BulkCSVRow[]
+}
+
 interface WizardState {
   step: number // 1: Input, 2: Review, 3: Processing
   style: string // Video style: 'ugc', 'green_screen', 'pas', 'asmr', 'before_after'
@@ -24,6 +41,12 @@ interface WizardState {
     description: string
     uploadedImages: File[]
   }
+  // Bulk upload state
+  isBulkMode: boolean
+  bulkFile: File | null
+  bulkValidationResult: BulkValidationResult | null
+  bulkCorrectedRows: BulkCSVRow[]
+  bulkProcessingStatus: 'idle' | 'processing' | 'completed' | 'error'
   setStep: (step: number) => void
   setStyle: (style: string) => void
   setDuration: (duration: '10s' | '30s') => void
@@ -38,6 +61,12 @@ interface WizardState {
   setSelectedImages: (images: string[]) => void
   toggleImageSelection: (imageUrl: string) => void
   setManualInput: (input: { title: string; description: string; uploadedImages: File[] }) => void
+  // Bulk upload actions
+  setBulkMode: (isBulkMode: boolean) => void
+  setBulkFile: (file: File | null) => void
+  setBulkValidationResult: (result: BulkValidationResult | null) => void
+  setBulkCorrectedRows: (rows: BulkCSVRow[]) => void
+  setBulkProcessingStatus: (status: 'idle' | 'processing' | 'completed' | 'error') => void
   reset: () => void
 }
 
@@ -58,6 +87,12 @@ const initialState = {
     description: '',
     uploadedImages: [],
   },
+  // Bulk upload initial state
+  isBulkMode: false,
+  bulkFile: null,
+  bulkValidationResult: null,
+  bulkCorrectedRows: [],
+  bulkProcessingStatus: 'idle' as const,
 }
 
 export const useWizardStore = create<WizardState>((set, get) => ({
@@ -92,6 +127,12 @@ export const useWizardStore = create<WizardState>((set, get) => ({
     }
   },
   setManualInput: (input) => set({ manualInput: input }),
+  // Bulk upload actions
+  setBulkMode: (isBulkMode) => set({ isBulkMode }),
+  setBulkFile: (file) => set({ bulkFile: file }),
+  setBulkValidationResult: (result) => set({ bulkValidationResult: result }),
+  setBulkCorrectedRows: (rows) => set({ bulkCorrectedRows: rows }),
+  setBulkProcessingStatus: (status) => set({ bulkProcessingStatus: status }),
   reset: () => set(initialState),
 }))
 
