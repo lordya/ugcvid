@@ -28,17 +28,17 @@ OUTPUT FORMAT (JSON):
   "style": "UGC Authenticité (30s)",
   "tone_instructions": "Conversational, enthusiastic but not over-the-top, natural pauses and fillers ('like', 'honestly', 'literally'), relatable and vulnerable, speaks as if recording a quick video for a friend. Use contractions (I'm, it's, you're). Sound genuinely surprised/impressed by the product.",
   "visual_cues": [
-    "0-3s: Close-up of creator's face in natural environment (bedroom/kitchen/car), looking directly at camera, product suddenly enters frame or creator leans in",
-    "3-10s: Alternate between creator talking and showing the old method/problem, casual hand gestures, may show competitor product or previous solution",
-    "10-15s: Product demonstration in real-life context, creator's hands visible using product, authentic lighting (no studio setup)",
-    "15-25s: Show result or transformation, may cut back to creator's face for reaction, natural smile/laugh",
-    "25-30s: Creator looking at camera for final recommendation, casual pointing gesture toward link/bio"
+    "0-3s: Close-up of creator's face, product enters frame",
+    "3-10s: Show problem/old method, casual gestures",
+    "10-15s: Product demonstration, hands using product",
+    "15-25s: Show result, creator's reaction",
+    "25-30s: Final recommendation, pointing to link/bio"
   ],
   "voiceover": [
-    "Hook (0-3s): [Start with attention-grabber: 'Ok so...', 'Wait you NEED to see this...', 'I don't usually do this but...'] [State the problem or need the product solves in 1 relatable sentence]",
-    "Body (3-10s): [Share personal struggle: 'I used to [problem]...'] [Introduce how you found the product] [Mention 1-2 key benefits conversationally: 'and honestly, it's been a game-changer because...']",
-    "Demonstration (10-20s): [Quick how-to: 'All you do is...'] [Highlight surprising feature: 'The coolest part is...'] [Social proof: 'My [friends/partner/mom] keep asking where I got it']",
-    "CTA (20-30s): [Natural recommendation: 'I'm obsessed, so I'll drop the link below'] [Optional urgency: 'They're having a sale right now, so...'] [End with: 'Let me know if you grab one!']"
+    "Hook (0-3s): [Problem in 1 sentence: 'Tired of [problem]?']",
+    "Body (3-10s): [Personal struggle + product intro: 'I used to [problem] until I found this.']",
+    "Demonstration (10-20s): [Key benefit: 'It [does X] instantly.'] [Social proof: 'My friends keep asking where I got it.']",
+    "CTA (20-30s): [Recommendation: 'Link below. Let me know if you grab one!']"
   ],
   "text_overlay": [
     "0-3s: [Provocative question or bold statement, e.g., 'This changed everything 😳', 'Why didn't I know about this sooner?']",
@@ -54,10 +54,11 @@ CRITICAL RULES:
 1. Never use corporate language like "innovative," "revolutionary," "cutting-edge"
 2. Include natural speech patterns: filler words, contractions, run-on sentences
 3. First-person perspective only ("I tried...", "My experience...")
-4. Keep total script under 150 words (30 seconds spoken at natural pace)
-5. Must include at least one relatable struggle or story
-6. CTA should feel like a favor, not a sales pitch
-7. Hook must trigger immediate curiosity or identification ("That's ME!")
+4. 65-70 WORDS TOTAL (Must fit 30s spoken naturally).
+5. NO Intro/Outro fluff ('Hey guys', 'Bye').
+6. Must include at least one relatable struggle or story
+7. CTA should feel like a favor, not a sales pitch
+8. Hook must trigger immediate curiosity or identification ("That's ME!")
 
 Generate the complete JSON output now.`,
 
@@ -88,9 +89,9 @@ OUTPUT FORMAT (JSON):
 }
 
 CRITICAL RULES:
-1. TOTAL WORD COUNT MUST BE UNDER 25 WORDS.
-2. No intro ("Hey guys"), no outro ("Bye"). Straight to value.
-3. Must fit exactly 10 seconds spoken fast.
+1. 20-25 WORDS TOTAL (Must fit 10s spoken fast).
+2. Immediate value only. No setup.
+3. No intro ("Hey guys"), no outro ("Bye"). Straight to value.
 
 Generate the complete JSON output now.`,
 
@@ -105,16 +106,16 @@ OUTPUT FORMAT (JSON):
   "style": "Green Screen React (30s)",
   "tone_instructions": "Energetic, fast-paced, manic enthusiasm, react as if discovering something shocking/too-good-to-be-true. Use exclamations, interrupted thoughts, rapid-fire delivery. Sound like you're revealing a secret or insider tip. Voice should be slightly breathless with excitement. Use phrases like 'WAIT', 'NO WAY', 'LOOK AT THIS', 'ARE YOU SEEING THIS?'",
   "visual_cues": [
-    "0-3s: Creator in front of green screen already showing background (website/reviews/article), eyes wide, immediate pointing gesture at screen, may lean toward camera",
-    "3-10s: Alternate between tight shot of creator's reaction and zoom-ins on background content (price, star rating, testimonial), use circle/arrow effects to highlight key info on background",
-    "10-20s: Background shows product images or transformation, creator makes 'mind blown' gesture (hands on head) or thumbs up, may show split-screen comparison with competitor",
-    "20-30s: Creator directly addresses camera with final recommendation, background shows product page or checkout screen, pointing down gesture for 'link below'"
+    "0-3s: Creator with green screen background, pointing at screen",
+    "3-10s: Zoom on background content (price, reviews), circle/arrow effects",
+    "10-20s: Product images on background, creator's reaction gesture",
+    "20-30s: Final recommendation, product page on background, pointing down"
   ],
   "voiceover": [
-    "Hook (0-3s): [Immediate reaction: 'NO WAY!', 'Wait wait wait, LOOK AT THIS', 'Ok this is INSANE'] [Point out shocking element: 'The price is only [X]!' or 'Look at these reviews!']",
-    "Body (3-10s): [Rapid-fire highlights: 'Over [X] five-star reviews...'] [Comparison: 'Compare this to [competitor] at [higher price]'] [Build credibility: 'I've been seeing this EVERYWHERE' or 'TikTok was right about this one']",
-    "Proof (10-20s): [Personal validation: 'I ordered mine yesterday and it arrived today'] [Feature highlight: 'And it has [impressive feature]'] [Address skepticism: 'I know it sounds too good to be true, but...' ]",
-    "CTA (20-30s): [Urgent push: 'If you've been thinking about it, NOW is the time'] [Scarcity: 'They're selling out fast' or 'Limited stock left'] [Clear direction: 'Link in my bio, code [PROMO] for 20% off'] [Repeat: 'Seriously, check it out before it's gone']"
+    "Hook (0-3s): [Shock reaction: 'NO WAY! The price is only [X]!']",
+    "Body (3-10s): [Highlights: '[X] five-star reviews. Compare to [competitor] at [higher price].']",
+    "Proof (10-20s): [Validation: 'I ordered mine yesterday. It has [feature].']",
+    "CTA (20-30s): [Urgency: 'Selling out fast. Link in bio, code [PROMO] for 20% off.']"
   ],
   "text_overlay": [
     "0-3s: [Arrow or red circle highlighting key background element, text: '😱 ONLY $[PRICE]?!' or '⭐️ 15K+ 5-STAR REVIEWS']",
@@ -139,8 +140,9 @@ CRITICAL RULES:
 3. Point to or gesture toward background content at least 3 times
 4. Include specific numbers (reviews, price, discount %)
 5. Must address potential skepticism ("I know what you're thinking...")
-6. Total script under 160 words (30 seconds at fast pace)
-7. Create FOMO - viewer should feel they're missing out if they don't click
+6. 65-70 WORDS TOTAL (Must fit 30s spoken naturally).
+7. NO Intro/Outro fluff ('Hey guys', 'Bye').
+8. Create FOMO - viewer should feel they're missing out if they don't click
 
 Generate the complete JSON output now.`,
 
@@ -171,9 +173,10 @@ OUTPUT FORMAT (JSON):
 }
 
 CRITICAL RULES:
-1. TOTAL WORD COUNT UNDER 25 WORDS.
-2. Must use words like 'Run', 'Gone', 'Insane'.
-3. Focus purely on price or the most shocking feature.
+1. 20-25 WORDS TOTAL (Must fit 10s spoken fast).
+2. Immediate value only. No setup.
+3. Must use words like 'Run', 'Gone', 'Insane'.
+4. Focus purely on price or the most shocking feature.
 
 Generate the complete JSON output now.`,
 
@@ -188,18 +191,18 @@ OUTPUT FORMAT (JSON):
   "style": "Problème-Agitation-Solution (PAS) (30s)",
   "tone_instructions": "Start frustrated and empathetic (we're in this together), escalate to slightly exasperated when agitating, then shift to relieved and optimistic when introducing solution. Use second-person ('you') to make it personal. Pace should be deliberate with strategic pauses for impact. Sound like a friend who's finally found the answer after struggling alongside the viewer.",
   "visual_cues": [
-    "0-3s (PROBLEM): Show clear visual of the problem situation (messy drawer, tangled cords, stain on clothes, etc.), slightly desaturated color grading, medium or close-up shot",
-    "3-10s (AGITATE): Quick montage (3-4 shots) of related frustrations, may include facial expressions of annoyance, use of slight slow-motion for emphasis, maintain darker/desaturated look",
-    "10-15s (SOLUTION REVEAL): Dramatic transition (snap, flash, or wipe effect), product enters frame in close-up or hero shot, shift to saturated/bright color grading, may use slow-motion for 'hero' effect",
-    "15-25s (DEMONSTRATION): Product being used in 3-5 quick shots, show ease of use, side-by-side before vs. after comparison, happy user reaction",
-    "25-30s (RESULT): Final satisfying result in medium shot, product visible in frame, may show user giving thumbs up or satisfied expression"
+    "0-3s (PROBLEM): Problem visual (messy drawer, tangled cords), desaturated",
+    "3-10s (AGITATE): Quick montage of frustrations, desaturated look",
+    "10-15s (SOLUTION REVEAL): Product enters frame, bright color grading",
+    "15-25s (DEMONSTRATION): Product in use, before/after comparison",
+    "25-30s (RESULT): Final result, product visible, thumbs up"
   ],
   "voiceover": [
-    "Hook/Problem (0-3s): [Open with relatable question: 'Tired of [problem]?' or 'Hate when [situation happens]?'] [State the pain point clearly in one sentence]",
-    "Agitate (3-10s): [Amplify frustration: 'And it gets WORSE...'] [List 2-3 consequences: 'You waste time, money, AND energy'] [Make it personal: 'Plus, it's embarrassing/frustrating/exhausting']",
-    "Solution Reveal (10-15s): [Turn the corner: 'Until I discovered THIS...' or 'But what if I told you there's a better way?'] [Introduce product: 'Meet [Product Name]' or 'This is [Product Name]']",
-    "Demonstration (15-25s): [Simplicity: 'It's so simple - just [action]'] [Key benefits: 'No more [problem]. Just [benefit]'] [Proof: 'Works in seconds, lasts for years'] [Testimonial-style: 'I'll never go back to the old way']",
-    "CTA (25-30s): [Urgency: 'Get yours before they sell out'] [Offer: 'On sale now - 50% off today only'] [Direction: 'Link below' or 'Available on [retailer]'] [Risk reversal: '30-day money-back guarantee']"
+    "Hook/Problem (0-3s): [Question: 'Tired of [problem]?']",
+    "Agitate (3-10s): [Frustration: 'It wastes time, money, and energy.']",
+    "Solution Reveal (10-15s): [Reveal: 'Until I found [Product Name].']",
+    "Demonstration (15-25s): [Simplicity: 'Just [action]. No more [problem]. Works instantly.']",
+    "CTA (25-30s): [Offer: '50% off today. Link below. 30-day guarantee.']"
   ],
   "text_overlay": [
     "0-3s: [Amplifying problem text: 'This is SO annoying 😤', 'We've all been there...']",
@@ -219,8 +222,9 @@ CRITICAL RULES:
 3. Solution reveal must feel like emotional payoff - use transition effect
 4. Benefits > Features (focus on what it DOES for the user, not what it IS)
 5. Must include at least one element of social proof or credibility
-6. Total script under 140 words (30 seconds with strategic pacing)
-7. CTA must address final objection (price, risk, availability)
+6. 65-70 WORDS TOTAL (Must fit 30s spoken naturally).
+7. NO Intro/Outro fluff ('Hey guys', 'Bye').
+8. CTA must address final objection (price, risk, availability)
 
 Generate the complete JSON output now.`,
 
@@ -251,9 +255,10 @@ OUTPUT FORMAT (JSON):
 }
 
 CRITICAL RULES:
-1. TOTAL WORD COUNT UNDER 20 WORDS.
-2. Must show 'Before vs After' logic verbally.
-3. Problem -> Solution in 2 sentences max.
+1. 20-25 WORDS TOTAL (Must fit 10s spoken fast).
+2. Immediate value only. No setup.
+3. Must show 'Before vs After' logic verbally.
+4. Problem -> Solution in 2 sentences max.
 
 Generate the complete JSON output now.`,
 
@@ -268,10 +273,10 @@ OUTPUT FORMAT (JSON):
   "style": "Satisfying/ASMR Visuel (30s)",
   "tone_instructions": "Calm, soothing, minimalist. IF voiceover is used, speak slowly and softly (ASMR whisper or gentle normal voice). Long pauses are OK. Voice should not compete with satisfying sounds. Prefer descriptive, simple language. Alternative: NO voiceover, only text + ASMR sounds + music. Think meditation video meets product demo.",
   "visual_cues": [
-    "0-3s: Macro close-up of satisfying action already in progress (foam forming, perfect fit, clean cut, smooth pour), top-down or extreme close-up angle, slow deliberate movement",
-    "3-15s: Sequence of 4-6 similar satisfying actions with slight variations, maintain rhythmic pacing, use symmetry and alignment, may incorporate time-lapse or hyper-lapse, consistent color palette (often monochromatic or complementary)",
-    "15-25s: Final result revealed in wider shot (pull back to show completed organized space, clean surface, finished product), 2-3 second pause to admire result, may zoom into satisfying detail",
-    "25-30s: Hand enters frame to show/point to product used, product packaging visible, gentle placement or final organizing touch"
+    "0-3s: Macro close-up of satisfying action (foam, clean cut, smooth pour)",
+    "3-15s: Sequence of satisfying actions, rhythmic pacing, consistent colors",
+    "15-25s: Final result in wider shot, pause to admire",
+    "25-30s: Product packaging visible, gentle placement"
   ],
   "voiceover": [
     "Option A - Minimal Voiceover:",
@@ -323,8 +328,9 @@ CRITICAL RULES:
 4. If using voiceover, it should be whisper-quiet or gentle
 5. Visual must be hypnotic enough that viewer CANNOT scroll away
 6. CTA should be subtle and non-disruptive to the satisfying experience
-7. Maximum 50 words of text/voiceover total (this format is 90% visual/audio experience)
-8. Product should be supporting actor, not main character (the satisfying action is the star)
+7. 65-70 WORDS TOTAL (Must fit 30s spoken naturally).
+8. NO Intro/Outro fluff ('Hey guys', 'Bye').
+9. Product should be supporting actor, not main character (the satisfying action is the star)
 
 Generate the complete JSON output now.`,
 
@@ -354,8 +360,10 @@ OUTPUT FORMAT (JSON):
 
 CRITICAL RULES:
 1. ZERO WORDS SPOKEN.
-2. Focus entirely on the visual "Ahhh" moment.
-3. Simple CTA text at end.
+2. 20-25 WORDS TOTAL (Must fit 10s spoken fast) for text overlays.
+3. Immediate value only. No setup.
+4. Focus entirely on the visual "Ahhh" moment.
+5. Simple CTA text at end.
 
 Generate the complete JSON output now.`,
 
@@ -370,18 +378,18 @@ OUTPUT FORMAT (JSON):
   "style": "Before/After Transformation (30s)",
   "tone_instructions": "Start with acknowledgment of struggle (empathetic, understanding), shift to excited and impressed when revealing results. Use testimonial-style language ('I couldn't believe it', 'The difference is incredible'). Sound authentic - not salesy. Pace can be moderate with dramatic pauses before the 'after' reveal. Think before: matter-of-fact, after: delighted surprise.",
   "visual_cues": [
-    "0-3s (BEFORE HOOK): Show 'before' state immediately, may use split-screen with 'after' side blurred or marked with '?', slightly desaturated or flat lighting, same angle that will be used for 'after', text overlay: 'BEFORE ❌' in red/orange",
-    "3-8s (TRANSITION): Visual transition effect (swipe left/right, clock spin, snap, flash), 2-4 shot montage of product being applied or process happening, may include hands in frame or time-lapse, optional timer overlay showing time passing",
-    "8-12s (AFTER REVEAL): 'After' revealed with dramatic effect (can use slow zoom-in), same angle as 'before' for honest comparison, enhanced lighting and saturation (but not fake), text overlay: 'AFTER ✅' in green, optional subtle sparkle/glow effect",
-    "12-25s (PROOF): Alternate back and forth between before/after 2-3 times, show additional angles of result, may include product packaging in frame, testimonial-style face-to-camera segment (optional), demonstration of using product",
-    "25-30s (CTA): Final side-by-side or 'after' shot held, product prominently displayed, may show person holding product with satisfied expression"
+    "0-3s (BEFORE HOOK): 'Before' state, split-screen with blurred 'after', desaturated",
+    "3-8s (TRANSITION): Transition effect, product application montage",
+    "8-12s (AFTER REVEAL): 'After' revealed, same angle, enhanced lighting",
+    "12-25s (PROOF): Alternate before/after, product packaging visible",
+    "25-30s (CTA): Final 'after' shot, product displayed"
   ],
   "voiceover": [
-    "Hook (0-3s): [Establish the 'before': 'Before I tried [Product Name]...' or 'This was me 2 weeks ago'] [State the problem: '...my skin was dull/my kitchen was a mess/I struggled with...']",
-    "Transition (3-8s): [Set expectation: 'I decided to try [Product Name]'] [Timeline: 'After just [realistic timeframe - days/weeks]...'] [Optional: 'I was skeptical, but...' ]",
-    "Reveal (8-12s): [Reaction: 'WOW', 'I can't believe the difference', 'Look at this transformation'] [Highlight change: 'It's so much [brighter/organized/smoother]']",
-    "Proof/Social (12-25s): [Credibility: 'The difference is incredible' or 'Everyone's been asking what I changed'] [Detail benefits: 'Not only did it [fix problem], but it also [bonus benefit]'] [Social proof: 'Over 50K sold this month' or 'My [friend/family] wants one too']",
-    "CTA (25-30s): [Invitation: 'Try it yourself - link below'] [Offer: '40% off for new customers today'] [Risk reversal: 'They have a 60-day guarantee, so there's no risk'] [Urgency optional: 'Sale ends tonight']"
+    "Hook (0-3s): [Before: 'Before [Product Name], my [problem].']",
+    "Transition (3-8s): [Timeline: 'After [timeframe], I tried it.']",
+    "Reveal (8-12s): [Reaction: 'WOW. Look at this transformation.']",
+    "Proof/Social (12-25s): [Benefits: 'It [fixes problem] and [bonus benefit]. Over 50K sold.']",
+    "CTA (25-30s): [Offer: '40% off today. Link below. 60-day guarantee.']"
   ],
   "text_overlay": [
     "0-3s: ['BEFORE ❌' in bold red/orange, optional problem descriptors: 'Dull • Uneven • Tired' or similar]",
@@ -416,8 +424,9 @@ CRITICAL RULES:
 4. Must alternate between before/after at least twice for proof
 5. No excessive filters or editing that makes transformation seem fake
 6. Include at least one credibility element (reviews, satisfaction rate, units sold)
-7. Total script under 145 words (30 seconds with pauses for dramatic effect)
-8. CTA must address risk ("money-back guarantee") to overcome skepticism
+7. 65-70 WORDS TOTAL (Must fit 30s spoken naturally).
+8. NO Intro/Outro fluff ('Hey guys', 'Bye').
+9. CTA must address risk ("money-back guarantee") to overcome skepticism
 
 Generate the complete JSON output now.`,
 
@@ -447,9 +456,10 @@ OUTPUT FORMAT (JSON):
 }
 
 CRITICAL RULES:
-1. TOTAL WORD COUNT UNDER 20 WORDS.
-2. Rely on the visual contrast.
-3. CTA must be immediate.
+1. 20-25 WORDS TOTAL (Must fit 10s spoken fast).
+2. Immediate value only. No setup.
+3. Rely on the visual contrast.
+4. CTA must be immediate.
 
 Generate the complete JSON output now.`,
 } as const
