@@ -12,6 +12,20 @@ function isGPT5Model(model: string): boolean {
   return model.startsWith('gpt-5')
 }
 
+// Helper function to clean JSON responses from LLMs that may include Markdown formatting
+function cleanJsonResponse(rawContent: string): string {
+  let cleaned = rawContent.trim()
+
+  // Remove Markdown code blocks if present
+  const jsonCodeBlockRegex = /^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i
+  const match = cleaned.match(jsonCodeBlockRegex)
+  if (match) {
+    cleaned = match[1].trim()
+  }
+
+  return cleaned
+}
+
 // Build model-specific parameters
 function buildModelParams(
   model: string,
@@ -145,9 +159,12 @@ export async function POST(request: NextRequest) {
     let scriptContent;
 
     try {
-      scriptContent = JSON.parse(rawContent);
+      // Clean the response to remove potential Markdown formatting
+      const cleanedContent = cleanJsonResponse(rawContent);
+      scriptContent = JSON.parse(cleanedContent);
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', parseError)
+      console.error('Raw content:', rawContent)
       return NextResponse.json(
         { error: 'AI response is not valid JSON' },
         { status: 500 }

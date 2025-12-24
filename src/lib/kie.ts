@@ -3,20 +3,10 @@
  * Handles video generation job creation and status checking
  */
 
-import { appendFile } from 'fs/promises'
-import { join } from 'path'
 import { generateVideoGenerationPayload, VideoGenerationParams } from './prompts'
 
 const KIE_API_BASE_URL = 'https://api.kie.ai/api/v1'
-const LOG_PATH = join(process.cwd(), '.cursor', 'debug.log')
 
-async function logDebug(entry: any) {
-  try {
-    await appendFile(LOG_PATH, JSON.stringify(entry) + '\n', 'utf8')
-  } catch (e) {
-    // Ignore logging errors
-  }
-}
 
 export interface CreateVideoTaskParams {
   script: string
@@ -78,7 +68,7 @@ export async function createVideoTask({
       model, // Pass model to payload generator
     })
 
-    await logDebug({location:'kie.ts:47',message:'createVideoTask: About to call Kie.ai API',data:{requestBody,imageUrlCount:imageUrls.length,aspectRatio},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D,E'});
+    console.log('kie.ts:47 - createVideoTask: About to call Kie.ai API', {requestBody,imageUrlCount:imageUrls.length,aspectRatio});
     // #endregion
 
     const response = await fetch(`${KIE_API_BASE_URL}/jobs/createTask`, {
@@ -91,7 +81,7 @@ export async function createVideoTask({
     })
 
     // #region agent log
-    await logDebug({location:'kie.ts:81',message:'createVideoTask: Received response from Kie.ai',data:{status:response.status,statusText:response.statusText,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D,E'});
+    console.log('kie.ts:81 - createVideoTask: Received response from Kie.ai', {status:response.status,statusText:response.statusText,ok:response.ok});
     // #endregion
 
     // Read response text once (can only be read once)
@@ -99,7 +89,7 @@ export async function createVideoTask({
 
     if (!response.ok) {
       // #region agent log
-      await logDebug({location:'kie.ts:88',message:'createVideoTask: Response not OK',data:{responseText,status:response.status,statusText:response.statusText},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'});
+      console.log('kie.ts:88 - createVideoTask: Response not OK', {responseText,status:response.status,statusText:response.statusText});
       // #endregion
       let errorData: any = {};
       try {
@@ -113,20 +103,20 @@ export async function createVideoTask({
     }
 
     // #region agent log
-    await logDebug({location:'kie.ts:103',message:'createVideoTask: Raw response text before parsing',data:{responseText,responseTextLength:responseText.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'});
+    console.log('kie.ts:103 - createVideoTask: Raw response text before parsing', {responseText,responseTextLength:responseText.length});
     // #endregion
 
     const parsedResponse: KieApiWrappedResponse<CreateVideoTaskResponse> = JSON.parse(responseText);
 
     // #region agent log
-    await logDebug({location:'kie.ts:107',message:'createVideoTask: Parsed JSON data structure',data:{parsedData:parsedResponse,dataKeys:Object.keys(parsedResponse),hasCode:'code' in parsedResponse,hasData:'data' in parsedResponse,codeValue:parsedResponse.code,dataValue:parsedResponse.data},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'});
+    console.log('kie.ts:107 - createVideoTask: Parsed JSON data structure', {parsedData:parsedResponse,dataKeys:Object.keys(parsedResponse),hasCode:'code' in parsedResponse,hasData:'data' in parsedResponse,codeValue:parsedResponse.code,dataValue:parsedResponse.data});
     // #endregion
 
     // Check if the response indicates an error at the API level (matching getTaskStatus pattern)
     if (parsedResponse.code !== undefined && parsedResponse.code !== 200) {
       const errorMsg = parsedResponse.msg || parsedResponse.message || 'Failed to create video task'
       // #region agent log
-      await logDebug({location:'kie.ts:113',message:'createVideoTask: API returned error code',data:{code:parsedResponse.code,msg:errorMsg,fullResponse:parsedResponse},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'});
+      console.log('kie.ts:113 - createVideoTask: API returned error code', {code:parsedResponse.code,msg:errorMsg,fullResponse:parsedResponse});
       // #endregion
       throw new Error(`Kie.ai API error: ${errorMsg}`)
     }
@@ -135,7 +125,7 @@ export async function createVideoTask({
     const responseData: CreateVideoTaskResponse | any = parsedResponse.data || (parsedResponse as any);
 
     // #region agent log
-    await logDebug({location:'kie.ts:120',message:'createVideoTask: Extracted response data',data:{responseData,responseDataKeys:Object.keys(responseData),hasTaskId:'task_id' in responseData,hasTaskIdCamel:'taskId' in responseData,taskIdValue:responseData.task_id,taskIdCamelValue:responseData.taskId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'});
+    console.log('kie.ts:120 - createVideoTask: Extracted response data', {responseData,responseDataKeys:Object.keys(responseData),hasTaskId:'task_id' in responseData,hasTaskIdCamel:'taskId' in responseData,taskIdValue:responseData.task_id,taskIdCamelValue:responseData.taskId});
     // #endregion
 
     // Try to extract task_id from multiple possible locations (with fallbacks)
@@ -147,7 +137,7 @@ export async function createVideoTask({
 
     if (!taskId) {
       // #region agent log
-      await logDebug({location:'kie.ts:130',message:'createVideoTask: task_id missing, throwing error',data:{parsedResponse,responseData,allKeys:Object.keys(parsedResponse),responseDataKeys:Object.keys(responseData)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'});
+      console.log('kie.ts:130 - createVideoTask: task_id missing, throwing error', {parsedResponse,responseData,allKeys:Object.keys(parsedResponse),responseDataKeys:Object.keys(responseData)});
       // #endregion
       throw new Error(
         `Kie.ai did not return a task_id. Response structure: ${JSON.stringify(parsedResponse, null, 2)}`
@@ -155,7 +145,7 @@ export async function createVideoTask({
     }
 
     // #region agent log
-    await logDebug({location:'kie.ts:137',message:'createVideoTask: Successfully extracted task_id',data:{taskId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C,D'});
+    console.log('kie.ts:137 - createVideoTask: Successfully extracted task_id', {taskId});
     // #endregion
 
     return taskId
@@ -252,23 +242,15 @@ export async function getTaskStatus(taskId: string): Promise<GetTaskStatusResult
     }
 
     // Debug logging to capture actual response structure
-    await logDebug({
-      location: 'kie.ts:getTaskStatus',
-      message: 'Received task data structure',
-      data: {
-        taskData,
-        hasState: 'state' in taskData,
-        hasSuccessFlag: 'successFlag' in taskData,
-        hasResultJson: 'resultJson' in taskData,
-        hasResponse: 'response' in taskData,
-        stateValue: taskData.state,
-        successFlagValue: taskData.successFlag,
-        resultJsonLength: taskData.resultJson?.length,
-      },
-      timestamp: Date.now(),
-      sessionId: 'debug-session',
-      runId: 'run1',
-      hypothesisId: 'status-parsing',
+    console.log('kie.ts:getTaskStatus - Received task data structure', {
+      taskData,
+      hasState: 'state' in taskData,
+      hasSuccessFlag: 'successFlag' in taskData,
+      hasResultJson: 'resultJson' in taskData,
+      hasResponse: 'response' in taskData,
+      stateValue: taskData.state,
+      successFlagValue: taskData.successFlag,
+      resultJsonLength: taskData.resultJson?.length,
     })
 
     // Map state/successFlag to our status enum

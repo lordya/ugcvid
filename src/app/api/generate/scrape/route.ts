@@ -1,6 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
 import axios from 'axios'
 
+// Helper function to validate URLs and prevent SSRF attacks
+function isValidUrl(urlString: string): boolean {
+  try {
+    const url = new URL(urlString)
+
+    // Only allow HTTP and HTTPS protocols
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      return false
+    }
+
+    // Prevent access to localhost and internal networks
+    const hostname = url.hostname.toLowerCase()
+
+    // Block localhost and common internal hostnames
+    if (hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname === '0.0.0.0' ||
+        hostname.startsWith('192.168.') ||
+        hostname.startsWith('10.') ||
+        hostname.startsWith('172.')) {
+      return false
+    }
+
+    // Block private IPv6 addresses (::1 is localhost)
+    if (hostname === '::1' || hostname.startsWith('fc') || hostname.startsWith('fd')) {
+      return false
+    }
+
+    return true
+  } catch (error) {
+    // Invalid URL format
+    return false
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -9,6 +44,14 @@ export async function POST(request: NextRequest) {
     if (!url) {
       return NextResponse.json(
         { error: 'URL is required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate URL format and prevent SSRF attacks
+    if (!isValidUrl(url)) {
+      return NextResponse.json(
+        { error: 'Invalid URL format or access to internal/private resources is not allowed' },
         { status: 400 }
       )
     }
