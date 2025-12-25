@@ -10,7 +10,7 @@ export interface VideoStatusData {
   videoUrl?: string
   errorReason?: string
   progress?: number
-  duration?: number // Video duration in seconds (10 or 30)
+  duration?: number // Video duration in seconds (10 or 15)
   createdAt?: string // ISO timestamp of video creation
 }
 
@@ -19,7 +19,7 @@ interface UseVideoStatusOptions {
   initialStatus?: VideoStatus
   pollInterval?: number // milliseconds, default calculated dynamically
   enabled?: boolean // whether polling is enabled, default true
-  duration?: number // Video duration in seconds (10 or 30) for dynamic polling
+  duration?: number // Video duration in seconds (10 or 15) for dynamic polling
   createdAt?: string // ISO timestamp of video creation for elapsed time calculation
 }
 
@@ -33,7 +33,7 @@ interface UseVideoStatusResult {
 /**
  * Calculate dynamic polling interval based on video duration and elapsed time
  * Shorter intervals early on, longer intervals as time passes
- * @param duration - Video duration in seconds (10 or 30)
+ * @param duration - Video duration in seconds (10 or 15)
  * @param elapsedMinutes - Minutes since video creation
  * @returns Polling interval in milliseconds
  */
@@ -46,7 +46,7 @@ function getPollInterval(duration: number, elapsedMinutes: number): number {
     return 60000 // 60s after 5 minutes
   }
   
-  // For 30-second videos, they take longer
+  // For 15-second videos, they take longer
   if (elapsedMinutes < 1) return 10000   // 10s for first minute
   if (elapsedMinutes < 3) return 20000    // 20s for minutes 1-3
   if (elapsedMinutes < 5) return 30000    // 30s for minutes 3-5
@@ -158,7 +158,7 @@ export function useVideoStatus({
     // Only poll if status is PROCESSING
     if (data?.status === 'PROCESSING') {
       // Calculate dynamic polling interval
-      const videoDuration = data.duration || duration || 30 // Default to 30s if unknown
+      const videoDuration = data.duration || duration || 15 // Default to 15s if unknown
       const elapsedMinutes = startTimeRef.current 
         ? (Date.now() - startTimeRef.current.getTime()) / (1000 * 60)
         : 0

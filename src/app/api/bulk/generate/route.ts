@@ -5,12 +5,13 @@ import { createVideoTask } from '@/lib/kie'
 import { getFormatKey, selectModelForFormat, calculateVideoCost, usdToCredits } from '@/lib/kie-models'
 import { VideoGenerationRequest, UGCContent, Json } from '@/types/supabase'
 import axios from 'axios'
+import { validateStyleDuration } from '@/lib/validation'
 
 interface BulkGenerateRequest {
   url: string
   custom_title?: string
   style?: string
-  duration?: '10s' | '30s'
+  duration?: '10s' | '15s'
 }
 
 export async function POST(request: NextRequest) {
@@ -28,10 +29,19 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body: BulkGenerateRequest = await request.json()
-    const { url, custom_title, style = 'ugc_auth', duration = '30s' } = body
+    const { url, custom_title, style = 'ugc_auth', duration = '15s' } = body
 
     if (!url) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 })
+    }
+
+    // 2.1. Validate style and duration combination
+    const validation = validateStyleDuration(style, duration)
+    if (!validation.valid) {
+      return NextResponse.json(
+        { error: validation.error || 'Invalid style or duration combination' },
+        { status: 400 }
+      )
     }
 
     // 3. Scrape Amazon URL for product data
@@ -111,7 +121,7 @@ export async function POST(request: NextRequest) {
     // 5. Prepare for video generation
     const format = getFormatKey(style, duration)
     const selectedModel = selectModelForFormat(format)
-    const targetDuration = duration === '10s' ? 10 : 30
+    const targetDuration = duration === '10s' ? 10 : 15
     const costUsd = calculateVideoCost(selectedModel, targetDuration)
     const costCredits = usdToCredits(costUsd)
 

@@ -8,6 +8,7 @@ import {
 } from '@/lib/prompts'
 import { getSuccessfulExamplesForPrompt, formatExamplesForPrompt } from '@/lib/success-examples'
 import { createClient } from '@/lib/supabase/server'
+import { validateStyleDuration } from '@/lib/validation'
 
 // Helper to determine if model uses GPT-5 style parameters
 function isGPT5Model(model: string): boolean {
@@ -78,6 +79,15 @@ export async function POST(request: NextRequest) {
     if (!title || !description || !style || !duration) {
       return NextResponse.json(
         { error: 'Title, description, style, and duration are required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate style and duration combination
+    const validation = validateStyleDuration(style, duration)
+    if (!validation.valid) {
+      return NextResponse.json(
+        { error: validation.error || 'Invalid style or duration combination' },
         { status: 400 }
       )
     }

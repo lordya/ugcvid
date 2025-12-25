@@ -5,6 +5,7 @@ import { createVideoTask } from '@/lib/kie'
 import { getFormatKey, selectModelForFormat, calculateVideoCost, usdToCredits } from '@/lib/kie-models'
 import { VideoGenerationRequest, UGCContent, Json } from '@/types/supabase'
 import { kieCircuitBreaker } from '@/lib/circuit-breaker'
+import { validateStyleDuration } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +23,17 @@ export async function POST(request: NextRequest) {
     // 2. Parse request body
     const body: VideoGenerationRequest = await request.json()
     const { script, imageUrls, aspectRatio = 'portrait', ugcContent, style, duration } = body
+
+    // 2.1. Validate style and duration if provided
+    if (style && duration) {
+      const validation = validateStyleDuration(style, duration)
+      if (!validation.valid) {
+        return NextResponse.json(
+          { error: validation.error || 'Invalid style or duration combination' },
+          { status: 400 }
+        )
+      }
+    }
 
     // Validate inputs - accept either script or ugcContent
     let finalPrompt: string;
@@ -49,10 +61,10 @@ export async function POST(request: NextRequest) {
     // 2.5. Determine format and select optimal model
     const format = style && duration 
       ? getFormatKey(style, duration) 
-      : 'ugc_auth_30s' // Default fallback
+      : 'ugc_auth_15s' // Default fallback
     
     const selectedModel = selectModelForFormat(format)
-    const targetDuration = duration === '10s' ? 10 : 30
+    const targetDuration = duration === '10s' ? 10 : 15
     
     // Calculate actual cost based on model and duration
     const costUsd = calculateVideoCost(selectedModel, targetDuration)

@@ -62,7 +62,7 @@ export interface BatchItemStatus {
 interface WizardState {
   step: number // Regular: 1: Input, 2: Review, 3: Processing | Bulk: 1: Upload, 2: Validate, 3: Review, 4: Process
   style: string // Video style: 'ugc', 'green_screen', 'pas', 'asmr', 'before_after'
-  duration: '10s' | '30s' // Video duration
+  duration: '10s' | '15s' // Video duration
   url: string
   metadata: ProductMetadata | null
   script: string
@@ -88,7 +88,7 @@ interface WizardState {
   batchItems: BatchItemStatus[]
   setStep: (step: number) => void
   setStyle: (style: string) => void
-  setDuration: (duration: '10s' | '30s') => void
+  setDuration: (duration: '10s' | '15s') => void
   setUrl: (url: string) => void
   setMetadata: (metadata: ProductMetadata) => void
   setScript: (script: string) => void
@@ -116,7 +116,7 @@ interface WizardState {
 const initialState = {
   step: 1,
   style: 'ugc',
-  duration: '30s' as const,
+  duration: '15s' as const,
   url: '',
   metadata: null,
   script: '',

@@ -110,12 +110,12 @@ export const FORMAT_MODEL_MAPPING: Record<string, { primary: string; backup: str
   'pas_framework_10s': { primary: 'wan-2.6', backup: 'sora2' },
   'asmr_visual_10s': { primary: 'wan-2.6', backup: 'sora2' },
   
-  // 30-second formats
-  'ugc_auth_30s': { primary: 'wan-2.6', backup: 'sora2' },
-  'green_screen_30s': { primary: 'wan-2.6', backup: 'sora2' },
-  'pas_framework_30s': { primary: 'wan-2.6', backup: 'sora2' },
-  'asmr_visual_30s': { primary: 'wan-2.6', backup: 'sora2' },
-  'before_after_30s': { primary: 'wan-2.6', backup: 'sora2' }
+  // 15-second formats
+  'ugc_auth_15s': { primary: 'wan-2.6', backup: 'sora2' },
+  'green_screen_15s': { primary: 'wan-2.6', backup: 'sora2' },
+  'pas_framework_15s': { primary: 'wan-2.6', backup: 'sora2' },
+  'asmr_visual_15s': { primary: 'wan-2.6', backup: 'sora2' },
+  'before_after_15s': { primary: 'wan-2.6', backup: 'sora2' }
 }
 
 /**
@@ -123,7 +123,7 @@ export const FORMAT_MODEL_MAPPING: Record<string, { primary: string; backup: str
  * Normalizes style names to match format mapping keys
  * 
  * @param style - Video style (e.g., 'ugc', 'green_screen', 'pas_framework')
- * @param duration - Video duration ('10s' or '30s')
+ * @param duration - Video duration ('10s' or '15s')
  * @returns Format key (e.g., 'ugc_auth_10s')
  */
 export function getFormatKey(style: string, duration: string): string {

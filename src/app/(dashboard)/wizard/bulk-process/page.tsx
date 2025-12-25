@@ -59,7 +59,7 @@ export default function BulkProcessPage() {
         body: JSON.stringify({
           items: batchItems,
           default_style: 'ugc_auth',
-          default_duration: '30s'
+          default_duration: '15s'
         }),
       })
 

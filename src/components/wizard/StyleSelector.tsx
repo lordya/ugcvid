@@ -10,7 +10,7 @@ interface StyleOption {
   title: string
   icon: React.ComponentType<{ className?: string }>
   description10s: string
-  description30s: string
+  description15s: string
 }
 
 const STYLE_OPTIONS: StyleOption[] = [
@@ -19,35 +19,35 @@ const STYLE_OPTIONS: StyleOption[] = [
     title: 'UGC',
     icon: UserCheck,
     description10s: 'Stop the scroll instantly',
-    description30s: 'Build trust through authentic reviews',
+    description15s: 'Build trust through authentic reviews',
   },
   {
     id: 'green_screen',
     title: 'Green Screen',
     icon: MonitorPlay,
     description10s: 'Hook with impossible visuals',
-    description30s: 'Tell compelling stories with effects',
+    description15s: 'Tell compelling stories with effects',
   },
   {
     id: 'pas_framework',
     title: 'PAS',
     icon: AlertTriangle,
     description10s: 'Identify the problem fast',
-    description30s: 'Build desire through storytelling',
+    description15s: 'Build desire through storytelling',
   },
   {
     id: 'asmr_visual',
     title: 'ASMR',
     icon: Sparkles,
     description10s: 'Create instant curiosity',
-    description30s: 'Relax and educate your audience',
+    description15s: 'Relax and educate your audience',
   },
   {
     id: 'before_after',
     title: 'Before/After',
     icon: FlipHorizontal,
     description10s: 'Show transformation instantly',
-    description30s: 'Demonstrate results over time',
+    description15s: 'Demonstrate results over time',
   },
 ]
 
@@ -55,7 +55,7 @@ export default function StyleSelector() {
   const { style, duration, setStyle, setDuration } = useWizardStore()
 
   const handleDurationChange = (value: string) => {
-    setDuration(value as '10s' | '30s')
+    setDuration(value as '10s' | '15s')
   }
 
   const handleStyleSelect = (styleId: string) => {
@@ -82,10 +82,10 @@ export default function StyleSelector() {
               10 Seconds - Viral Hook
             </TabsTrigger>
             <TabsTrigger
-              value="30s"
+              value="15s"
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              30 Seconds - Storytelling
+              15 Seconds - Storytelling
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -96,7 +96,7 @@ export default function StyleSelector() {
         {STYLE_OPTIONS.map((option) => {
           const IconComponent = option.icon
           const isSelected = style === option.id
-          const description = duration === '10s' ? option.description10s : option.description30s
+          const description = duration === '10s' ? option.description10s : option.description15s
 
           return (
             <Card

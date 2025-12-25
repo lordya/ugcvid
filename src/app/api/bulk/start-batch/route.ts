@@ -5,6 +5,7 @@ import { getFormatKey, selectModelForFormat, calculateVideoCost, usdToCredits } 
 import { createVideoTask } from '@/lib/kie'
 import { Json } from '@/types/supabase'
 import axios from 'axios'
+import { validateStyleDuration } from '@/lib/validation'
 
 interface BatchItem {
   url: string
@@ -16,7 +17,7 @@ interface BatchItem {
 interface StartBatchRequest {
   items: BatchItem[]
   default_style?: string
-  default_duration?: '10s' | '30s'
+  default_duration?: '10s' | '15s'
 }
 
 interface StartBatchResponse {
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body: StartBatchRequest = await request.json()
-    const { items, default_style = 'ugc_auth', default_duration = '30s' } = body
+    const { items, default_style = 'ugc_auth', default_duration = '15s' } = body
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'Items array is required and cannot be empty' }, { status: 400 })
@@ -50,6 +51,15 @@ export async function POST(request: NextRequest) {
 
     if (items.length > 50) {
       return NextResponse.json({ error: 'Maximum 50 items per batch' }, { status: 400 })
+    }
+
+    // 2.1. Validate default_style and default_duration combination
+    const validation = validateStyleDuration(default_style, default_duration)
+    if (!validation.valid) {
+      return NextResponse.json(
+        { error: validation.error || 'Invalid default style or duration combination' },
+        { status: 400 }
+      )
     }
 
     // 3. Validate all items have valid URLs
@@ -80,7 +90,7 @@ export async function POST(request: NextRequest) {
       const style = item.style || default_style
       const format = getFormatKey(style, default_duration)
       const selectedModel = selectModelForFormat(format)
-      const costUsd = calculateVideoCost(selectedModel, default_duration === '10s' ? 10 : 30)
+      const costUsd = calculateVideoCost(selectedModel, default_duration === '10s' ? 10 : 15)
       const costCredits = usdToCredits(costUsd)
 
       totalCreditsNeeded += costCredits
@@ -255,6 +265,21 @@ async function processBatchAsync(batchId: string, userId: string) {
 
     const adminClient = createAdminClient()
 
+    // Get batch record to extract default_duration
+    const { data: batchRecord, error: batchError } = await adminClient
+      .from('video_batches')
+      .select('metadata')
+      .eq('id', batchId)
+      .single()
+
+    if (batchError || !batchRecord) {
+      console.error('Error fetching batch record:', batchError)
+      return
+    }
+
+    const batchMetadata = batchRecord.metadata as any
+    const default_duration = (batchMetadata?.default_duration || '15s') as '10s' | '15s'
+
     // Get all pending items for this batch
     const { data: items, error: itemsError } = await adminClient
       .from('batch_video_items')
@@ -282,7 +307,7 @@ async function processBatchAsync(batchId: string, userId: string) {
             await new Promise(resolve => setTimeout(resolve, index * 500))
           }
 
-          await processBatchItem(item, userId)
+          await processBatchItem(item, userId, default_duration)
         } catch (error) {
           console.error(`Error processing item ${item.id}:`, error)
         }
@@ -317,7 +342,7 @@ async function processBatchAsync(batchId: string, userId: string) {
 }
 
 // Process a single batch item
-async function processBatchItem(item: any, userId: string) {
+async function processBatchItem(item: any, userId: string, default_duration: '10s' | '15s' = '15s') {
   const adminClient = createAdminClient()
 
   try {
@@ -402,7 +427,7 @@ async function processBatchItem(item: any, userId: string) {
           productTitle: productData.title,
           productDescription: productData.description,
           style: item.style || 'ugc_auth',
-          duration: '30s', // Could be made configurable per item
+          duration: default_duration,
         }),
       })
 
@@ -415,6 +440,9 @@ async function processBatchItem(item: any, userId: string) {
       throw new Error(`Script generation failed: ${scriptError instanceof Error ? scriptError.message : 'Unknown error'}`)
     }
 
+    // Calculate target duration from default_duration
+    const targetDuration = default_duration === '10s' ? 10 : 15
+
     // Create video record
     const inputMetadata = {
       title: productData.title,
@@ -424,7 +452,7 @@ async function processBatchItem(item: any, userId: string) {
       custom_title: item.custom_title,
       model: metadata.model,
       format: metadata.format,
-      duration: 30, // Default duration
+      duration: targetDuration,
       costUsd: 0, // Calculated from credits
       costCredits,
       bulk_generated: true,
@@ -464,8 +492,8 @@ async function processBatchItem(item: any, userId: string) {
         model: metadata.model,
         modelName: selectedModel.name,
         format: metadata.format,
-        duration: 30,
-        costUsd: calculateVideoCost(selectedModel, 30),
+        duration: targetDuration,
+        costUsd: calculateVideoCost(selectedModel, targetDuration),
         costCredits,
         source_url: item.url,
         bulk_generated: true,
@@ -490,7 +518,7 @@ async function processBatchItem(item: any, userId: string) {
         script: scriptContent.script || scriptContent,
         imageUrls: productData.images,
         aspectRatio: 'portrait',
-        duration: 30,
+        duration: targetDuration,
         model: selectedModel.kieApiModelName,
       })
     } catch (kieError) {

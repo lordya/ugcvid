@@ -4,7 +4,7 @@
  */
 
 export const SUPPORTED_STYLES = ['ugc_auth', 'green_screen', 'pas_framework', 'asmr_visual', 'before_after'] as const
-export const SUPPORTED_DURATIONS = ['10s', '30s'] as const
+export const SUPPORTED_DURATIONS = ['10s', '15s'] as const
 
 export type SupportedStyle = typeof SUPPORTED_STYLES[number]
 export type SupportedDuration = typeof SUPPORTED_DURATIONS[number]
@@ -17,7 +17,7 @@ export interface ValidationResult {
 /**
  * Validates style and duration combination
  * @param style - Video style identifier
- * @param duration - Video duration ('10s' or '30s')
+ * @param duration - Video duration ('10s' or '15s')
  * @returns Validation result with error message if invalid
  */
 export function validateStyleDuration(style: string, duration: string): ValidationResult {

@@ -106,10 +106,10 @@ export async function POST(
       try {
         // Determine format and model (using defaults from batch item or fallback)
         const style = item.style || 'ugc_auth'
-        const duration = '30s' // Default duration
+        const duration = '15s' // Default duration
         const format = getFormatKey(style, duration)
         const selectedModel = selectModelForFormat(format)
-        const targetDuration = 30
+        const targetDuration = 15
 
         // Create video record
         const { data: videoRecord, error: videoError } = await adminClient

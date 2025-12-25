@@ -571,6 +571,6 @@ export interface VideoGenerationRequest {
   description?: string
   ugcContent?: UGCContent // New structured format
   style?: string // Video style format (e.g., 'ugc', 'green_screen', 'pas_framework', 'asmr_visual', 'before_after')
-  duration?: string // Video duration ('10s' or '30s')
+  duration?: string // Video duration ('10s' or '15s')
   structuredScript?: StructuredScriptContent
 }
