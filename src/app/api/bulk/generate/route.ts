@@ -172,6 +172,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 10. Create GENERATION transaction
+    // Note: Video record is created first to ensure we have a video_id for transaction metadata
     const { error: transactionError } = await adminClient.from('transactions').insert({
       user_id: user.id,
       amount: -costCredits,
@@ -179,6 +180,7 @@ export async function POST(request: NextRequest) {
       provider: 'SYSTEM' as const,
       payment_id: null,
       metadata: {
+        video_id: videoRecord.id, // Link transaction to video for traceability
         model: selectedModel.id,
         modelName: selectedModel.name,
         format,
@@ -192,7 +194,7 @@ export async function POST(request: NextRequest) {
 
     if (transactionError) {
       console.error('Error creating transaction:', transactionError)
-      // Delete the video record if transaction fails
+      // Delete the video record if transaction fails to prevent orphaned records
       await adminClient.from('videos').delete().eq('id', videoRecord.id)
       return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 })
     }
@@ -210,7 +212,7 @@ export async function POST(request: NextRequest) {
     } catch (kieError) {
       console.error('Kie.ai API error:', kieError)
 
-      // Create refund transaction
+      // Create refund transaction - critical to restore credits
       const { error: refundError } = await adminClient.from('transactions').insert({
         user_id: user.id,
         amount: costCredits,
@@ -218,16 +220,26 @@ export async function POST(request: NextRequest) {
         provider: 'SYSTEM' as const,
         payment_id: null,
         metadata: {
+          video_id: videoRecord.id, // Link refund to video for traceability
           reason: 'Kie.ai API failure during bulk generation',
           originalModel: selectedModel.id,
           originalCostUsd: costUsd,
           originalCostCredits: costCredits,
           source_url: url,
+          error_message: kieError instanceof Error ? kieError.message : 'Unknown error'
         } as Json
       })
 
       if (refundError) {
-        console.error('Error creating refund transaction:', refundError)
+        // CRITICAL: Credit was deducted but refund failed
+        console.error('CRITICAL: Error creating refund transaction after Kie.ai failure:', {
+          refundError,
+          videoId: videoRecord.id,
+          userId: user.id,
+          costCredits,
+          sourceUrl: url,
+          originalError: kieError instanceof Error ? kieError.message : 'Unknown error'
+        })
       }
 
       // Update video record to FAILED

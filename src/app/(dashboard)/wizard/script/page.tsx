@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Sparkles, ChevronDown, ChevronUp, RotateCcw, Eye, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { validateStyleDuration } from '@/lib/validation'
 
 const PROCESSING_MESSAGES = [
   'Analyzing product...',
@@ -234,6 +235,16 @@ export default function WizardScriptPage() {
 
   const handleGenerateVideo = async () => {
     if ((!script.trim() && !structuredScript) || selectedImages.length === 0) {
+      return
+    }
+
+    // Validate style and duration combination
+    const validation = validateStyleDuration(style, duration)
+    if (!validation.valid) {
+      setError(validation.error || 'Invalid style or duration combination')
+      toast.error('Validation Error', {
+        description: validation.error || 'Please select a valid style and duration',
+      })
       return
     }
 

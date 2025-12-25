@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createVideoTask } from '@/lib/kie'
 import { getFormatKey, selectModelForFormat, calculateVideoCost, usdToCredits } from '@/lib/kie-models'
 import { VideoGenerationRequest, UGCContent, Json } from '@/types/supabase'
+import { kieCircuitBreaker } from '@/lib/circuit-breaker'
 
 export async function POST(request: NextRequest) {
   try {
@@ -114,6 +115,7 @@ export async function POST(request: NextRequest) {
 
     // 7. Create GENERATION transaction with actual cost
     // This will automatically deduct costCredits via database trigger
+    // Note: Video record is created first to ensure we have a video_id for transaction metadata
     const { error: transactionError } = await adminClient.from('transactions').insert({
       user_id: user.id,
       amount: -costCredits, // Dynamic cost instead of fixed -1
@@ -121,6 +123,7 @@ export async function POST(request: NextRequest) {
       provider: 'SYSTEM' as const, // System-generated transaction for video generation
       payment_id: null,
       metadata: { 
+        video_id: videoRecord.id, // Link transaction to video for traceability
         model: selectedModel.id, 
         modelName: selectedModel.name,
         format,
@@ -133,8 +136,28 @@ export async function POST(request: NextRequest) {
     if (transactionError) {
       console.error('Error creating transaction:', transactionError)
       // If transaction fails, we should delete the video record we just created
+      // This ensures no orphaned video records exist without corresponding transactions
       await adminClient.from('videos').delete().eq('id', videoRecord.id)
       return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 })
+    }
+
+    // 7.5. Log generation start in analytics
+    // Note: generation_analytics table is new and may not be in TypeScript types yet
+    const { error: analyticsError } = await (adminClient as any).from('generation_analytics').insert({
+      video_id: videoRecord.id,
+      user_id: user.id,
+      format,
+      model: selectedModel.id,
+      duration: targetDuration,
+      status: 'PROCESSING',
+      cost_credits: costCredits,
+      cost_usd: costUsd,
+      circuit_breaker_state: kieCircuitBreaker.getState(),
+    })
+
+    if (analyticsError) {
+      // Log error but don't fail the request - analytics is non-critical
+      console.error('Error logging generation analytics:', analyticsError)
     }
 
     // 8. Call Kie.ai API to create the video task with selected model
@@ -151,6 +174,7 @@ export async function POST(request: NextRequest) {
       console.error('Kie.ai API error:', kieError)
 
       // 9. If Kie.ai fails, create a REFUND transaction to restore the actual cost
+      // This is critical - credits were already deducted, so refund must succeed
       const { error: refundError } = await adminClient.from('transactions').insert({
         user_id: user.id,
         amount: costCredits, // Refund actual cost instead of fixed 1
@@ -158,17 +182,27 @@ export async function POST(request: NextRequest) {
         provider: 'SYSTEM' as const,
         payment_id: null,
         metadata: { 
+          video_id: videoRecord.id, // Link refund to video for traceability
           reason: 'Kie.ai API failure', 
           originalModel: selectedModel.id,
           originalCostUsd: costUsd,
-          originalCostCredits: costCredits
+          originalCostCredits: costCredits,
+          error_message: kieError instanceof Error ? kieError.message : 'Unknown error'
         } as Json
       })
 
       if (refundError) {
-        console.error('Error creating refund transaction:', refundError)
-        // Log this as a critical error - credit was deducted but refund failed
-        // In production, you might want to alert admins about this
+        // CRITICAL: Credit was deducted but refund failed - this is a data integrity issue
+        console.error('CRITICAL: Error creating refund transaction after Kie.ai failure:', {
+          refundError,
+          videoId: videoRecord.id,
+          userId: user.id,
+          costCredits,
+          originalError: kieError instanceof Error ? kieError.message : 'Unknown error'
+        })
+        // In production, this should trigger an alert to admins
+        // The video record will be marked as FAILED, but credits may be lost
+        // Admin intervention required to manually refund credits
       }
 
       // Update video record to FAILED status

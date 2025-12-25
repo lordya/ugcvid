@@ -452,6 +452,7 @@ async function processBatchItem(item: any, userId: string) {
     const selectedModel = selectModelForFormat(metadata.format)
 
     // Create transaction for this video
+    // Note: Video record is created first to ensure we have a video_id for transaction metadata
     const { error: transactionError } = await adminClient.from('transactions').insert({
       user_id: userId,
       amount: -costCredits,
@@ -459,6 +460,7 @@ async function processBatchItem(item: any, userId: string) {
       provider: 'SYSTEM' as const,
       payment_id: null,
       metadata: {
+        video_id: videoRecord.id, // Link transaction to video for traceability
         model: metadata.model,
         modelName: selectedModel.name,
         format: metadata.format,
@@ -473,7 +475,7 @@ async function processBatchItem(item: any, userId: string) {
     })
 
     if (transactionError) {
-      // Clean up video record
+      // Clean up video record if transaction fails to prevent orphaned records
       await adminClient.from('videos').delete().eq('id', videoRecord.id)
       throw new Error('Failed to create transaction')
     }
@@ -492,19 +494,34 @@ async function processBatchItem(item: any, userId: string) {
         model: selectedModel.kieApiModelName,
       })
     } catch (kieError) {
-      // Refund transaction
-      await adminClient.from('transactions').insert({
+      // Refund transaction - critical to restore credits
+      const { error: refundError } = await adminClient.from('transactions').insert({
         user_id: userId,
         amount: costCredits,
         type: 'REFUND' as const,
         provider: 'SYSTEM' as const,
         payment_id: null,
         metadata: {
+          video_id: videoRecord.id, // Link refund to video for traceability
           reason: 'Kie.ai API failure',
           batch_id: item.batch_id,
           batch_item_id: item.id,
+          error_message: kieError instanceof Error ? kieError.message : 'Unknown error'
         } as Json
       })
+
+      if (refundError) {
+        // CRITICAL: Credit was deducted but refund failed
+        console.error('CRITICAL: Error creating refund transaction after Kie.ai failure:', {
+          refundError,
+          videoId: videoRecord.id,
+          userId,
+          costCredits,
+          batchId: item.batch_id,
+          batchItemId: item.id,
+          originalError: kieError instanceof Error ? kieError.message : 'Unknown error'
+        })
+      }
 
       // Delete video record
       await adminClient.from('videos').delete().eq('id', videoRecord.id)

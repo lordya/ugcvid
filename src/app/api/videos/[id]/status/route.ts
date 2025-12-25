@@ -68,16 +68,45 @@ export async function GET(
         }
 
         // Create REFUND transaction to restore the credit
+        // Get actual cost from video metadata
+        const videoCostCredits = (video.input_metadata as any)?.costCredits || 1
         const { error: refundError } = await adminClient.from('transactions').insert({
           user_id: user.id,
-          amount: 1, // Positive amount to refund
+          amount: videoCostCredits, // Refund actual cost
           type: 'REFUND',
           provider: 'SYSTEM',
           payment_id: null,
+          metadata: {
+            video_id: videoId,
+            reason: 'Video generation timed out after 60 minutes',
+            original_cost_credits: videoCostCredits,
+          } as any,
         })
 
         if (refundError) {
           console.error('CRITICAL: Error creating refund transaction for timed-out video:', refundError)
+        }
+
+        // Update analytics record for timeout
+        const completedAt = new Date().toISOString()
+        const videoCreatedAt = video.created_at
+        const generationTimeSeconds = videoCreatedAt 
+          ? Math.floor((new Date(completedAt).getTime() - new Date(videoCreatedAt).getTime()) / 1000)
+          : null
+
+        // Note: generation_analytics table is new and may not be in TypeScript types yet
+        const { error: analyticsError } = await (adminClient as any)
+          .from('generation_analytics')
+          .update({
+            status: 'FAILED',
+            completed_at: completedAt,
+            error_reason: 'Video generation timed out after 60 minutes',
+            generation_time_seconds: generationTimeSeconds,
+          })
+          .eq('video_id', videoId)
+
+        if (analyticsError) {
+          console.error('Error updating generation analytics for timeout:', analyticsError)
         }
 
         return NextResponse.json({
@@ -88,6 +117,10 @@ export async function GET(
       }
     }
 
+    // Extract duration and creation time from video metadata
+    const videoDuration = (video.input_metadata as any)?.duration || undefined
+    const createdAt = video.created_at || undefined
+
     // 6. If status is already COMPLETED or FAILED, return immediately (no external call)
     if (video.status === 'COMPLETED' || video.status === 'FAILED') {
       return NextResponse.json({
@@ -95,6 +128,8 @@ export async function GET(
         status: video.status,
         videoUrl: video.video_url || undefined,
         errorReason: video.error_reason || undefined,
+        duration: videoDuration,
+        createdAt,
       })
     }
 
@@ -165,11 +200,34 @@ export async function GET(
             // Still return the status even if update fails
           }
 
+          // Update analytics record with completion
+          const completedAt = new Date().toISOString()
+          const generationTimeSeconds = createdAt 
+            ? Math.floor((new Date(completedAt).getTime() - new Date(createdAt).getTime()) / 1000)
+            : null
+
+          // Note: generation_analytics table is new and may not be in TypeScript types yet
+          const { error: analyticsError } = await (adminClient as any)
+            .from('generation_analytics')
+            .update({
+              status: 'COMPLETED',
+              completed_at: completedAt,
+              generation_time_seconds: generationTimeSeconds,
+            })
+            .eq('video_id', videoId)
+
+          if (analyticsError) {
+            // Log error but don't fail the request - analytics is non-critical
+            console.error('Error updating generation analytics:', analyticsError)
+          }
+
           // Return signed URL from storage if available, otherwise fallback to Kie.ai URL
           return NextResponse.json({
             id: video.id,
             status: 'COMPLETED',
             videoUrl: signedUrl || kieStatus.videoUrl,
+            duration: videoDuration,
+            createdAt,
           })
         } else if (kieStatus.status === 'FAILED') {
           // Update video record with failed status and error
@@ -189,12 +247,20 @@ export async function GET(
           }
 
           // CRITICAL: Create REFUND transaction to restore the credit
+          // Get actual cost from video metadata
+          const videoCostCredits = (video.input_metadata as any)?.costCredits || 1
           const { error: refundError } = await adminClient.from('transactions').insert({
             user_id: user.id,
-            amount: 1, // Positive amount to refund
+            amount: videoCostCredits, // Refund actual cost
             type: 'REFUND',
             provider: 'SYSTEM',
             payment_id: null,
+            metadata: {
+              video_id: videoId,
+              reason: 'Video generation failed',
+              original_cost_credits: videoCostCredits,
+              error_message: errorReason,
+            } as any,
           })
 
           if (refundError) {
@@ -203,10 +269,34 @@ export async function GET(
             // In production, you might want to alert admins about this
           }
 
+          // Update analytics record with failure
+          const completedAt = new Date().toISOString()
+          const generationTimeSeconds = createdAt 
+            ? Math.floor((new Date(completedAt).getTime() - new Date(createdAt).getTime()) / 1000)
+            : null
+
+          // Note: generation_analytics table is new and may not be in TypeScript types yet
+          const { error: analyticsError } = await (adminClient as any)
+            .from('generation_analytics')
+            .update({
+              status: 'FAILED',
+              completed_at: completedAt,
+              error_reason: errorReason,
+              generation_time_seconds: generationTimeSeconds,
+            })
+            .eq('video_id', videoId)
+
+          if (analyticsError) {
+            // Log error but don't fail the request - analytics is non-critical
+            console.error('Error updating generation analytics:', analyticsError)
+          }
+
           return NextResponse.json({
             id: video.id,
             status: 'FAILED',
             errorReason,
+            duration: videoDuration,
+            createdAt,
           })
         } else {
           // Still processing (PROCESSING status)
@@ -214,6 +304,8 @@ export async function GET(
             id: video.id,
             status: 'PROCESSING',
             progress: kieStatus.progress,
+            duration: videoDuration,
+            createdAt,
           })
         }
       } catch (kieError) {
@@ -225,6 +317,8 @@ export async function GET(
           id: video.id,
           status: video.status,
           errorReason: kieError instanceof Error ? kieError.message : 'Failed to check status',
+          duration: videoDuration,
+          createdAt,
         })
       }
     }
@@ -233,6 +327,8 @@ export async function GET(
     return NextResponse.json({
       id: video.id,
       status: video.status,
+      duration: videoDuration,
+      createdAt,
     })
   } catch (error) {
     console.error('Video status API error:', error)

@@ -4,8 +4,77 @@
  */
 
 import { generateVideoGenerationPayload, VideoGenerationParams } from './prompts'
+import { kieCircuitBreaker } from './circuit-breaker'
 
 const KIE_API_BASE_URL = 'https://api.kie.ai/api/v1'
+
+/**
+ * Retry options for exponential backoff
+ */
+export interface RetryOptions {
+  maxAttempts?: number
+  initialDelayMs?: number
+  maxDelayMs?: number
+  retryableErrors?: string[]
+}
+
+/**
+ * Retries a function with exponential backoff
+ * Only retries on transient errors (5xx, network failures)
+ * Does not retry on client errors (4xx) like authentication or validation
+ * 
+ * @param fn - Function to retry
+ * @param options - Retry configuration options
+ * @returns Result of the function call
+ */
+export async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  options: RetryOptions = {}
+): Promise<T> {
+  const { 
+    maxAttempts = 3, 
+    initialDelayMs = 1000, 
+    maxDelayMs = 10000, 
+    retryableErrors = [] 
+  } = options
+  
+  let lastError: Error
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+      
+      // Don't retry on non-retryable errors (auth, validation)
+      const errorMessage = lastError.message.toLowerCase()
+      if (
+        errorMessage.includes('401') || 
+        errorMessage.includes('unauthorized') ||
+        errorMessage.includes('400') ||
+        errorMessage.includes('bad request') ||
+        errorMessage.includes('validation')
+      ) {
+        console.log(`[Kie.ai Retry] Non-retryable error on attempt ${attempt + 1}: ${lastError.message}`)
+        throw lastError
+      }
+      
+      // Check if this is the last attempt
+      if (attempt === maxAttempts - 1) {
+        console.error(`[Kie.ai Retry] All ${maxAttempts} attempts failed. Last error: ${lastError.message}`)
+        throw lastError
+      }
+      
+      // Calculate exponential backoff delay: 1s, 2s, 4s, etc.
+      const delay = Math.min(initialDelayMs * Math.pow(2, attempt), maxDelayMs)
+      console.log(`[Kie.ai Retry] Attempt ${attempt + 1}/${maxAttempts} failed. Retrying in ${delay}ms... Error: ${lastError.message}`)
+      
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
+  
+  throw lastError!
+}
 
 
 export interface CreateVideoTaskParams {
@@ -60,20 +129,22 @@ export async function createVideoTask({
     throw new Error('At least one image URL is required')
   }
 
-  try {
-    // Generate the request payload using the structured prompts module
-    const requestBody = generateVideoGenerationPayload({
-      prompt: script,
-      imageUrls,
-      aspectRatio,
-      quality,
-      duration, // Pass duration to payload generator
-      model, // Pass model to payload generator
-    })
+  // Generate the request payload using the structured prompts module
+  const requestBody = generateVideoGenerationPayload({
+    prompt: script,
+    imageUrls,
+    aspectRatio,
+    quality,
+    duration, // Pass duration to payload generator
+    model, // Pass model to payload generator
+  })
 
-    console.log('kie.ts:47 - createVideoTask: About to call Kie.ai API', {requestBody,imageUrlCount:imageUrls.length,aspectRatio});
-    // #endregion
+  console.log('kie.ts:createVideoTask: About to call Kie.ai API', {requestBody,imageUrlCount:imageUrls.length,aspectRatio});
 
+  // Wrap the API call with circuit breaker and retry logic
+  // Circuit breaker prevents cascading failures, retry handles transient errors
+  return kieCircuitBreaker.execute(async () => {
+    return retryWithBackoff(async () => {
     const response = await fetch(`${KIE_API_BASE_URL}/jobs/createTask`, {
       method: 'POST',
       headers: {
@@ -83,17 +154,13 @@ export async function createVideoTask({
       body: JSON.stringify(requestBody),
     })
 
-    // #region agent log
-    console.log('kie.ts:81 - createVideoTask: Received response from Kie.ai', {status:response.status,statusText:response.statusText,ok:response.ok});
-    // #endregion
+    console.log('kie.ts:createVideoTask: Received response from Kie.ai', {status:response.status,statusText:response.statusText,ok:response.ok});
 
     // Read response text once (can only be read once)
     const responseText = await response.text();
 
     if (!response.ok) {
-      // #region agent log
-      console.log('kie.ts:88 - createVideoTask: Response not OK', {responseText,status:response.status,statusText:response.statusText});
-      // #endregion
+      console.log('kie.ts:createVideoTask: Response not OK', {responseText,status:response.status,statusText:response.statusText});
       let errorData: any = {};
       try {
         errorData = JSON.parse(responseText);
@@ -105,31 +172,23 @@ export async function createVideoTask({
       throw new Error(`Kie.ai API error: ${errorMessage}`)
     }
 
-    // #region agent log
-    console.log('kie.ts:103 - createVideoTask: Raw response text before parsing', {responseText,responseTextLength:responseText.length});
-    // #endregion
+    console.log('kie.ts:createVideoTask: Raw response text before parsing', {responseText,responseTextLength:responseText.length});
 
     const parsedResponse: KieApiWrappedResponse<CreateVideoTaskResponse> = JSON.parse(responseText);
 
-    // #region agent log
-    console.log('kie.ts:107 - createVideoTask: Parsed JSON data structure', {parsedData:parsedResponse,dataKeys:Object.keys(parsedResponse),hasCode:'code' in parsedResponse,hasData:'data' in parsedResponse,codeValue:parsedResponse.code,dataValue:parsedResponse.data});
-    // #endregion
+    console.log('kie.ts:createVideoTask: Parsed JSON data structure', {parsedData:parsedResponse,dataKeys:Object.keys(parsedResponse),hasCode:'code' in parsedResponse,hasData:'data' in parsedResponse,codeValue:parsedResponse.code,dataValue:parsedResponse.data});
 
     // Check if the response indicates an error at the API level (matching getTaskStatus pattern)
     if (parsedResponse.code !== undefined && parsedResponse.code !== 200) {
       const errorMsg = parsedResponse.msg || parsedResponse.message || 'Failed to create video task'
-      // #region agent log
-      console.log('kie.ts:113 - createVideoTask: API returned error code', {code:parsedResponse.code,msg:errorMsg,fullResponse:parsedResponse});
-      // #endregion
+      console.log('kie.ts:createVideoTask: API returned error code', {code:parsedResponse.code,msg:errorMsg,fullResponse:parsedResponse});
       throw new Error(`Kie.ai API error: ${errorMsg}`)
     }
 
     // Extract actual data from wrapped response (if wrapped) or use response directly (for backward compatibility)
     const responseData: CreateVideoTaskResponse | any = parsedResponse.data || (parsedResponse as any);
 
-    // #region agent log
-    console.log('kie.ts:120 - createVideoTask: Extracted response data', {responseData,responseDataKeys:Object.keys(responseData),hasTaskId:'task_id' in responseData,hasTaskIdCamel:'taskId' in responseData,taskIdValue:responseData.task_id,taskIdCamelValue:responseData.taskId});
-    // #endregion
+    console.log('kie.ts:createVideoTask: Extracted response data', {responseData,responseDataKeys:Object.keys(responseData),hasTaskId:'task_id' in responseData,hasTaskIdCamel:'taskId' in responseData,taskIdValue:responseData.task_id,taskIdCamelValue:responseData.taskId});
 
     // Try to extract task_id from multiple possible locations (with fallbacks)
     const taskId: string | undefined = 
@@ -139,26 +198,21 @@ export async function createVideoTask({
       (parsedResponse as any).taskId;    // Fallback: camelCase, direct
 
     if (!taskId) {
-      // #region agent log
-      console.log('kie.ts:130 - createVideoTask: task_id missing, throwing error', {parsedResponse,responseData,allKeys:Object.keys(parsedResponse),responseDataKeys:Object.keys(responseData)});
-      // #endregion
+      console.log('kie.ts:createVideoTask: task_id missing, throwing error', {parsedResponse,responseData,allKeys:Object.keys(parsedResponse),responseDataKeys:Object.keys(responseData)});
       throw new Error(
         `Kie.ai did not return a task_id. Response structure: ${JSON.stringify(parsedResponse, null, 2)}`
       )
     }
 
-    // #region agent log
-    console.log('kie.ts:137 - createVideoTask: Successfully extracted task_id', {taskId});
-    // #endregion
+    console.log('kie.ts:createVideoTask: Successfully extracted task_id', {taskId});
 
     return taskId
-  } catch (error) {
-    // Re-throw with more context if it's not already an Error
-    if (error instanceof Error) {
-      throw error
-    }
-    throw new Error(`Failed to create video task: ${String(error)}`)
-  }
+    }, {
+      maxAttempts: 3,
+      initialDelayMs: 1000,
+      maxDelayMs: 10000
+    })
+  })
 }
 
 export interface TaskStatusResponse {

@@ -155,16 +155,29 @@ export function selectModelForFormat(format: string): KieModel {
   const mapping = FORMAT_MODEL_MAPPING[format]
   
   if (!mapping) {
-    // Default fallback to Sora 2
-    console.warn(`Format '${format}' not found in mapping, using default Sora 2`)
+    // Structured logging for monitoring format fallbacks
+    console.warn('[Format Fallback]', {
+      format,
+      reason: 'format_not_in_mapping',
+      fallback: 'sora2',
+      timestamp: new Date().toISOString(),
+      availableFormats: Object.keys(FORMAT_MODEL_MAPPING)
+    })
     return KIE_MODELS.sora2
   }
   
   const model = KIE_MODELS[mapping.primary]
   
   if (!model) {
-    // Fallback to backup model
-    console.warn(`Primary model '${mapping.primary}' not found, using backup '${mapping.backup}'`)
+    // Structured logging for monitoring model fallbacks
+    console.warn('[Model Fallback]', {
+      format,
+      primary: mapping.primary,
+      backup: mapping.backup,
+      reason: 'primary_model_not_found',
+      timestamp: new Date().toISOString(),
+      availableModels: Object.keys(KIE_MODELS)
+    })
     const backupModel = KIE_MODELS[mapping.backup]
     return backupModel || KIE_MODELS.sora2
   }
