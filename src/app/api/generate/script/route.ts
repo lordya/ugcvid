@@ -74,7 +74,7 @@ function buildModelParams(
 export async function POST(request: NextRequest) {
   try {
     const body: ScriptGenerationRequest = await request.json()
-    const { title, description, style, duration } = body
+    const { title, description, style, duration, language } = body
 
     if (!title || !description || !style || !duration) {
       return NextResponse.json(
@@ -82,6 +82,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // Use provided language or default to English
+    const targetLanguage = language || 'en'
 
     // Validate style and duration combination
     const validation = validateStyleDuration(style, duration)
@@ -127,11 +130,13 @@ export async function POST(request: NextRequest) {
     const systemPromptTemplate = getSystemPrompt(promptKey)
 
     // Replace placeholders in the system prompt and inject successful examples
+    // Pass language parameter to include language instructions in the prompt
     const systemPrompt = replacePromptPlaceholdersWithExamples(
       systemPromptTemplate,
       title,
       description,
-      formattedExamples
+      formattedExamples,
+      targetLanguage
     )
 
     // Generate user prompt

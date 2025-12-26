@@ -551,6 +551,7 @@ export interface ScriptGenerationRequest {
   description: string
   style: string
   duration: string
+  language?: string // Optional language code (e.g., 'en', 'es', 'fr'). Defaults to 'en' if not provided.
 }
 
 export interface ScriptGenerationResponse {

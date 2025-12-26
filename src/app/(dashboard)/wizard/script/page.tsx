@@ -56,6 +56,7 @@ export default function WizardScriptPage() {
     reset,
     style,
     duration,
+    language,
   } = useWizardStore()
 
   const [loading, setLoading] = useState(false)
@@ -115,6 +116,9 @@ export default function WizardScriptPage() {
           body: JSON.stringify({
             title: productTitle,
             description: productDescription,
+            style,
+            duration,
+            language: language || 'en',
           }),
         })
 
@@ -157,7 +161,7 @@ export default function WizardScriptPage() {
     }
 
     generateScript()
-  }, [script, productTitle, productDescription, setScript, router, style, duration, setEditedVoiceover, setStructuredScript, setUgcContent])
+  }, [script, productTitle, productDescription, setScript, router, style, duration, language, setEditedVoiceover, setStructuredScript, setUgcContent])
 
   const handleRegenerateScript = async () => {
     if (!productTitle || !productDescription) {
@@ -189,6 +193,7 @@ export default function WizardScriptPage() {
           description: productDescription,
           style,
           duration,
+          language: language || 'en',
         }),
       })
 

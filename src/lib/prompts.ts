@@ -5,6 +5,8 @@
  * These prompts are optimized for GPT-4o and designed to output structured JSON for the frontend to render.
  */
 
+import { getLanguageName } from './languages'
+
 export interface ScriptGenerationParams {
   productName: string
   productDescription: string
@@ -525,17 +527,46 @@ export function replacePromptPlaceholders(
  * @param productName - Product name to replace [PRODUCT_NAME]
  * @param productDescription - Product description to replace [PRODUCT_DESCRIPTION]
  * @param successExamples - Formatted successful examples string (optional)
+ * @param language - Language code (e.g., 'en', 'es', 'fr'). Defaults to 'en' if not provided.
  * @returns Prompt with placeholders replaced and examples injected
  */
 export function replacePromptPlaceholdersWithExamples(
   prompt: string,
   productName: string,
   productDescription: string,
-  successExamples?: string
+  successExamples?: string,
+  language?: string
 ): string {
   let enhancedPrompt = prompt
     .replace(/\[PRODUCT_NAME\]/g, escapeRegexReplacement(productName))
     .replace(/\[PRODUCT_DESCRIPTION\]/g, escapeRegexReplacement(productDescription))
+
+  // Add language instruction if language is provided and not English
+  if (language && language !== 'en') {
+    const languageName = getLanguageName(language)
+    
+    // Create language instruction - make it very prominent
+    const languageInstruction = `\n\n⚠️ CRITICAL LANGUAGE REQUIREMENT ⚠️\n\nGenerate ALL content EXCLUSIVELY in ${languageName}. This includes:\n- All voiceover text and dialogue\n- All text overlays and captions\n- All hashtags\n- All descriptions, instructions, and metadata\n- All tone instructions and style descriptions\n\nEverything must be written in ${languageName}, NOT English. Use natural, conversational ${languageName} appropriate for the target audience. Do NOT mix languages - use ${languageName} throughout.\n\n`
+
+    // Insert language instruction right after the role description (after first paragraph)
+    const firstParagraphEnd = enhancedPrompt.indexOf('\n\n')
+    if (firstParagraphEnd !== -1) {
+      enhancedPrompt = enhancedPrompt.slice(0, firstParagraphEnd + 2) +
+                       languageInstruction +
+                       enhancedPrompt.slice(firstParagraphEnd + 2)
+    } else {
+      // If no paragraph break found, insert at the beginning after first line
+      const firstLineEnd = enhancedPrompt.indexOf('\n')
+      if (firstLineEnd !== -1) {
+        enhancedPrompt = enhancedPrompt.slice(0, firstLineEnd + 1) +
+                         languageInstruction +
+                         enhancedPrompt.slice(firstLineEnd + 1)
+      } else {
+        // Fallback: prepend to the entire prompt
+        enhancedPrompt = languageInstruction + enhancedPrompt
+      }
+    }
+  }
 
   // Inject successful examples before the CRITICAL RULES section if provided
   if (successExamples) {

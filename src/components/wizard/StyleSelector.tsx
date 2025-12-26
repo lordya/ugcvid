@@ -2,7 +2,15 @@
 
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useWizardStore } from '@/store/useWizardStore'
+import { SUPPORTED_LANGUAGES, getLanguageName } from '@/lib/languages'
 import { UserCheck, MonitorPlay, AlertTriangle, Sparkles, FlipHorizontal } from 'lucide-react'
 
 interface StyleOption {
@@ -52,7 +60,7 @@ const STYLE_OPTIONS: StyleOption[] = [
 ]
 
 export default function StyleSelector() {
-  const { style, duration, setStyle, setDuration } = useWizardStore()
+  const { style, duration, language, setStyle, setDuration, setLanguage } = useWizardStore()
 
   const handleDurationChange = (value: string) => {
     setDuration(value as '10s' | '15s')
@@ -60,6 +68,10 @@ export default function StyleSelector() {
 
   const handleStyleSelect = (styleId: string) => {
     setStyle(styleId)
+  }
+
+  const handleLanguageChange = (value: string) => {
+    setLanguage(value)
   }
 
   return (
@@ -89,6 +101,27 @@ export default function StyleSelector() {
             </TabsTrigger>
           </TabsList>
         </Tabs>
+      </div>
+
+      {/* Language Selector */}
+      <div className="flex justify-center">
+        <div className="w-full max-w-md space-y-2">
+          <label htmlFor="language-select" className="text-sm font-medium text-center block">
+            Target Language
+          </label>
+          <Select value={language} onValueChange={handleLanguageChange}>
+            <SelectTrigger id="language-select" className="w-full bg-layer-2 border-border">
+              <SelectValue placeholder="Select language" />
+            </SelectTrigger>
+            <SelectContent>
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <SelectItem key={lang.code} value={lang.code}>
+                  {lang.nativeName ? `${lang.name} (${lang.nativeName})` : lang.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Style Grid */}
