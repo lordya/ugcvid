@@ -81,7 +81,7 @@ export default function WizardInputPage() {
     }
   }
 
-  const handleManualSubmit = () => {
+  const handleManualSubmit = async () => {
     setError(null)
 
     if (!manualTitle.trim() || !manualDescription.trim()) {
@@ -89,22 +89,53 @@ export default function WizardInputPage() {
       return
     }
 
-    // Update store with manual input
-    setManualInput({
-      title: manualTitle,
-      description: manualDescription,
-      uploadedImages: uploadedFiles,
-    })
+    if (uploadedFiles.length === 0) {
+      setError('At least one image is required')
+      return
+    }
 
-    // Create metadata from manual input
-    setMetadata({
-      title: manualTitle,
-      description: manualDescription,
-      images: uploadedFiles.map((file) => URL.createObjectURL(file)),
-    })
+    setLoading(true)
 
-    setStep(2)
-    router.push('/wizard/script')
+    try {
+      // Upload images to Supabase storage using FormData
+      const formData = new FormData()
+      uploadedFiles.forEach((file, index) => {
+        formData.append(`file${index}`, file)
+      })
+
+      const uploadResponse = await fetch('/api/upload/images', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload images')
+      }
+
+      const uploadData = await uploadResponse.json()
+      const imageUrls = uploadData.urls
+
+      // Update store with manual input
+      setManualInput({
+        title: manualTitle,
+        description: manualDescription,
+        uploadedImages: uploadedFiles,
+      })
+
+      // Create metadata from manual input with uploaded image URLs
+      setMetadata({
+        title: manualTitle,
+        description: manualDescription,
+        images: imageUrls,
+      })
+
+      setStep(2)
+      router.push('/wizard/script')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to process images')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
