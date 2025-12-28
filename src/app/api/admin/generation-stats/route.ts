@@ -3,6 +3,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { kieCircuitBreaker } from '@/lib/circuit-breaker'
 
+// Force dynamic rendering since this route uses cookies
+export const dynamic = 'force-dynamic'
+
 /**
  * Check if the current user is an admin based on ADMIN_EMAILS env variable
  */
