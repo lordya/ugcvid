@@ -53,48 +53,48 @@ const STRUCTURED_SCRIPT_SCHEMA = {
       description: "Array of voiceover script segments matching visual_cues"
     },
     text_overlay: {
-      type: "array",
+      type: ["array", "null"],
       items: { type: "string" },
       description: "Optional array of text overlay cues with timestamps"
     },
     music_recommendation: {
-      type: "string",
+      type: ["string", "null"],
       description: "Recommended background music style or track"
     },
     hashtags: {
-      type: "string",
+      type: ["string", "null"],
       description: "Recommended hashtags for social media"
     },
     background_content_suggestions: {
-      type: "array",
+      type: ["array", "null"],
       items: { type: "string" },
       description: "Suggestions for background content/elements"
     },
     audio_design: {
-      type: "array",
+      type: ["array", "null"],
       items: { type: "string" },
       description: "Audio design recommendations (sound effects, music transitions, etc.)"
     },
     pacing_and_editing: {
-      type: "array",
+      type: ["array", "null"],
       items: { type: "string" },
       description: "Pacing and editing recommendations"
     },
     lighting_and_composition: {
-      type: "array",
+      type: ["array", "null"],
       items: { type: "string" },
       description: "Lighting and composition suggestions"
     },
     color_grading: {
-      type: "string",
+      type: ["string", "null"],
       description: "Color grading recommendations"
     },
     aspect_ratio: {
-      type: "string",
+      type: ["string", "null"],
       description: "Recommended aspect ratio for the video"
     },
     technical_directives: {
-      type: "object",
+      type: ["object", "null"],
       description: "Technical production directives including lighting, camera work, and consistency requirements",
       properties: {
         lighting: { type: "string" },
@@ -105,17 +105,34 @@ const STRUCTURED_SCRIPT_SCHEMA = {
       additionalProperties: false
     },
     narrative_arc: {
-      type: "array",
+      type: ["array", "null"],
       items: { type: "string" },
       description: "Description of the narrative structure"
     },
     cinematic_techniques: {
-      type: "array",
+      type: ["array", "null"],
       items: { type: "string" },
       description: "Cinematic techniques and production recommendations"
     }
   },
-  required: ["style", "tone_instructions", "visual_cues", "voiceover"],
+  required: [
+    "style",
+    "tone_instructions",
+    "visual_cues",
+    "voiceover",
+    "text_overlay",
+    "music_recommendation",
+    "hashtags",
+    "background_content_suggestions",
+    "audio_design",
+    "pacing_and_editing",
+    "lighting_and_composition",
+    "color_grading",
+    "aspect_ratio",
+    "technical_directives",
+    "narrative_arc",
+    "cinematic_techniques"
+  ],
   additionalProperties: false
 } as const
 
