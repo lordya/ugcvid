@@ -26,6 +26,15 @@ const structuredScriptContentSchema = z.object({
   audio_design: z.array(z.string()).optional(),
   pacing_and_editing: z.array(z.string()).optional(),
   lighting_and_composition: z.array(z.string()).optional(),
+  color_grading: z.string().optional(),
+  aspect_ratio: z.string().optional(),
+  technical_directives: z.object({
+    lighting: z.string().optional(),
+    camera: z.string().optional(),
+    consistency: z.string().optional(),
+  }).optional(),
+  narrative_arc: z.array(z.string()).optional(),
+  cinematic_techniques: z.array(z.string()).optional(),
 }).strict()
 
 const PROCESSING_MESSAGES = [

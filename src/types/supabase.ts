@@ -544,6 +544,13 @@ export interface StructuredScriptContent {
   transition_effects?: string[]
   color_grading?: string
   aspect_ratio?: string
+  technical_directives?: {
+    lighting?: string
+    camera?: string
+    consistency?: string
+  }
+  narrative_arc?: string[]
+  cinematic_techniques?: string[]
 }
 
 export interface ScriptGenerationRequest {

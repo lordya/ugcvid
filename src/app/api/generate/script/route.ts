@@ -84,9 +84,36 @@ const STRUCTURED_SCRIPT_SCHEMA = {
       type: "array",
       items: { type: "string" },
       description: "Lighting and composition suggestions"
+    },
+    color_grading: {
+      type: "string",
+      description: "Color grading recommendations"
+    },
+    aspect_ratio: {
+      type: "string",
+      description: "Recommended aspect ratio for the video"
+    },
+    technical_directives: {
+      type: "object",
+      description: "Technical production directives including lighting, camera work, and consistency requirements",
+      properties: {
+        lighting: { type: "string" },
+        camera: { type: "string" },
+        consistency: { type: "string" }
+      }
+    },
+    narrative_arc: {
+      type: "array",
+      items: { type: "string" },
+      description: "Description of the narrative structure"
+    },
+    cinematic_techniques: {
+      type: "array",
+      items: { type: "string" },
+      description: "Cinematic techniques and production recommendations"
     }
   },
-  required: ["style", "visual_cues", "voiceover"],
+  required: ["style", "tone_instructions", "visual_cues", "voiceover"],
   additionalProperties: false
 } as const
 
