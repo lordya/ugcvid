@@ -100,7 +100,8 @@ const STRUCTURED_SCRIPT_SCHEMA = {
         lighting: { type: "string" },
         camera: { type: "string" },
         consistency: { type: "string" }
-      }
+      },
+      additionalProperties: false
     },
     narrative_arc: {
       type: "array",
