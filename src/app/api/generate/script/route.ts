@@ -101,6 +101,7 @@ const STRUCTURED_SCRIPT_SCHEMA = {
         camera: { type: "string" },
         consistency: { type: "string" }
       },
+      required: ["lighting", "camera", "consistency"],
       additionalProperties: false
     },
     narrative_arc: {
