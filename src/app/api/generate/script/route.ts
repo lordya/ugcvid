@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
-import { ScriptGenerationRequest, ScriptGenerationResponse } from '@/types/supabase'
+import { ScriptGenerationRequest, ScriptGenerationResponse, StructuredScriptContent } from '@/types/supabase'
 import {
   generateScriptGenerationUserPrompt,
   getSystemPrompt,
@@ -9,6 +9,7 @@ import {
 import { getSuccessfulExamplesForPrompt, formatExamplesForPrompt } from '@/lib/success-examples'
 import { createClient } from '@/lib/supabase/server'
 import { validateStyleDuration } from '@/lib/validation'
+import { jsonrepair } from 'jsonrepair'
 
 // Helper to determine if model uses GPT-5 style parameters
 function isGPT5Model(model: string): boolean {
@@ -29,38 +30,79 @@ function cleanJsonResponse(rawContent: string): string {
   return cleaned
 }
 
-// ROBUST JSON PARSING: Attempts to repair common JSON issues from LLMs
-function robustJsonParse(jsonString: string) {
+// JSON Schema for Structured Script Content - guarantees valid parsing with OpenAI Structured Outputs
+const STRUCTURED_SCRIPT_SCHEMA = {
+  type: "object",
+  properties: {
+    style: {
+      type: "string",
+      description: "The video style/format being used"
+    },
+    tone_instructions: {
+      type: "string",
+      description: "Instructions for the overall tone and delivery"
+    },
+    visual_cues: {
+      type: "array",
+      items: { type: "string" },
+      description: "Array of visual cue descriptions with timestamps (e.g., '0-5s: Show product packaging')"
+    },
+    voiceover: {
+      type: "array",
+      items: { type: "string" },
+      description: "Array of voiceover script segments matching visual_cues"
+    },
+    text_overlay: {
+      type: "array",
+      items: { type: "string" },
+      description: "Optional array of text overlay cues with timestamps"
+    },
+    music_recommendation: {
+      type: "string",
+      description: "Recommended background music style or track"
+    },
+    hashtags: {
+      type: "string",
+      description: "Recommended hashtags for social media"
+    },
+    background_content_suggestions: {
+      type: "array",
+      items: { type: "string" },
+      description: "Suggestions for background content/elements"
+    },
+    audio_design: {
+      type: "array",
+      items: { type: "string" },
+      description: "Audio design recommendations (sound effects, music transitions, etc.)"
+    },
+    pacing_and_editing: {
+      type: "array",
+      items: { type: "string" },
+      description: "Pacing and editing recommendations"
+    },
+    lighting_and_composition: {
+      type: "array",
+      items: { type: "string" },
+      description: "Lighting and composition suggestions"
+    }
+  },
+  required: ["style", "visual_cues", "voiceover"],
+  additionalProperties: false
+} as const
+
+// ROBUST JSON PARSING: Uses jsonrepair library for reliable JSON repair
+function robustJsonParse(jsonString: string): StructuredScriptContent {
   try {
     return JSON.parse(jsonString)
   } catch (e) {
-    console.warn('Initial JSON parse failed, attempting repairs...')
+    console.warn('Initial JSON parse failed, attempting repair with jsonrepair...')
 
-    // Attempt 1: Fix trailing commas
-    let fixed = jsonString.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']')
     try {
-      return JSON.parse(fixed)
-    } catch (e2) {
-      console.warn('Trailing comma fix failed, trying unescaped newlines...')
-    }
-
-    // Attempt 2: Escape unescaped newlines in strings
-    fixed = fixed.replace(/\n/g, "\\n")
-    try {
-      return JSON.parse(fixed)
-    } catch (e3) {
-      console.warn('Newline escape fix failed, trying combined fixes...')
-    }
-
-    // Attempt 3: More aggressive cleanup - remove extra commas and fix quotes
-    fixed = fixed
-      .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas before } or ]
-      .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":') // Add quotes to unquoted keys
-    try {
-      return JSON.parse(fixed)
-    } catch (e4) {
-      console.error('All JSON repair attempts failed')
-      throw new Error("Failed to repair JSON after multiple attempts")
+      const repaired = jsonrepair(jsonString)
+      return JSON.parse(repaired)
+    } catch (repairError) {
+      console.error('JSON repair failed:', repairError)
+      throw new Error("Failed to repair JSON response")
     }
   }
 }
@@ -185,14 +227,21 @@ export async function POST(request: NextRequest) {
 
     const model = process.env.OPENAI_MODEL || 'gpt-4o'
 
-    // Build OpenAI parameters with JSON response format
+    // Build OpenAI parameters with Structured Outputs for guaranteed valid parsing
     let params: any = {
       model,
       messages: [
         { role: 'system' as const, content: systemPrompt },
         { role: 'user' as const, content: userPrompt },
       ],
-      response_format: { type: "json_object" }
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "structured_script_content",
+          schema: STRUCTURED_SCRIPT_SCHEMA,
+          strict: true
+        }
+      }
     }
 
     // Add model-specific parameters
@@ -228,11 +277,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Parse the JSON response with robust error handling
-    let scriptContent;
+    // Parse the JSON response - Structured Outputs should guarantee validity, but fallback to repair
+    let scriptContent: StructuredScriptContent;
 
     try {
-      // Clean the response to remove potential Markdown formatting
+      // Clean the response to remove potential Markdown formatting (though Structured Outputs should prevent this)
       const cleanedContent = cleanJsonResponse(rawContent);
       scriptContent = robustJsonParse(cleanedContent);
     } catch (parseError) {
@@ -242,7 +291,7 @@ export async function POST(request: NextRequest) {
       // Return raw content in error response for manual override fallback
       return NextResponse.json(
         {
-          error: 'AI response is not valid JSON',
+          error: 'AI response parsing failed',
           rawContent: rawContent, // Include raw content for UI fallback
           suggestion: 'The AI generated content but it could not be formatted automatically. Please review and edit manually.'
         },
@@ -253,9 +302,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       scriptContent,
       // Keep backward compatibility - extract key fields if they exist
-      script: scriptContent?.voiceover?.join(' ') || scriptContent?.script || '',
+      script: scriptContent?.voiceover?.join(' ') || '',
       title: scriptContent?.style || `${style} (${duration})`,
-      description: scriptContent?.description || description,
+      description: scriptContent?.tone_instructions || description,
     })
   } catch (error) {
     console.error('Script generation API error:', error)

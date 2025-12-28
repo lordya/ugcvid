@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import axios from 'axios'
+import * as ipaddr from 'ipaddr.js'
 
 // Helper function to validate URLs and prevent SSRF attacks
 function isValidUrl(urlString: string): boolean {
@@ -11,22 +12,39 @@ function isValidUrl(urlString: string): boolean {
       return false
     }
 
-    // Prevent access to localhost and internal networks
-    const hostname = url.hostname.toLowerCase()
+    const hostname = url.hostname
 
     // Block localhost and common internal hostnames
-    if (hostname === 'localhost' ||
+    if (hostname.toLowerCase() === 'localhost' ||
         hostname === '127.0.0.1' ||
-        hostname === '0.0.0.0' ||
-        hostname.startsWith('192.168.') ||
-        hostname.startsWith('10.') ||
-        hostname.startsWith('172.')) {
+        hostname === '0.0.0.0') {
       return false
     }
 
-    // Block private IPv6 addresses (::1 is localhost)
-    if (hostname === '::1' || hostname.startsWith('fc') || hostname.startsWith('fd')) {
-      return false
+    // Use ipaddr.js for comprehensive IP address validation
+    try {
+      const addr = ipaddr.parse(hostname)
+
+      // Check if it's a valid public IP address
+      if (addr.kind() === 'ipv4') {
+        // Block private IPv4 ranges
+        if (addr.range() !== 'unicast') {
+          return false
+        }
+      } else if (addr.kind() === 'ipv6') {
+        // Block private IPv6 ranges (ULA fc00::/7, link-local fe80::/10, etc.)
+        if (addr.range() !== 'unicast') {
+          return false
+        }
+      }
+    } catch (ipError) {
+      // Not an IP address, continue with hostname validation
+      // Additional hostname blocking for internal networks
+      if (hostname.startsWith('192.168.') ||
+          hostname.startsWith('10.') ||
+          hostname.startsWith('172.')) {
+        return false
+      }
     }
 
     return true

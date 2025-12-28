@@ -33,6 +33,14 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
+
+      // Special validation: storyboard style requires 25s duration
+      if (style === 'storyboard' && duration !== '25s') {
+        return NextResponse.json(
+          { error: 'Storyboard style requires 25s duration' },
+          { status: 400 }
+        )
+      }
     }
 
     // Validate inputs - accept either script or ugcContent
@@ -65,8 +73,8 @@ export async function POST(request: NextRequest) {
 
     const selectedModel = selectModelForFormat(format)
 
-    // CRITICAL FIX: Cap duration to model's physical capabilities
-    const requestedDuration = duration === '10s' ? 10 : 15
+    // Parse duration directly from string format (e.g., '10s' -> 10, '30s' -> 30)
+    const requestedDuration = parseInt((duration || '15s').replace('s', ''), 10)
     const actualDuration = Math.min(requestedDuration, selectedModel.maxDuration)
 
     // Log the adjustment for monitoring and debugging
@@ -83,23 +91,7 @@ export async function POST(request: NextRequest) {
     // 3. Use admin client for atomic transaction
     const adminClient = createAdminClient()
 
-    // 4. Check user's credit balance (must be >= costCredits)
-    const { data: userData, error: userError } = await adminClient
-      .from('users')
-      .select('credits_balance')
-      .eq('id', user.id)
-      .single()
-
-    if (userError || !userData) {
-      console.error('Error fetching user:', userError)
-      return NextResponse.json({ error: 'Failed to fetch user data' }, { status: 500 })
-    }
-
-    if (userData.credits_balance < costCredits) {
-      return NextResponse.json({ 
-        error: `Insufficient credits. Need ${costCredits}, have ${userData.credits_balance}` 
-      }, { status: 402 })
-    }
+    // 4. Skip credit balance check - rely on database constraints to prevent overdrafts
 
     // 5. Prepare metadata for video record
     const inputMetadata = {

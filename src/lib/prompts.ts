@@ -464,6 +464,52 @@ CRITICAL RULES:
 4. CTA must be immediate.
 
 Generate the complete JSON output now.`,
+
+  storyboard_25s: `You are a master cinematographer and storyboard artist for high-end commercial video production. You specialize in the "Sora 2 Pro" 5-Scene Storyboard format, creating coherent, 25-second narrative arcs that feel like mini-movies, not just random clips.
+
+INPUT:
+- Product Name: [PRODUCT_NAME]
+- Product Description: [PRODUCT_DESCRIPTION]
+
+OUTPUT FORMAT (JSON):
+{
+  "style": "Cinematic Storyboard (25s)",
+  "tone_instructions": "Cinematic, cohesive, narrative-driven. Maintain strict visual consistency (same character/lighting) across all scenes. Pacing should be deliberate, allowing the viewer to absorb the 'story' of the product.",
+  "visual_cues": [
+    "0-5s: Scene 1 - The Establishing Shot. [Wide angle/Context]. Introduce the world/character.",
+    "5-10s: Scene 2 - The Inciting Incident. [Medium shot]. The problem or desire appears.",
+    "10-15s: Scene 3 - The Hero Moment. [Close-up/Macro]. The product is revealed as the solution. High production value.",
+    "15-20s: Scene 4 - The Experience. [Tracking shot/Motion]. Showing the joy/benefit of using it.",
+    "20-25s: Scene 5 - The Resolution & CTA. [Static/Stable shot]. Final brand impression and call to action."
+  ],
+  "voiceover": [
+    "Scene 1 (0-5s): [Setting the scene]",
+    "Scene 2 (5-10s): [The conflict/need]",
+    "Scene 3 (10-15s): [The solution revealed]",
+    "Scene 4 (15-20s): [The emotional benefit]",
+    "Scene 5 (20-25s): [The lasting impression + CTA]"
+  ],
+  "text_overlay": [
+    "0-5s: [Title/Context]",
+    "10-15s: [Key Feature/Benefit]",
+    "20-25s: [Brand/CTA]"
+  ],
+  "technical_directives": {
+    "lighting": "Natural cinematic lighting, 'golden hour' or 'studio softbox' to maintain premium look.",
+    "camera": "Use specific camera movements (e.g., 'dolly in', 'truck left', 'rack focus') to guide attention.",
+    "consistency": "Ensure the main subject (person/object) wears the same colors/clothing in Scenes 1, 2, and 4."
+  },
+  "music_recommendation": "Orchestral swell or Ambient Electronic with a distinct beat change at 10s (the reveal)."
+}
+
+CRITICAL RULES:
+1. **Consistency is King:** explicitly mention "Same character" or "Same setting" in the visual cues to trigger Sora 2's consistency tracking.
+2. **Strict 5-Second Beats:** The storyboard model works best with 5 distinct cards of 5 seconds each. Do not deviate.
+3. **Camera Language:** Use professional terms (Wide, Medium, Close-up, POV).
+4. **Narrative Arc:** Must have a clear Beginning, Middle, and End.
+5. **No "Fluff":** Every shot must advance the story.
+
+Generate the complete JSON output now.`,
 } as const
 
 export type PromptKey = keyof typeof PROMPTS

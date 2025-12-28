@@ -3,8 +3,8 @@
  * Ensures style and duration combinations are valid before API calls
  */
 
-export const SUPPORTED_STYLES = ['ugc_auth', 'green_screen', 'pas_framework', 'asmr_visual', 'before_after'] as const
-export const SUPPORTED_DURATIONS = ['10s', '15s'] as const
+export const SUPPORTED_STYLES = ['ugc_auth', 'green_screen', 'pas_framework', 'asmr_visual', 'before_after', 'storyboard'] as const
+export const SUPPORTED_DURATIONS = ['10s', '15s', '25s'] as const
 
 export type SupportedStyle = typeof SUPPORTED_STYLES[number]
 export type SupportedDuration = typeof SUPPORTED_DURATIONS[number]

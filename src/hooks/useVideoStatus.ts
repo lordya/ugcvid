@@ -120,7 +120,7 @@ export function useVideoStatus({
         setIsLoading(false)
       }
     }
-  }, [videoId, enabled])
+  }, [videoId, enabled, duration])
 
   const refetch = useCallback(async () => {
     await fetchStatus()

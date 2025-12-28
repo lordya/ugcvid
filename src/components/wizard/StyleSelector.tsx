@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/select'
 import { useWizardStore } from '@/store/useWizardStore'
 import { SUPPORTED_LANGUAGES, getLanguageName } from '@/lib/languages'
-import { UserCheck, MonitorPlay, AlertTriangle, Sparkles, FlipHorizontal } from 'lucide-react'
+import { UserCheck, MonitorPlay, AlertTriangle, Sparkles, FlipHorizontal, Film } from 'lucide-react'
 
 interface StyleOption {
   id: string
@@ -19,6 +19,7 @@ interface StyleOption {
   icon: React.ComponentType<{ className?: string }>
   description10s: string
   description15s: string
+  description25s?: string
 }
 
 const STYLE_OPTIONS: StyleOption[] = [
@@ -57,17 +58,34 @@ const STYLE_OPTIONS: StyleOption[] = [
     description10s: 'Show transformation instantly',
     description15s: 'Demonstrate results over time',
   },
+  {
+    id: 'storyboard',
+    title: 'Storyboard',
+    icon: Film,
+    description10s: '', // Not applicable for 10s
+    description15s: '', // Not applicable for 15s
+    description25s: 'Create cinematic narratives',
+  },
 ]
 
 export default function StyleSelector() {
   const { style, duration, language, setStyle, setDuration, setLanguage } = useWizardStore()
 
   const handleDurationChange = (value: string) => {
-    setDuration(value as '10s' | '15s')
+    // Auto-lock to 25s when storyboard is selected
+    if (style === 'storyboard') {
+      setDuration('25s')
+      return
+    }
+    setDuration(value as '10s' | '15s' | '25s')
   }
 
   const handleStyleSelect = (styleId: string) => {
     setStyle(styleId)
+    // Auto-lock to 25s when storyboard is selected
+    if (styleId === 'storyboard') {
+      setDuration('25s')
+    }
   }
 
   const handleLanguageChange = (value: string) => {
@@ -89,15 +107,24 @@ export default function StyleSelector() {
           <TabsList className="bg-layer-3 border border-border">
             <TabsTrigger
               value="10s"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              disabled={style === 'storyboard'}
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground disabled:opacity-50"
             >
               10 Seconds - Viral Hook
             </TabsTrigger>
             <TabsTrigger
               value="15s"
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              disabled={style === 'storyboard'}
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground disabled:opacity-50"
             >
               15 Seconds - Storytelling
+            </TabsTrigger>
+            <TabsTrigger
+              value="25s"
+              disabled={style !== 'storyboard'}
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground disabled:opacity-50"
+            >
+              25 Seconds - Cinematic Narrative
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -129,7 +156,13 @@ export default function StyleSelector() {
         {STYLE_OPTIONS.map((option) => {
           const IconComponent = option.icon
           const isSelected = style === option.id
-          const description = duration === '10s' ? option.description10s : option.description15s
+          // Handle description based on duration, with special case for storyboard
+          let description = ''
+          if (option.id === 'storyboard') {
+            description = option.description25s || 'Create cinematic narratives'
+          } else {
+            description = duration === '10s' ? option.description10s : option.description15s
+          }
 
           return (
             <Card
@@ -143,13 +176,22 @@ export default function StyleSelector() {
             >
               <CardContent className="p-6">
                 <div className="flex flex-col items-center text-center space-y-4">
-                  <div className={`p-3 rounded-lg ${
-                    isSelected ? 'bg-primary text-primary-foreground' : 'bg-layer-3'
-                  }`}>
-                    <IconComponent className="h-8 w-8" />
+                  <div className="relative">
+                    <div className={`p-3 rounded-lg ${
+                      isSelected ? 'bg-primary text-primary-foreground' : 'bg-layer-3'
+                    }`}>
+                      <IconComponent className="h-8 w-8" />
+                    </div>
+                    {option.id === 'storyboard' && (
+                      <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-md">
+                        PRO
+                      </div>
+                    )}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-lg mb-2">{option.title}</h3>
+                    <h3 className="font-semibold text-lg mb-2">
+                      {option.id === 'storyboard' ? 'Storyboard Narrative' : option.title}
+                    </h3>
                     <p className="text-sm text-muted-foreground">
                       {description}
                     </p>

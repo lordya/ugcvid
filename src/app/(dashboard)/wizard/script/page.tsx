@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useWizardStore } from '@/store/useWizardStore'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,23 @@ import { Sparkles, ChevronDown, ChevronUp, RotateCcw, Eye, Clock } from 'lucide-
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { validateStyleDuration } from '@/lib/validation'
+import { getFormatKey, selectModelForFormat, calculateVideoCost, usdToCredits } from '@/lib/kie-models'
+import { z } from 'zod'
+
+// Zod schema for validating StructuredScriptContent from API
+const structuredScriptContentSchema = z.object({
+  style: z.string(),
+  tone_instructions: z.string().optional(),
+  visual_cues: z.array(z.string()),
+  voiceover: z.array(z.string()),
+  text_overlay: z.array(z.string()).optional(),
+  music_recommendation: z.string().optional(),
+  hashtags: z.string().optional(),
+  background_content_suggestions: z.array(z.string()).optional(),
+  audio_design: z.array(z.string()).optional(),
+  pacing_and_editing: z.array(z.string()).optional(),
+  lighting_and_composition: z.array(z.string()).optional(),
+}).strict()
 
 const PROCESSING_MESSAGES = [
   'Analyzing product...',
@@ -66,6 +83,7 @@ export default function WizardScriptPage() {
   const [descriptionExpanded, setDescriptionExpanded] = useState(false)
   const [selectionError, setSelectionError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
+  const isGeneratingRef = useRef(false)
 
   // Get product info
   const productTitle = metadata?.title || manualInput?.title || ''
@@ -81,9 +99,9 @@ export default function WizardScriptPage() {
   // Auto-trigger script generation if script is empty and metadata exists
   useEffect(() => {
     const generateScript = async () => {
-      // Check if we have metadata but no script
-      if (script) {
-        return // Script already exists, don't regenerate
+      // Prevent multiple simultaneous generations
+      if (isGeneratingRef.current || script) {
+        return // Already generating or script exists, don't regenerate
       }
 
       // Get product title and description from metadata or manual input
@@ -93,6 +111,7 @@ export default function WizardScriptPage() {
         return
       }
 
+      isGeneratingRef.current = true
       setLoading(true)
       setError(null)
       setMessageIndex(0)
@@ -140,19 +159,30 @@ export default function WizardScriptPage() {
 
         // Handle structured script content response
         if (data.scriptContent) {
-          setStructuredScript(data.scriptContent)
-          // Initialize edited voiceover with the generated voiceover
-          setEditedVoiceover(data.scriptContent.voiceover || [])
-          // Set script for backward compatibility (combine voiceover)
-          setScript(data.scriptContent.voiceover?.join(' ') || '')
-          // Store UGC content for video generation (create basic structure)
-          setUgcContent({
-            Title: data.scriptContent.style || 'Generated Script',
-            Caption: data.scriptContent.voiceover?.join(' ') || '',
-            Description: data.scriptContent.tone_instructions || '',
-            Prompt: data.scriptContent.voiceover?.join(' ') || '',
-            aspect_ratio: 'portrait'
-          })
+          // Validate the scriptContent shape to prevent silent data loss
+          const validationResult = structuredScriptContentSchema.safeParse(data.scriptContent)
+
+          if (validationResult.success) {
+            const validatedContent = validationResult.data
+            setStructuredScript(validatedContent)
+            // Initialize edited voiceover with the generated voiceover
+            setEditedVoiceover(validatedContent.voiceover || [])
+            // Set script for backward compatibility (combine voiceover)
+            setScript(validatedContent.voiceover?.join(' ') || '')
+            // Store UGC content for video generation (create basic structure)
+            setUgcContent({
+              Title: validatedContent.style || 'Generated Script',
+              Caption: validatedContent.voiceover?.join(' ') || '',
+              Description: validatedContent.tone_instructions || '',
+              Prompt: validatedContent.voiceover?.join(' ') || '',
+              aspect_ratio: 'portrait'
+            })
+          } else {
+            console.error('Invalid scriptContent structure:', validationResult.error)
+            // Fall back to treating it as plain script content
+            setScript(data.scriptContent.voiceover?.join(' ') || JSON.stringify(data.scriptContent))
+            setError('Generated script has an unexpected format. Please review and edit manually.')
+          }
         } else if (data.script) {
           // Backward compatibility
           setScript(data.script)
@@ -166,11 +196,12 @@ export default function WizardScriptPage() {
       } finally {
         clearInterval(messageInterval)
         setLoading(false)
+        isGeneratingRef.current = false
       }
     }
 
     generateScript()
-  }, [script, productTitle, productDescription, setScript, router, style, duration, language, setEditedVoiceover, setStructuredScript, setUgcContent])
+  }, [productTitle, productDescription, router, style, duration, language, script, setEditedVoiceover, setScript, setStructuredScript, setUgcContent, setLoading, setError, setMessageIndex, setProcessingMessage])
 
   const handleRegenerateScript = async () => {
     if (!productTitle || !productDescription) {
@@ -223,9 +254,20 @@ export default function WizardScriptPage() {
       const data = await response.json()
 
       if (data.scriptContent) {
-        setStructuredScript(data.scriptContent)
-        setEditedVoiceover(data.scriptContent.voiceover || [])
-        setScript(data.scriptContent.voiceover?.join(' ') || '')
+        // Validate the scriptContent shape to prevent silent data loss
+        const validationResult = structuredScriptContentSchema.safeParse(data.scriptContent)
+
+        if (validationResult.success) {
+          const validatedContent = validationResult.data
+          setStructuredScript(validatedContent)
+          setEditedVoiceover(validatedContent.voiceover || [])
+          setScript(validatedContent.voiceover?.join(' ') || '')
+        } else {
+          console.error('Invalid scriptContent structure:', validationResult.error)
+          // Fall back to treating it as plain script content
+          setScript(data.scriptContent.voiceover?.join(' ') || JSON.stringify(data.scriptContent))
+          setError('Generated script has an unexpected format. Please review and edit manually.')
+        }
       } else if (data.script) {
         setScript(data.script)
         setStructuredScript(null)
@@ -371,6 +413,13 @@ export default function WizardScriptPage() {
   const isScriptTooShort = scriptLength > 0 && scriptLength < 50
   const isScriptTooLong = scriptLength > 500
   const canGenerate = scriptLength > 0 && selectedImages.length > 0
+
+  // Calculate dynamic cost based on style and duration
+  const format = getFormatKey(style, duration)
+  const selectedModel = selectModelForFormat(format)
+  const parsedDuration = parseInt(duration.replace('s', ''), 10)
+  const costUsd = calculateVideoCost(selectedModel, parsedDuration)
+  const costCredits = usdToCredits(costUsd)
 
   // Show loading state
   if (loading) {
@@ -667,7 +716,7 @@ export default function WizardScriptPage() {
                       Preparing...
                     </>
                   ) : (
-                    'Generate Video • -1 Credit'
+                    `Generate Video • -${costCredits} Credit${costCredits === 1 ? '' : 's'}`
                   )}
                 </Button>
               </div>

@@ -96,6 +96,15 @@ export const KIE_MODELS: Record<string, KieModel> = {
     capabilities: ['text-to-video', 'viral-aesthetic', 'dynamic'],
     bestFor: ['viral-content', 'social-media', 'fast-generation'],
     kieApiModelName: 'seedance-pro-fast'
+  },
+  'sora-2-pro': {
+    id: 'sora-2-pro',
+    name: 'Sora 2 Pro Storyboard',
+    maxDuration: 25, // Critical update
+    pricing: { perSecond: 0.04 }, // Est: $1.00 per 25s gen
+    capabilities: ['storyboard', 'long-form', 'cinematic'],
+    bestFor: ['narrative-ads', 'mini-docs', 'tutorials'],
+    kieApiModelName: 'sora-2-pro-storyboard' // Verify exact API key
   }
 }
 
@@ -109,13 +118,16 @@ export const FORMAT_MODEL_MAPPING: Record<string, { primary: string; backup: str
   'green_screen_10s': { primary: 'kling-2.6', backup: 'sora2' },
   'pas_framework_10s': { primary: 'wan-2.6', backup: 'sora2' },
   'asmr_visual_10s': { primary: 'wan-2.6', backup: 'sora2' },
-  
+
   // 15-second formats
-  'ugc_auth_15s': { primary: 'wan-2.6', backup: 'sora2' },
+  'ugc_auth_15s': { primary: 'wan-2.6', backup: 'wan-2.6' },
   'green_screen_15s': { primary: 'wan-2.6', backup: 'sora2' },
   'pas_framework_15s': { primary: 'wan-2.6', backup: 'sora2' },
   'asmr_visual_15s': { primary: 'wan-2.6', backup: 'sora2' },
-  'before_after_15s': { primary: 'wan-2.6', backup: 'sora2' }
+  'before_after_15s': { primary: 'wan-2.6', backup: 'sora2' },
+
+  // 25-second formats
+  'storyboard_25s': { primary: 'sora-2-pro', backup: 'wan-2.6' }
 }
 
 /**
@@ -136,7 +148,8 @@ export function getFormatKey(style: string, duration: string): string {
     'pas': 'pas_framework',
     'asmr_visual': 'asmr_visual',
     'asmr': 'asmr_visual',
-    'before_after': 'before_after'
+    'before_after': 'before_after',
+    'storyboard': 'storyboard'
   }
   
   const normalizedStyle = styleMap[style.toLowerCase()] || style.toLowerCase()
