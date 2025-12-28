@@ -124,6 +124,15 @@ export default function WizardScriptPage() {
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}))
+
+          // Special handling for JSON parsing errors - allow manual override
+          if (response.status === 422 && errorData.rawContent) {
+            console.warn('Script generation succeeded but JSON parsing failed - enabling manual override')
+            setScript(errorData.rawContent) // Pre-fill with raw content for manual editing
+            setError(`${errorData.error || 'Script generation had formatting issues'}. The content below can be manually edited.`)
+            return // Don't throw error - allow user to proceed with manual editing
+          }
+
           throw new Error(errorData.error || 'Failed to generate script')
         }
 
@@ -199,7 +208,16 @@ export default function WizardScriptPage() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || 'Failed to generate script')
+
+        // Special handling for JSON parsing errors - allow manual override
+        if (response.status === 422 && errorData.rawContent) {
+          console.warn('Script regeneration succeeded but JSON parsing failed - enabling manual override')
+          setScript(errorData.rawContent) // Pre-fill with raw content for manual editing
+          setError(`${errorData.error || 'Script generation had formatting issues'}. The content below can be manually edited.`)
+          return // Don't throw error - allow user to proceed with manual editing
+        }
+
+        throw new Error(errorData.error || 'Failed to regenerate script')
       }
 
       const data = await response.json()
@@ -401,10 +419,15 @@ export default function WizardScriptPage() {
       {/* Error Banner */}
       {error && (
         <div className="p-4 bg-warning/10 border border-warning/20 rounded-md">
-          <p className="text-sm text-warning font-medium mb-1">Script generation failed</p>
+          <p className="text-sm text-warning font-medium mb-1">
+            {error.includes('formatting issues') ? 'Script generation completed with formatting issues' : 'Script generation failed'}
+          </p>
           <p className="text-xs text-muted-foreground">{error}</p>
           <p className="text-xs text-muted-foreground mt-2">
-            You can manually edit the script below or try regenerating.
+            {error.includes('formatting issues')
+              ? 'The AI generated content, but it needs manual formatting. Please review and edit the script below.'
+              : 'You can manually edit the script below or try regenerating.'
+            }
           </p>
         </div>
       )}

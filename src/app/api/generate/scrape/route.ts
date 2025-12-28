@@ -111,14 +111,28 @@ export async function POST(request: NextRequest) {
 
     const data = response.data
 
-    // Map ScraperAPI response to frontend format
-    const title = data.name || ''
-    const description = data.full_description || data.description || ''
+    // WATERFALL EXTRACTION: Try multiple data sources for title and description
+    // 1. Waterfall for Title - prioritize specific product fields, then fall back to generic page metadata
+    const title =
+      data.name ||
+      data.title ||
+      data.open_graph?.title ||
+      data.twitter_card?.title ||
+      'Untitled Product'
+
+    // 2. Waterfall for Description - prioritize detailed descriptions, then fall back to metadata
+    const description =
+      data.full_description ||
+      data.description ||
+      data.open_graph?.description ||
+      data.twitter_card?.description ||
+      'No description available'
+
     const images = Array.isArray(data.images) ? data.images : []
 
-    // Validate required fields
-    if (!title || !description) {
-      console.error('ScraperAPI response missing required fields:', { title, description })
+    // SOFT FAILURE: Only fail if we found literally nothing useful
+    if (!title && !description) {
+      console.error('ScraperAPI response contained no usable title or description fields')
       return NextResponse.json(
         { error: 'Could not fetch product data' },
         { status: 500 }

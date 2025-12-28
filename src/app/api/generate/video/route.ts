@@ -59,18 +59,26 @@ export async function POST(request: NextRequest) {
     }
 
     // 2.5. Determine format and select optimal model
-    const format = style && duration 
-      ? getFormatKey(style, duration) 
+    const format = style && duration
+      ? getFormatKey(style, duration)
       : 'ugc_auth_15s' // Default fallback
-    
+
     const selectedModel = selectModelForFormat(format)
-    const targetDuration = duration === '10s' ? 10 : 15
+
+    // CRITICAL FIX: Cap duration to model's physical capabilities
+    const requestedDuration = duration === '10s' ? 10 : 15
+    const actualDuration = Math.min(requestedDuration, selectedModel.maxDuration)
+
+    // Log the adjustment for monitoring and debugging
+    if (actualDuration !== requestedDuration) {
+      console.warn(`[Duration Cap] Requested ${requestedDuration}s but model ${selectedModel.id} limited to ${actualDuration}s`)
+    }
     
     // Calculate actual cost based on model and duration
-    const costUsd = calculateVideoCost(selectedModel, targetDuration)
+    const costUsd = calculateVideoCost(selectedModel, actualDuration)
     const costCredits = usdToCredits(costUsd)
-    
-    console.log(`[Video Generation] Format: ${format}, Model: ${selectedModel.name}, Duration: ${targetDuration}s, Cost: $${costUsd.toFixed(4)} (${costCredits} credits)`)
+
+    console.log(`[Video Generation] Format: ${format}, Model: ${selectedModel.name}, Duration: ${actualDuration}s, Cost: $${costUsd.toFixed(4)} (${costCredits} credits)`)
 
     // 3. Use admin client for atomic transaction
     const adminClient = createAdminClient()
@@ -101,7 +109,7 @@ export async function POST(request: NextRequest) {
       ugcContent: ugcContent || null, // Store the full UGC content structure
       model: selectedModel.id,
       format,
-      duration: targetDuration,
+      duration: actualDuration,
       costUsd,
       costCredits,
     } as Json
@@ -134,12 +142,12 @@ export async function POST(request: NextRequest) {
       type: 'GENERATION' as const,
       provider: 'SYSTEM' as const, // System-generated transaction for video generation
       payment_id: null,
-      metadata: { 
+      metadata: {
         video_id: videoRecord.id, // Link transaction to video for traceability
-        model: selectedModel.id, 
+        model: selectedModel.id,
         modelName: selectedModel.name,
         format,
-        duration: targetDuration,
+        duration: actualDuration,
         costUsd,
         costCredits
       } as Json
@@ -160,7 +168,7 @@ export async function POST(request: NextRequest) {
       user_id: user.id,
       format,
       model: selectedModel.id,
-      duration: targetDuration,
+      duration: actualDuration,
       status: 'PROCESSING',
       cost_credits: costCredits,
       cost_usd: costUsd,
@@ -179,7 +187,7 @@ export async function POST(request: NextRequest) {
         script: finalPrompt,
         imageUrls,
         aspectRatio: finalAspectRatio,
-        duration: targetDuration, // Pass calculated duration
+        duration: actualDuration, // Pass calculated duration (capped to model limits)
         model: selectedModel.kieApiModelName, // Use selected model
       })
     } catch (kieError) {
@@ -193,12 +201,14 @@ export async function POST(request: NextRequest) {
         type: 'REFUND' as const,
         provider: 'SYSTEM' as const,
         payment_id: null,
-        metadata: { 
+        metadata: {
           video_id: videoRecord.id, // Link refund to video for traceability
-          reason: 'Kie.ai API failure', 
+          reason: 'Kie.ai API failure',
           originalModel: selectedModel.id,
           originalCostUsd: costUsd,
           originalCostCredits: costCredits,
+          requestedDuration,
+          actualDuration,
           error_message: kieError instanceof Error ? kieError.message : 'Unknown error'
         } as Json
       })

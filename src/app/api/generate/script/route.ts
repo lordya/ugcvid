@@ -29,6 +29,42 @@ function cleanJsonResponse(rawContent: string): string {
   return cleaned
 }
 
+// ROBUST JSON PARSING: Attempts to repair common JSON issues from LLMs
+function robustJsonParse(jsonString: string) {
+  try {
+    return JSON.parse(jsonString)
+  } catch (e) {
+    console.warn('Initial JSON parse failed, attempting repairs...')
+
+    // Attempt 1: Fix trailing commas
+    let fixed = jsonString.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']')
+    try {
+      return JSON.parse(fixed)
+    } catch (e2) {
+      console.warn('Trailing comma fix failed, trying unescaped newlines...')
+    }
+
+    // Attempt 2: Escape unescaped newlines in strings
+    fixed = fixed.replace(/\n/g, "\\n")
+    try {
+      return JSON.parse(fixed)
+    } catch (e3) {
+      console.warn('Newline escape fix failed, trying combined fixes...')
+    }
+
+    // Attempt 3: More aggressive cleanup - remove extra commas and fix quotes
+    fixed = fixed
+      .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas before } or ]
+      .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":') // Add quotes to unquoted keys
+    try {
+      return JSON.parse(fixed)
+    } catch (e4) {
+      console.error('All JSON repair attempts failed')
+      throw new Error("Failed to repair JSON after multiple attempts")
+    }
+  }
+}
+
 // Build model-specific parameters
 function buildModelParams(
   model: string,
@@ -192,19 +228,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Parse the JSON response
+    // Parse the JSON response with robust error handling
     let scriptContent;
 
     try {
       // Clean the response to remove potential Markdown formatting
       const cleanedContent = cleanJsonResponse(rawContent);
-      scriptContent = JSON.parse(cleanedContent);
+      scriptContent = robustJsonParse(cleanedContent);
     } catch (parseError) {
-      console.error('Failed to parse AI response as JSON:', parseError)
+      console.error('Failed to parse AI response even after repair attempts:', parseError)
       console.error('Raw content:', rawContent)
+
+      // Return raw content in error response for manual override fallback
       return NextResponse.json(
-        { error: 'AI response is not valid JSON' },
-        { status: 500 }
+        {
+          error: 'AI response is not valid JSON',
+          rawContent: rawContent, // Include raw content for UI fallback
+          suggestion: 'The AI generated content but it could not be formatted automatically. Please review and edit manually.'
+        },
+        { status: 422 } // Unprocessable Entity - content exists but needs manual intervention
       )
     }
 
