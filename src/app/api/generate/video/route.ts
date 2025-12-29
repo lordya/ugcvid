@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { createVideoTask } from '@/lib/kie'
-import { getFormatKey, selectModelForFormat, calculateVideoCost, usdToCredits, KIE_MODELS } from '@/lib/kie-models'
+import { getFormatKey, selectModelForFormat, selectModelForQualityRisk, calculateVideoCost, usdToCredits, KIE_MODELS } from '@/lib/kie-models'
 import { VideoGenerationRequest, UGCContent, Json } from '@/types/supabase'
 import { kieCircuitBreaker } from '@/lib/circuit-breaker'
 import { validateStyleDuration } from '@/lib/validation'
@@ -97,41 +97,9 @@ export async function POST(request: NextRequest) {
     // Parse duration directly from string format (e.g., '10s' -> 10, '30s' -> 30)
     const requestedDuration = parseInt((duration || '15s').replace('s', ''), 10)
 
-    let selectedModel = selectModelForFormat(format)
-
-    // 2.5.1. Quality tier model override
-    // Premium users ALWAYS get premium models, Standard users get standard models
-    if (userQualityTier === 'premium' && qualityConfig.modelPreference === 'premium') {
-      // For premium users, ensure we select a premium model if available
-      const premiumModels = Object.values(KIE_MODELS).filter(model =>
-        ['veo-3.1-quality', 'sora-2-pro', 'wan-2.6'].includes(model.id)
-      )
-
-      // Try to find a premium model that supports the requested duration
-      const premiumModelForDuration = premiumModels.find(model =>
-        model.maxDuration >= requestedDuration
-      )
-
-      if (premiumModelForDuration) {
-        selectedModel = premiumModelForDuration
-        console.log(`[Quality Tier] Premium user upgraded to ${selectedModel.name} (${selectedModel.id})`)
-      }
-    } else if (userQualityTier === 'standard' && qualityConfig.modelPreference === 'standard') {
-      // For standard users, ensure we use cost-effective models
-      const standardModels = Object.values(KIE_MODELS).filter(model =>
-        ['sora2', 'kling-2.6', 'hailuo-2.3', 'seedance-pro'].includes(model.id)
-      )
-
-      // Find the most cost-effective standard model that supports the duration
-      const standardModelForDuration = standardModels
-        .filter(model => model.maxDuration >= requestedDuration)
-        .sort((a, b) => a.pricing.perSecond - b.pricing.perSecond)[0]
-
-      if (standardModelForDuration) {
-        selectedModel = standardModelForDuration
-        console.log(`[Quality Tier] Standard user using ${selectedModel.name} (${selectedModel.id})`)
-      }
-    }
+    // 2.5.1. Risk-based model selection
+    // Select optimal model based on content quality risk and user tier
+    const selectedModel = selectModelForQualityRisk(format, qualityRiskLevel, userQualityTier)
 
     const actualDuration = Math.min(requestedDuration, selectedModel.maxDuration)
 
@@ -255,7 +223,8 @@ export async function POST(request: NextRequest) {
           duration: actualDuration,
           model: selectedModel.kieApiModelName,
           scenes, // Pass scenes array for storyboard API
-          riskLevel: qualityConfig.enhancedPrompts ? qualityRiskLevel : 'low' // Only enhance prompts for premium users
+          riskLevel: qualityConfig.enhancedPrompts ? qualityRiskLevel : 'low', // Only enhance prompts for premium users
+          qualityTier: userQualityTier // Pass user's quality tier for resolution/FPS settings
         })
       } else {
         // Regular models use combined script
@@ -266,6 +235,7 @@ export async function POST(request: NextRequest) {
           duration: actualDuration,
           model: selectedModel.kieApiModelName,
           riskLevel: qualityConfig.enhancedPrompts ? qualityRiskLevel : 'low', // Only enhance prompts for premium users
+          qualityTier: userQualityTier // Pass user's quality tier for resolution/FPS settings
         })
       }
     } catch (kieError) {

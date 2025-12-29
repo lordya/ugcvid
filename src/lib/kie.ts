@@ -3,7 +3,7 @@
  * Handles video generation job creation and status checking
  */
 
-import { generateVideoGenerationPayload, VideoGenerationParams } from './prompts'
+import { generateVideoGenerationPayload, VideoGenerationParams, QualityTier } from './prompts'
 import { kieCircuitBreaker } from './circuit-breaker'
 import { QualityRiskLevel } from './quality-analysis'
 
@@ -87,6 +87,7 @@ export interface CreateVideoTaskParams {
   model?: string // Model name for Kie.ai API (e.g., 'sora-2-text-to-video', 'wan-2-6-text-to-video')
   scenes?: string[] // Array of scene descriptions for storyboard API
   riskLevel?: QualityRiskLevel // Quality risk level for enhanced prompts
+  qualityTier?: QualityTier // Quality tier (standard/premium)
 }
 
 export interface CreateVideoTaskResponse {
@@ -118,6 +119,7 @@ export async function createVideoTask({
   model, // Optional model parameter
   scenes, // Optional scenes array for storyboard API
   riskLevel = 'low', // Default to low risk if not provided
+  qualityTier = 'standard', // Default to standard tier if not provided
 }: CreateVideoTaskParams): Promise<string> {
   const apiKey = process.env.KIE_API_KEY
 
@@ -144,6 +146,7 @@ export async function createVideoTask({
     model, // Pass model to payload generator
     scenes, // Pass scenes array for storyboard API
     riskLevel, // Pass risk level for enhanced prompts
+    qualityTier, // Pass quality tier for resolution/FPS settings
   })
 
   console.log('kie.ts:createVideoTask: About to call Kie.ai API', {requestBody,imageUrlCount:imageUrls.length,aspectRatio});

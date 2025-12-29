@@ -236,18 +236,150 @@ export function usdToCredits(usd: number): number {
 
 /**
  * Get backup model for a format
- * 
+ *
  * @param format - Format key
  * @returns Backup KieModel instance
  */
 export function getBackupModelForFormat(format: string): KieModel {
   const mapping = FORMAT_MODEL_MAPPING[format]
-  
+
   if (!mapping) {
     return KIE_MODELS.sora2
   }
-  
+
   const backupModel = KIE_MODELS[mapping.backup]
   return backupModel || KIE_MODELS.sora2
+}
+
+/**
+ * Quality risk level enum for model selection
+ */
+export type QualityRiskLevel = 'low' | 'medium' | 'high'
+
+/**
+ * Model-specific quality configurations for optimal prompt engineering
+ * Each model has tailored negative prompts and quality instructions based on
+ * its strengths, weaknesses, and typical failure modes.
+ */
+export const MODEL_QUALITY_CONFIGS: Record<string, {
+  negativePrompt: string[]
+  qualityInstructions: string
+  recommendedFor: string[]
+  avoidFor: string[]
+}> = {
+  'sora2': {
+    negativePrompt: ['extra fingers', 'blurry text', 'low quality', 'distorted faces'],
+    qualityInstructions: 'High fidelity, sharp details, natural composition',
+    recommendedFor: ['conversational', 'authentic', 'cost-effective', 'simple scenes'],
+    avoidFor: ['complex hands', 'detailed text', 'high motion']
+  },
+  'kling-2.6': {
+    negativePrompt: ['unnatural movements', 'blurry text', 'low quality', 'poor lip sync'],
+    qualityInstructions: 'Smooth motion, accurate lip sync, professional dialogue delivery',
+    recommendedFor: ['dialogue', 'testimonials', 'talking heads', 'conversational'],
+    avoidFor: ['static scenes', 'complex visuals', 'extreme motion']
+  },
+  'wan-2.6': {
+    negativePrompt: ['artifacts', 'motion blur', 'inconsistent quality', 'poor transitions'],
+    qualityInstructions: 'Smooth multi-scene transitions, consistent visual quality, natural pacing',
+    recommendedFor: ['storytelling', 'narrative', 'multi-scene', 'extended content'],
+    avoidFor: ['single static shots', 'ultra-fast content', 'simple talking heads']
+  },
+  'veo-3.1-fast': {
+    negativePrompt: ['low quality', 'artifacts', 'motion blur', 'inconsistent expressions'],
+    qualityInstructions: 'Sharp focus, natural expressions, fluid motion, high detail retention',
+    recommendedFor: ['reactions', 'emotional content', 'fast generation', 'expressions'],
+    avoidFor: ['long duration', 'complex scenes', 'detailed text']
+  },
+  'veo-3.1-quality': {
+    negativePrompt: ['artifacts', 'distortion', 'motion blur', 'low quality', 'inconsistent lighting'],
+    qualityInstructions: 'Cinematic quality, perfect anatomy, sharp focus, professional lighting, detailed textures',
+    recommendedFor: ['premium content', 'hands', 'text', 'high fidelity', 'complex scenes'],
+    avoidFor: ['ultra-fast generation', 'very long duration']
+  },
+  'hailuo-2.3': {
+    negativePrompt: ['motion blur', 'low quality', 'artifacts', 'poor motion'],
+    qualityInstructions: 'Smooth, fluid motion, high visual clarity, consistent quality',
+    recommendedFor: ['asmr visual', 'smooth demos', 'cost-effective', 'motion-focused'],
+    avoidFor: ['jerky movement', 'static content', 'complex interactions']
+  },
+  'runway-gen-4-turbo': {
+    negativePrompt: ['artifacts', 'inconsistent quality', 'motion blur'],
+    qualityInstructions: 'High-quality image-to-video conversion, smooth transitions, consistent visual style',
+    recommendedFor: ['rapid prototyping', 'visual content', 'iterative work'],
+    avoidFor: ['long duration', 'complex motion', 'dialogue']
+  },
+  'seedance-pro': {
+    negativePrompt: ['artifacts', 'motion blur', 'low quality', 'inconsistent style'],
+    qualityInstructions: 'Viral aesthetic, dynamic motion, consistent visual appeal, engaging movement',
+    recommendedFor: ['viral content', 'social media', 'fast generation', 'trending styles'],
+    avoidFor: ['premium quality', 'complex scenes', 'professional content']
+  },
+  'sora-2-pro': {
+    negativePrompt: ['artifacts', 'motion blur', 'inconsistent quality', 'poor transitions'],
+    qualityInstructions: 'Cinematic storytelling, smooth scene transitions, professional narrative quality',
+    recommendedFor: ['narrative ads', 'mini-docs', 'tutorials', 'storytelling'],
+    avoidFor: ['ultra-short content', 'single shots', 'rapid cuts']
+  }
+}
+
+/**
+ * Select optimal model for a given format considering quality risk and user tier
+ * High-risk content (hands, text) should trigger premium models regardless of tier
+ *
+ * @param format - Format key (e.g., 'ugc_auth_10s')
+ * @param riskLevel - Quality risk level from content analysis
+ * @param userTier - User's quality tier (standard/premium)
+ * @returns Selected KieModel instance optimized for quality
+ */
+export function selectModelForQualityRisk(
+  format: string,
+  riskLevel: QualityRiskLevel,
+  userTier: 'standard' | 'premium'
+): KieModel {
+  const formatMapping = FORMAT_MODEL_MAPPING[format]
+
+  // High risk content → always use premium models for best quality
+  if (riskLevel === 'high') {
+    // Define premium models that excel at complex content
+    const premiumModels = Object.values(KIE_MODELS).filter(model =>
+      ['veo-3.1-quality', 'kling-2.6', 'wan-2.6', 'sora-2-pro'].includes(model.id)
+    )
+
+    // Find premium models that support the requested duration
+    const duration = parseInt(format.split('_').pop()?.replace('s', '') || '15', 10)
+    const suitablePremiumModels = premiumModels.filter(model =>
+      model.maxDuration >= duration
+    )
+
+    if (suitablePremiumModels.length > 0) {
+      // Sort by quality and cost-effectiveness for complex content
+      // Kling 2.6 is great for dialogue, Veo 3.1 Quality for general high quality
+      const modelPriority = ['veo-3.1-quality', 'kling-2.6', 'wan-2.6', 'sora-2-pro']
+      const sortedModels = suitablePremiumModels.sort((a, b) => {
+        const aIndex = modelPriority.indexOf(a.id)
+        const bIndex = modelPriority.indexOf(b.id)
+        return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex)
+      })
+
+      console.log(`[Quality Risk] High-risk content (${format}) → selecting ${sortedModels[0].name} (${sortedModels[0].id})`)
+      return sortedModels[0]
+    }
+  }
+
+  // Medium risk content → upgrade if premium tier
+  if (riskLevel === 'medium' && userTier === 'premium') {
+    // For premium users with medium risk, use Veo 3.1 Quality for better results
+    const duration = parseInt(format.split('_').pop()?.replace('s', '') || '15', 10)
+    if (KIE_MODELS['veo-3.1-quality'].maxDuration >= duration) {
+      console.log(`[Quality Risk] Medium-risk content (${format}) + Premium tier → selecting Veo 3.1 Quality`)
+      return KIE_MODELS['veo-3.1-quality']
+    }
+  }
+
+  // Low risk or standard tier → use format-based selection
+  const selectedModel = selectModelForFormat(format)
+  console.log(`[Quality Risk] ${riskLevel} risk + ${userTier} tier (${format}) → using format selection: ${selectedModel.name}`)
+  return selectedModel
 }
 

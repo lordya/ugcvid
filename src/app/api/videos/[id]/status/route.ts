@@ -4,6 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import { getTaskStatus } from '@/lib/kie'
 import { storeVideoFromKie, getSignedVideoUrl } from '@/lib/video-storage'
 import { validateVideoQuality, shouldAutoRefund, getQualityIssuesSummary } from '@/lib/quality-validation'
+import { QUALITY_TIERS } from '@/lib/prompts'
+import { selectModelForQualityRisk, KIE_MODELS } from '@/lib/kie-models'
+import { createVideoTask } from '@/lib/kie'
+import { analyzeContentForQuality } from '@/lib/quality-analysis'
 
 export async function GET(
   request: NextRequest,
@@ -45,6 +49,21 @@ export async function GET(
     if (video.user_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
+
+    // 3.1. Fetch user's auto-regeneration preference
+    const { data: userProfile, error: userError } = await adminClient
+      .from('users')
+      .select('auto_regenerate_on_low_quality, quality_tier')
+      .eq('id', user.id)
+      .single()
+
+    if (userError || !userProfile) {
+      console.error('Error fetching user profile:', userError)
+      // Continue without auto-regeneration (default to false)
+    }
+
+    const autoRegenerateEnabled = (userProfile as any)?.auto_regenerate_on_low_quality || false
+    const userQualityTier = (userProfile as any)?.quality_tier || 'standard'
 
     // 4. TTL Check: If video has been PROCESSING for more than 60 minutes, mark as FAILED
     if (video.status === 'PROCESSING') {
@@ -249,9 +268,109 @@ export async function GET(
               console.error('Error updating video with quality metrics:', qualityUpdateError)
             }
 
-            // 9. Auto-refund logic for critical quality failures
+            // 9. Auto-regeneration or refund logic for quality failures
             if (shouldAutoRefund(validationResult.score)) {
-              console.log(`[Quality Validation] Video ${videoId} failed quality check (score: ${validationResult.score}). Initiating auto-refund.`)
+              console.log(`[Quality Validation] Video ${videoId} failed quality check (score: ${validationResult.score}). Auto-regenerate: ${autoRegenerateEnabled}`)
+
+              // Check if auto-regeneration is enabled and video hasn't been regenerated before
+              const videoMetadata = video.input_metadata as any
+              const isAlreadyRegenerated = videoMetadata?.is_regeneration === true
+              const regenerationCount = videoMetadata?.regeneration_count || 0
+
+              if (autoRegenerateEnabled && !isAlreadyRegenerated && regenerationCount < 1) {
+                console.log(`[Auto-Regeneration] Attempting regeneration for video ${videoId}`)
+
+                try {
+                  // Extract original parameters for regeneration
+                  const originalPrompt = video.final_script || videoMetadata?.script || ''
+                  const imageUrls = videoMetadata?.images || []
+                  const originalStyle = videoMetadata?.format?.split('_')?.[0] || 'ugc'
+                  const originalDuration = videoMetadata?.duration || videoDuration
+                  const originalFormat = videoMetadata?.format || 'ugc_auth_15s'
+
+                  // Re-analyze content to get current risk level
+                  const qualityRiskLevel = analyzeContentForQuality(originalPrompt, imageUrls)
+
+                  // Select a better model for regeneration (force premium models for quality)
+                  const regenerationModel = selectModelForQualityRisk(originalFormat, qualityRiskLevel, 'premium')
+
+                  console.log(`[Auto-Regeneration] Original model: ${videoMetadata?.model}, New model: ${regenerationModel.id}, Risk: ${qualityRiskLevel}`)
+
+                  // Trigger regeneration with enhanced parameters
+                  const newKieTaskId = await createVideoTask({
+                    script: originalPrompt,
+                    imageUrls,
+                    aspectRatio: videoMetadata?.aspect_ratio || 'portrait',
+                    duration: originalDuration,
+                    model: regenerationModel.kieApiModelName,
+                    riskLevel: qualityRiskLevel,
+                    qualityTier: 'premium' // Force premium tier for regeneration
+                  })
+
+                  // Update video record for regeneration
+                  const { error: regenerationUpdateError } = await adminClient
+                    .from('videos')
+                    .update({
+                      status: 'PROCESSING',
+                      kie_task_id: newKieTaskId,
+                      input_metadata: {
+                        ...videoMetadata,
+                        is_regeneration: true,
+                        regeneration_count: regenerationCount + 1,
+                        original_video_id: videoId,
+                        regeneration_reason: `Quality validation failed (score: ${validationResult.score})`,
+                        original_quality_score: validationResult.score,
+                        original_quality_issues: validationResult.issues,
+                        regeneration_model: regenerationModel.id,
+                        regeneration_timestamp: new Date().toISOString()
+                      } as any,
+                      updated_at: new Date().toISOString()
+                    })
+                    .eq('id', videoId)
+
+                  if (regenerationUpdateError) {
+                    console.error('Error updating video for regeneration:', regenerationUpdateError)
+                    // Fall back to refund if regeneration update fails
+                    throw new Error('Failed to update video for regeneration')
+                  }
+
+                  // Update analytics with regeneration attempt
+                  const { error: analyticsRegenerationError } = await (adminClient as any)
+                    .from('generation_analytics')
+                    .update({
+                      status: 'PROCESSING',
+                      regeneration_attempted: true,
+                      regeneration_reason: `Quality validation failed (score: ${validationResult.score})`,
+                      regeneration_model: regenerationModel.id
+                    })
+                    .eq('video_id', videoId)
+
+                  if (analyticsRegenerationError) {
+                    console.error('Error updating analytics for regeneration:', analyticsRegenerationError)
+                  }
+
+                  console.log(`[Auto-Regeneration] Successfully initiated regeneration for video ${videoId} with model ${regenerationModel.id}`)
+
+                  // Return processing status for regeneration
+                  return NextResponse.json({
+                    id: video.id,
+                    status: 'PROCESSING',
+                    message: 'Video quality was below threshold. Auto-regeneration initiated with enhanced settings.',
+                    qualityScore: validationResult.score,
+                    qualityIssues: validationResult.issues,
+                    regenerationModel: regenerationModel.id,
+                    duration: videoDuration,
+                    createdAt,
+                  })
+
+                } catch (regenerationError) {
+                  console.error(`[Auto-Regeneration] Failed to regenerate video ${videoId}:`, regenerationError)
+                  // Fall back to refund if regeneration fails
+                }
+              }
+
+              // If auto-regeneration is not enabled or failed, proceed with refund
+              console.log(`[Quality Validation] Video ${videoId} failed quality check (score: ${validationResult.score}). Initiating refund.`)
 
               // Update video status to indicate quality failure
               const qualityErrorReason = `Quality validation failed: ${getQualityIssuesSummary(validationResult.issues)}`
@@ -282,6 +401,7 @@ export async function GET(
                   quality_score: validationResult.score,
                   quality_issues: validationResult.issues,
                   original_cost_credits: videoCostCredits,
+                  auto_regenerate_attempted: autoRegenerateEnabled,
                 } as any,
               })
 
@@ -309,6 +429,7 @@ export async function GET(
                 errorReason: qualityErrorReason,
                 qualityScore: validationResult.score,
                 qualityIssues: validationResult.issues,
+                autoRegenerateAttempted: autoRegenerateEnabled,
                 duration: videoDuration,
                 createdAt,
               })

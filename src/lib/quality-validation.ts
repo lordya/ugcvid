@@ -99,15 +99,7 @@ export async function validateVideoQuality(
     score -= 0.8 // Critical deduction for API-reported failures
   }
 
-  // 4. Technical Validation (placeholder for future computer vision)
-  // TODO: Future enhancement - analyze video for:
-  // - Black frames
-  // - Frozen content
-  // - Audio/video sync issues
-  // - Resolution/format problems
-  // - Artifacts or corruption
-
-  // 5. Basic URL Validation
+  // 4. URL Accessibility Validation
   if (!videoUrl || typeof videoUrl !== 'string' || videoUrl.trim().length === 0) {
     issues.push({
       type: 'technical',
@@ -116,7 +108,95 @@ export async function validateVideoQuality(
       details: { videoUrl }
     })
     score -= 1.0 // Complete failure if no video URL
+  } else {
+    try {
+      // Validate URL format
+      const url = new URL(videoUrl)
+
+      // Check for common video hosting domains
+      const videoHosts = ['kie.ai', 'supabase.co', 'vercel.app', 'cloudinary.com', 'vimeo.com', 'youtube.com']
+      const isKnownHost = videoHosts.some(host => url.hostname.includes(host))
+
+      if (!isKnownHost && !url.hostname.includes('localhost')) {
+        issues.push({
+          type: 'technical',
+          severity: 'medium',
+          message: 'Video hosted on unknown domain - may not be accessible',
+          details: { hostname: url.hostname, videoUrl }
+        })
+        score -= 0.1
+      }
+
+      // Check for HTTPS (security)
+      if (url.protocol !== 'https:' && !url.hostname.includes('localhost')) {
+        issues.push({
+          type: 'technical',
+          severity: 'low',
+          message: 'Video URL uses HTTP instead of HTTPS',
+          details: { protocol: url.protocol, videoUrl }
+        })
+        score -= 0.05
+      }
+    } catch (urlError) {
+      issues.push({
+        type: 'technical',
+        severity: 'high',
+        message: 'Invalid video URL format',
+        details: { videoUrl, urlError: urlError instanceof Error ? urlError.message : String(urlError) }
+      })
+      score -= 0.5
+    }
   }
+
+  // 5. Video Format and Codec Validation (based on URL patterns)
+  if (videoUrl) {
+    // Check for common video extensions
+    const videoExtensions = ['.mp4', '.webm', '.mov', '.avi', '.mkv']
+    const hasVideoExtension = videoExtensions.some(ext => videoUrl.toLowerCase().includes(ext))
+
+    if (!hasVideoExtension && !videoUrl.includes('kie.ai') && !videoUrl.includes('supabase')) {
+      // Kie.ai and Supabase URLs may not have extensions but are valid
+      issues.push({
+        type: 'technical',
+        severity: 'low',
+        message: 'Video URL may not point to a standard video format',
+        details: { videoUrl, expectedExtensions: videoExtensions }
+      })
+      score -= 0.05
+    }
+
+    // Check for potential streaming URLs vs direct video files
+    if (videoUrl.includes('?') || videoUrl.includes('&')) {
+      // Query parameters suggest dynamic content, which might be valid
+      // but could indicate temporary/redirect URLs
+      console.log(`[Quality Validation] Video URL has query parameters: ${videoUrl}`)
+    }
+  }
+
+  // 6. Basic Frame Analysis (metadata-based, not computer vision)
+  // Check for potential issues based on metadata patterns
+
+  // Check if video appears to be from a generation service
+  const isFromGenerationService = videoUrl?.includes('kie.ai') || videoUrl?.includes('supabase')
+  if (!isFromGenerationService) {
+    issues.push({
+      type: 'technical',
+      severity: 'medium',
+      message: 'Video source may not be from expected generation service',
+      details: { videoUrl, expectedServices: ['kie.ai', 'supabase'] }
+    })
+    score -= 0.1
+  }
+
+  // Future enhancement placeholder: Computer vision analysis
+  // TODO: Integrate with services like:
+  // - Google Cloud Video Intelligence API
+  // - AWS Rekognition
+  // - Custom computer vision model for:
+  //   - Black/frozen frame detection
+  //   - Motion blur analysis
+  //   - Text legibility scoring
+  //   - Hand/finger anatomy validation
 
   // Ensure score doesn't go below 0
   score = Math.max(0, score)

@@ -6,6 +6,7 @@
  */
 
 import { getLanguageName } from './languages'
+import { MODEL_QUALITY_CONFIGS } from './kie-models'
 import { QualityRiskLevel } from './quality-analysis'
 
 export interface ScriptGenerationParams {
@@ -755,6 +756,7 @@ export interface VideoGenerationParams {
   quality?: string
   duration?: number
   riskLevel?: QualityRiskLevel
+  qualityTier?: QualityTier
 }
 
 /**
@@ -774,16 +776,31 @@ export function generateVideoGenerationPayload(
     duration, // Duration in seconds
     model = VIDEO_GENERATION_CONFIG.MODEL, // Default fallback to Sora 2
     scenes, // Array of scene descriptions for storyboard API
-    riskLevel = 'low' // Default to low risk if not provided
+    riskLevel = 'low', // Default to low risk if not provided
+    qualityTier = 'standard' // Default to standard tier if not provided
   } = params
 
   // Enhance prompt with quality instructions based on risk level
   const enhancedPrompt = enhancePromptWithQualityInstructions(prompt, riskLevel)
 
+  // Get model-specific quality configuration
+  const modelConfig = MODEL_QUALITY_CONFIGS[model]
+
+  // Merge global negative prompts with model-specific ones
+  const allNegativePrompts = modelConfig
+    ? [...new Set([...NEGATIVE_PROMPTS, ...modelConfig.negativePrompt])]
+    : NEGATIVE_PROMPTS
+
   // Create negative prompts string for appending to main prompt
   // Since not all models support negative_prompt field, we append to main prompt
-  const negativePromptString = ` Avoid ${NEGATIVE_PROMPTS.join(', ')}.`
-  const finalPrompt = enhancedPrompt + negativePromptString
+  const negativePromptString = ` Avoid ${allNegativePrompts.join(', ')}.`
+
+  // Add model-specific quality instructions if available
+  const modelInstructions = modelConfig?.qualityInstructions
+    ? ` ${modelConfig.qualityInstructions}.`
+    : ''
+
+  const finalPrompt = enhancedPrompt + modelInstructions + negativePromptString
 
   // Handle Sora 2 Pro Storyboard API (different structure)
   if (model === 'sora-2-pro-storyboard' && scenes && scenes.length > 0) {
@@ -838,6 +855,9 @@ export function generateVideoGenerationPayload(
     }
   }
 
+  // Get quality configuration for the tier
+  const qualityConfig = QUALITY_TIERS[qualityTier]
+
   // Handle regular models with standard structure
   return {
     model,
@@ -846,6 +866,8 @@ export function generateVideoGenerationPayload(
       image_urls: imageUrls,
       aspect_ratio: aspectRatio,
       quality: quality,
+      resolution: qualityConfig.resolution,
+      fps: qualityConfig.fps,
       ...(duration && { duration })
     }
   }
