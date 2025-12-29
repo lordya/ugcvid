@@ -183,8 +183,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 7.5. Log generation start in analytics
-    // Note: generation_analytics table is new and may not be in TypeScript types yet
-    const { error: analyticsError } = await (adminClient as any).from('generation_analytics').insert({
+    const { error: analyticsError } = await adminClient.from('generation_analytics').insert({
       video_id: videoRecord.id,
       user_id: user.id,
       format,

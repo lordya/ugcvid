@@ -75,7 +75,7 @@ export async function GET() {
       : 0
 
     // 6. Get model prompts statistics
-    const { count: totalPrompts, error: promptsError } = await (adminClient as any)
+    const { count: totalPrompts, error: promptsError } = await adminClient
       .from('model_prompts')
       .select('*', { count: 'exact', head: true })
 
@@ -84,7 +84,7 @@ export async function GET() {
       return NextResponse.json({ error: `Failed to fetch prompts: ${promptsError.message}` }, { status: 500 })
     }
 
-    const { count: activePrompts, error: activePromptsError } = await (adminClient as any)
+    const { count: activePrompts, error: activePromptsError } = await adminClient
       .from('model_prompts')
       .select('*', { count: 'exact', head: true })
       .eq('is_active', true)
@@ -95,7 +95,7 @@ export async function GET() {
     }
 
     // 7. Get unique models count
-    const { data: uniqueModels, error: uniqueModelsError } = await (adminClient as any)
+    const { data: uniqueModels, error: uniqueModelsError } = await adminClient
       .from('model_prompts')
       .select('model_id')
       .eq('is_active', true)

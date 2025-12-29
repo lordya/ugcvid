@@ -125,7 +125,7 @@ export function PromptViewDialog({ prompt, open, onOpenChange }: PromptViewDialo
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => copyToClipboard(prompt.negative_prompts.join('\n'), 'Negative Prompts')}
+                    onClick={() => copyToClipboard((prompt.negative_prompts || []).join('\n'), 'Negative Prompts')}
                   >
                     {copiedField === 'Negative Prompts' ? (
                       <Check className="h-4 w-4" />

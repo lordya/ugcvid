@@ -329,6 +329,202 @@ export type Database = {
           },
         ]
       }
+      cron_job_logs: {
+        Row: {
+          executed_at: string | null
+          id: number
+          job_name: string
+          message: string | null
+          status: string
+        }
+        Insert: {
+          executed_at?: string | null
+          id?: number
+          job_name: string
+          message?: string | null
+          status: string
+        }
+        Update: {
+          executed_at?: string | null
+          id?: number
+          job_name?: string
+          message?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      generation_analytics: {
+        Row: {
+          circuit_breaker_state: string | null
+          completed_at: string | null
+          cost_credits: number
+          cost_usd: number | null
+          created_at: string | null
+          duration: number
+          enhanced_prompts: boolean | null
+          error_reason: string | null
+          format: string
+          generation_time_seconds: number | null
+          id: string
+          model: string
+          quality_tier: Database["public"]["Enums"]["user_quality_tier"] | null
+          retry_count: number | null
+          status: string
+          user_id: string | null
+          video_id: string | null
+        }
+        Insert: {
+          circuit_breaker_state?: string | null
+          completed_at?: string | null
+          cost_credits: number
+          cost_usd?: number | null
+          created_at?: string | null
+          duration: number
+          enhanced_prompts?: boolean | null
+          error_reason?: string | null
+          format: string
+          generation_time_seconds?: number | null
+          id?: string
+          model: string
+          quality_tier?: Database["public"]["Enums"]["user_quality_tier"] | null
+          retry_count?: number | null
+          status: string
+          user_id?: string | null
+          video_id?: string | null
+        }
+        Update: {
+          circuit_breaker_state?: string | null
+          completed_at?: string | null
+          cost_credits?: number
+          cost_usd?: number | null
+          created_at?: string | null
+          duration?: number
+          enhanced_prompts?: boolean | null
+          error_reason?: string | null
+          format?: string
+          generation_time_seconds?: number | null
+          id?: string
+          model?: string
+          quality_tier?: Database["public"]["Enums"]["user_quality_tier"] | null
+          retry_count?: number | null
+          status?: string
+          user_id?: string | null
+          video_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generation_analytics_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      model_prompts: {
+        Row: {
+          id: string
+          model_id: string
+          model_name: string
+          kie_api_model_name: string
+          style: string
+          duration: string
+          system_prompt: string
+          negative_prompts: Json
+          quality_instructions: string | null
+          guidelines: Json | null
+          model_config: Json | null
+          is_active: boolean | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          model_id: string
+          model_name: string
+          kie_api_model_name: string
+          style: string
+          duration: string
+          system_prompt: string
+          negative_prompts?: Json
+          quality_instructions?: string | null
+          guidelines?: Json | null
+          model_config?: Json | null
+          is_active?: boolean | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          model_id?: string
+          model_name?: string
+          kie_api_model_name?: string
+          style?: string
+          duration?: string
+          system_prompt?: string
+          negative_prompts?: Json
+          quality_instructions?: string | null
+          guidelines?: Json | null
+          model_config?: Json | null
+          is_active?: boolean | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_integrations: {
+        Row: {
+          access_token: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          provider: Database["public"]["Enums"]["social_provider"]
+          provider_display_name: string | null
+          provider_user_id: string
+          provider_username: string | null
+          refresh_token: string | null
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          provider: Database["public"]["Enums"]["social_provider"]
+          provider_display_name?: string | null
+          provider_user_id: string
+          provider_username?: string | null
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          provider?: Database["public"]["Enums"]["social_provider"]
+          provider_display_name?: string | null
+          provider_user_id?: string
+          provider_username?: string | null
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_integrations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -360,6 +556,13 @@ export type Database = {
         | "PENDING"
         | "PUBLISHED"
         | "FAILED"
+      social_provider:
+        | "TIKTOK"
+        | "YOUTUBE"
+        | "INSTAGRAM"
+      user_quality_tier:
+        | "standard"
+        | "premium"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -513,6 +716,15 @@ export const Constants = {
         "PENDING",
         "PUBLISHED",
         "FAILED",
+      ],
+      social_provider: [
+        "TIKTOK",
+        "YOUTUBE",
+        "INSTAGRAM",
+      ],
+      user_quality_tier: [
+        "standard",
+        "premium",
       ],
     },
   },

@@ -402,7 +402,7 @@ export async function getSystemStats(): Promise<{ stats: SystemStats | null; err
       : 0
 
     // Get model prompts statistics
-    const { count: totalPrompts, error: promptsError } = await (adminClient as any)
+    const { count: totalPrompts, error: promptsError } = await adminClient
       .from('model_prompts')
       .select('*', { count: 'exact', head: true })
 
@@ -411,7 +411,7 @@ export async function getSystemStats(): Promise<{ stats: SystemStats | null; err
       return { stats: null, error: `Failed to fetch prompts: ${promptsError.message}` }
     }
 
-    const { count: activePrompts, error: activePromptsError } = await (adminClient as any)
+    const { count: activePrompts, error: activePromptsError } = await adminClient
       .from('model_prompts')
       .select('*', { count: 'exact', head: true })
       .eq('is_active', true)
@@ -422,7 +422,7 @@ export async function getSystemStats(): Promise<{ stats: SystemStats | null; err
     }
 
     // Get unique models count
-    const { data: uniqueModels, error: uniqueModelsError } = await (adminClient as any)
+    const { data: uniqueModels, error: uniqueModelsError } = await adminClient
       .from('model_prompts')
       .select('model_id')
       .eq('is_active', true)
@@ -466,7 +466,7 @@ export async function getAdminModelPrompts(): Promise<{ prompts: ModelPrompt[]; 
   try {
     const adminClient = createAdminClient()
 
-    const { data: prompts, error } = await (adminClient as any)
+    const { data: prompts, error } = await adminClient
       .from('model_prompts')
       .select('*')
       .order('model_id', { ascending: true })
@@ -478,7 +478,7 @@ export async function getAdminModelPrompts(): Promise<{ prompts: ModelPrompt[]; 
       return { prompts: [], error: error.message }
     }
 
-    return { prompts: prompts || [] }
+    return { prompts: (prompts || []) as ModelPrompt[] }
   } catch (error) {
     console.error('Error in getAdminModelPrompts:', error)
     return { prompts: [], error: 'Failed to fetch model prompts' }
@@ -508,7 +508,7 @@ export async function createModelPrompt(
     const adminClient = createAdminClient()
 
     // Check for uniqueness constraint (model_id + style + duration)
-    const { data: existing, error: checkError } = await (adminClient as any)
+    const { data: existing, error: checkError } = await adminClient
       .from('model_prompts')
       .select('id')
       .eq('model_id', prompt.model_id)
@@ -525,7 +525,7 @@ export async function createModelPrompt(
       return { prompt: null, error: 'A prompt already exists for this model, style, and duration combination' }
     }
 
-    const { data, error } = await (adminClient as any)
+    const { data, error } = await adminClient
       .from('model_prompts')
       .insert(prompt)
       .select()
@@ -569,7 +569,7 @@ export async function updateModelPrompt(
 
     // If updating model_id, style, or duration, check uniqueness constraint
     if (updates.model_id || updates.style || updates.duration) {
-      const currentPrompt = await (adminClient as any)
+      const currentPrompt = await adminClient
         .from('model_prompts')
         .select('model_id, style, duration')
         .eq('id', id)
@@ -580,7 +580,7 @@ export async function updateModelPrompt(
         const finalStyle = updates.style || currentPrompt.data.style
         const finalDuration = updates.duration || currentPrompt.data.duration
 
-        const { data: existing, error: checkError } = await (adminClient as any)
+        const { data: existing, error: checkError } = await adminClient
           .from('model_prompts')
           .select('id')
           .eq('model_id', finalModelId)
@@ -600,7 +600,7 @@ export async function updateModelPrompt(
       }
     }
 
-    const { data, error } = await (adminClient as any)
+    const { data, error } = await adminClient
       .from('model_prompts')
       .update({
         ...updates,
@@ -644,7 +644,7 @@ export async function deleteModelPrompt(id: string): Promise<{ success: boolean;
     const adminClient = createAdminClient()
 
     // Soft delete by setting is_active = false
-    const { error } = await (adminClient as any)
+    const { error } = await adminClient
       .from('model_prompts')
       .update({
         is_active: false,

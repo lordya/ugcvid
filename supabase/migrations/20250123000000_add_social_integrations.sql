@@ -68,16 +68,29 @@ CREATE POLICY "Users can delete own integrations" ON public.user_integrations
 -- 5. CREATE FUNCTIONS FOR TOKEN ENCRYPTION/DECRYPTION
 -- ============================================
 
--- Function to encrypt sensitive data using Supabase's encryption
--- Note: In production, you might want to use a more sophisticated key management system
+-- Function to encrypt sensitive data using Supabase's pgcrypto
+-- Note: In production, use proper key management (Vault, environment variables, etc.)
+-- This is a placeholder implementation - implement proper key management for production
 CREATE OR REPLACE FUNCTION encrypt_token(token_text text)
 RETURNS text
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  encryption_key text := 'your-encryption-key-here'; -- In production, use environment variable
+  encryption_key text;
 BEGIN
+  -- Get encryption key from environment variable or use a default for development
+  -- In production, this should come from a secure key management system
+  encryption_key := COALESCE(
+    current_setting('app.encryption_key', true),
+    'default-dev-key-change-in-production-32chars'
+  );
+
+  -- Ensure key is exactly 32 bytes for AES-256
+  IF length(encryption_key) != 32 THEN
+    RAISE EXCEPTION 'Encryption key must be exactly 32 characters long';
+  END IF;
+
   -- Use pgcrypto's encrypt function with AES
   RETURN encode(encrypt(token_text::bytea, encryption_key::bytea, 'aes'), 'hex');
 END;
@@ -90,8 +103,20 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  encryption_key text := 'your-encryption-key-here'; -- In production, use environment variable
+  encryption_key text;
 BEGIN
+  -- Get encryption key from environment variable or use a default for development
+  -- In production, this should come from a secure key management system
+  encryption_key := COALESCE(
+    current_setting('app.encryption_key', true),
+    'default-dev-key-change-in-production-32chars'
+  );
+
+  -- Ensure key is exactly 32 bytes for AES-256
+  IF length(encryption_key) != 32 THEN
+    RAISE EXCEPTION 'Encryption key must be exactly 32 characters long';
+  END IF;
+
   -- Use pgcrypto's decrypt function with AES
   RETURN convert_from(decrypt(decode(encrypted_token, 'hex'), encryption_key::bytea, 'aes'), 'utf8');
 END;

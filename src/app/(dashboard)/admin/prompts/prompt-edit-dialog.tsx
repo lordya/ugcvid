@@ -93,11 +93,11 @@ export function PromptEditDialog({ prompt, open, onOpenChange }: PromptEditDialo
           style: prompt.style,
           duration: prompt.duration,
           system_prompt: prompt.system_prompt,
-          negative_prompts: prompt.negative_prompts,
+          negative_prompts: prompt.negative_prompts || undefined,
           quality_instructions: prompt.quality_instructions,
           guidelines: prompt.guidelines,
           model_config: prompt.model_config,
-          is_active: prompt.is_active,
+          is_active: prompt.is_active ?? undefined,
         })
       } else {
         // Reset for create mode
@@ -395,7 +395,7 @@ export function PromptEditDialog({ prompt, open, onOpenChange }: PromptEditDialo
           <div className="flex items-center space-x-2">
             <Switch
               id="is_active"
-              checked={formData.is_active}
+              checked={formData.is_active ?? false}
               onCheckedChange={(checked) => updateFormField('is_active', checked)}
             />
             <Label htmlFor="is_active">Active</Label>

@@ -114,8 +114,7 @@ export async function GET(
           ? Math.floor((new Date(completedAt).getTime() - new Date(videoCreatedAt).getTime()) / 1000)
           : null
 
-        // Note: generation_analytics table is new and may not be in TypeScript types yet
-        const { error: analyticsError } = await (adminClient as any)
+        const { error: analyticsError } = await adminClient
           .from('generation_analytics')
           .update({
             status: 'FAILED',
@@ -227,7 +226,7 @@ export async function GET(
             : null
 
           // Note: generation_analytics table is new and may not be in TypeScript types yet
-          const { error: analyticsError } = await (adminClient as any)
+          const { error: analyticsError } = await adminClient
             .from('generation_analytics')
             .update({
               status: 'COMPLETED',
@@ -506,7 +505,7 @@ export async function GET(
             : null
 
           // Note: generation_analytics table is new and may not be in TypeScript types yet
-          const { error: analyticsError } = await (adminClient as any)
+          const { error: analyticsError } = await adminClient
             .from('generation_analytics')
             .update({
               status: 'FAILED',

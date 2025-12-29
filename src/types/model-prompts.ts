@@ -10,11 +10,11 @@ export interface ModelPrompt {
   style: string
   duration: string
   system_prompt: string
-  negative_prompts: string[]
+  negative_prompts: string[] | null // Allow null to match database Json type
   quality_instructions: string | null
   guidelines: Record<string, any> | null
   model_config: ModelConfig | null
-  is_active: boolean
+  is_active: boolean | null
   created_at: string
   updated_at: string
 }
@@ -43,11 +43,11 @@ export interface ModelPromptInsert {
   style: string
   duration: string
   system_prompt: string
-  negative_prompts?: string[]
+  negative_prompts?: string[] | null
   quality_instructions?: string | null
   guidelines?: Record<string, any> | null
-  model_config?: ModelConfig | null
-  is_active?: boolean
+  model_config?: Record<string, any> | null // Match Json type
+  is_active?: boolean | null
 }
 
 export interface ModelPromptUpdate extends Partial<ModelPromptInsert> {

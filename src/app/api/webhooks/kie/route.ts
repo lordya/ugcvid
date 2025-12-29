@@ -150,7 +150,7 @@ async function handleVideoCompleted(
       ? Math.floor((new Date(completedAt).getTime() - new Date(video.created_at).getTime()) / 1000)
       : null
 
-    const { error: analyticsError } = await (adminClient as any)
+    const { error: analyticsError } = await adminClient
       .from('generation_analytics')
       .update({
         status: 'COMPLETED',
@@ -226,7 +226,7 @@ async function handleVideoFailed(
       ? Math.floor((new Date(completedAt).getTime() - new Date(video.created_at).getTime()) / 1000)
       : null
 
-    const { error: analyticsError } = await (adminClient as any)
+    const { error: analyticsError } = await adminClient
       .from('generation_analytics')
       .update({
         status: 'FAILED',
@@ -261,10 +261,10 @@ async function handleProgressUpdate(
 
   try {
     // Update analytics record with progress (if table supports it)
-    const { error: analyticsError } = await (adminClient as any)
+    // Note: progress_percentage column doesn't exist in current schema, so this will be ignored
+    const { error: analyticsError } = await adminClient
       .from('generation_analytics')
       .update({
-        progress_percentage: progress,
         updated_at: new Date().toISOString(),
       })
       .eq('video_id', video.id)

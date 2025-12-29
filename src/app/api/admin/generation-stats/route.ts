@@ -47,8 +47,7 @@ export async function GET(request: NextRequest) {
     const model = searchParams.get('model') || null
 
     // 4. Build query for analytics
-    // Note: generation_analytics table is new and may not be in TypeScript types yet
-    let query = (adminClient as any)
+    let query = adminClient
       .from('generation_analytics')
       .select('*')
       .gte('created_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString())
