@@ -77,6 +77,92 @@ export type Database = {
           },
         ]
       }
+      cron_job_logs: {
+        Row: {
+          executed_at: string | null
+          id: number
+          job_name: string
+          message: string | null
+          status: string
+        }
+        Insert: {
+          executed_at?: string | null
+          id?: number
+          job_name: string
+          message?: string | null
+          status: string
+        }
+        Update: {
+          executed_at?: string | null
+          id?: number
+          job_name?: string
+          message?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      generation_analytics: {
+        Row: {
+          circuit_breaker_state: string | null
+          completed_at: string | null
+          cost_credits: number
+          cost_usd: number | null
+          created_at: string | null
+          duration: number
+          error_reason: string | null
+          format: string
+          generation_time_seconds: number | null
+          id: string
+          model: string
+          retry_count: number | null
+          status: string
+          user_id: string | null
+          video_id: string | null
+        }
+        Insert: {
+          circuit_breaker_state?: string | null
+          completed_at?: string | null
+          cost_credits: number
+          cost_usd?: number | null
+          created_at?: string | null
+          duration: number
+          error_reason?: string | null
+          format: string
+          generation_time_seconds?: number | null
+          id?: string
+          model: string
+          retry_count?: number | null
+          status: string
+          user_id?: string | null
+          video_id?: string | null
+        }
+        Update: {
+          circuit_breaker_state?: string | null
+          completed_at?: string | null
+          cost_credits?: number
+          cost_usd?: number | null
+          created_at?: string | null
+          duration?: number
+          error_reason?: string | null
+          format?: string
+          generation_time_seconds?: number | null
+          id?: string
+          model?: string
+          retry_count?: number | null
+          status?: string
+          user_id?: string | null
+          video_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generation_analytics_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           amount: number
@@ -138,7 +224,7 @@ export type Database = {
           created_at?: string
           id?: string
           metadata?: Json | null
-          provider?: Database["public"]["Enums"]["social_provider"]
+          provider: Database["public"]["Enums"]["social_provider"]
           provider_display_name?: string | null
           provider_user_id: string
           provider_username?: string | null
@@ -181,6 +267,7 @@ export type Database = {
           email: string
           id: string
           preferences: Json
+          quality_tier: Database["public"]["Enums"]["user_quality_tier"]
           role: string
           updated_at: string
         }
@@ -193,6 +280,7 @@ export type Database = {
           email: string
           id: string
           preferences?: Json
+          quality_tier?: Database["public"]["Enums"]["user_quality_tier"]
           role?: string
           updated_at?: string
         }
@@ -205,6 +293,7 @@ export type Database = {
           email?: string
           id?: string
           preferences?: Json
+          quality_tier?: Database["public"]["Enums"]["user_quality_tier"]
           role?: string
           updated_at?: string
         }
@@ -335,6 +424,9 @@ export type Database = {
           kie_task_id: string | null
           performance_calculated_at: string | null
           performance_score: number | null
+          quality_issues: Json | null
+          quality_score: number | null
+          quality_validated_at: string | null
           status: Database["public"]["Enums"]["video_status"]
           storage_path: string | null
           updated_at: string
@@ -352,6 +444,9 @@ export type Database = {
           kie_task_id?: string | null
           performance_calculated_at?: string | null
           performance_score?: number | null
+          quality_issues?: Json | null
+          quality_score?: number | null
+          quality_validated_at?: string | null
           status?: Database["public"]["Enums"]["video_status"]
           storage_path?: string | null
           updated_at?: string
@@ -369,6 +464,9 @@ export type Database = {
           kie_task_id?: string | null
           performance_calculated_at?: string | null
           performance_score?: number | null
+          quality_issues?: Json | null
+          quality_score?: number | null
+          quality_validated_at?: string | null
           status?: Database["public"]["Enums"]["video_status"]
           storage_path?: string | null
           updated_at?: string
@@ -399,7 +497,12 @@ export type Database = {
         Args: { video_uuid: string }
         Returns: number
       }
+      call_social_analytics_cron: { Args: never; Returns: undefined }
       decrypt_token: { Args: { encrypted_token: string }; Returns: string }
+      delete_batch_item_with_refund: {
+        Args: { p_batch_id: string; p_item_id: string; p_user_id: string }
+        Returns: undefined
+      }
       encrypt_token: { Args: { token_text: string }; Returns: string }
       get_batch_statistics: {
         Args: { user_uuid: string }
@@ -413,6 +516,7 @@ export type Database = {
         }[]
       }
       is_admin: { Args: never; Returns: boolean }
+      log_social_analytics_cron: { Args: never; Returns: undefined }
       update_video_performer_status: {
         Args: { video_uuid: string }
         Returns: undefined
@@ -422,6 +526,7 @@ export type Database = {
       payment_provider: "LEMON" | "CRYPTO" | "SYSTEM" | "KIE_AI"
       social_provider: "TIKTOK" | "YOUTUBE" | "INSTAGRAM"
       transaction_type: "PURCHASE" | "GENERATION" | "REFUND" | "BONUS"
+      user_quality_tier: "standard" | "premium"
       video_post_status: "PENDING" | "PUBLISHED" | "FAILED"
       video_status:
         | "DRAFT"
@@ -559,6 +664,7 @@ export const Constants = {
       payment_provider: ["LEMON", "CRYPTO", "SYSTEM", "KIE_AI"],
       social_provider: ["TIKTOK", "YOUTUBE", "INSTAGRAM"],
       transaction_type: ["PURCHASE", "GENERATION", "REFUND", "BONUS"],
+      user_quality_tier: ["standard", "premium"],
       video_post_status: ["PENDING", "PUBLISHED", "FAILED"],
       video_status: [
         "DRAFT",

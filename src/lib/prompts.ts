@@ -6,12 +6,85 @@
  */
 
 import { getLanguageName } from './languages'
+import { QualityRiskLevel } from './quality-analysis'
 
 export interface ScriptGenerationParams {
   productName: string
   productDescription: string
   style: string
   duration: string
+}
+
+/**
+ * Negative prompts array - common issues to avoid in video generation
+ * These will be appended to prompts or used as negative prompts where supported
+ */
+export const NEGATIVE_PROMPTS = [
+  'morphing',
+  'extra limbs',
+  'missing limbs',
+  'bad anatomy',
+  'blurry text',
+  'watermark',
+  'low resolution',
+  'distorted faces',
+  'inconsistent lighting',
+  'poor quality',
+  'artifacts',
+  'pixelation'
+] as const
+
+/**
+ * Enhances a video generation prompt with quality instructions based on risk level
+ * Appends appropriate instructions to avoid common issues for different risk levels
+ *
+ * @param prompt - Original video generation prompt
+ * @param riskLevel - Quality risk level assessment
+ * @returns Enhanced prompt with quality instructions
+ */
+export function enhancePromptWithQualityInstructions(
+  prompt: string,
+  riskLevel: QualityRiskLevel
+): string {
+  // Start with the original prompt
+  let enhancedPrompt = prompt.trim()
+
+  // Always append global quality instructions
+  const globalInstructions = 'High fidelity, 8k resolution, cinematic lighting, professional quality.'
+
+  // Add risk-specific instructions
+  let riskSpecificInstructions = ''
+
+  switch (riskLevel) {
+    case 'high':
+      // High risk: Hands and text overlays - be very specific about anatomy
+      riskSpecificInstructions = 'Ensure exactly 5 fingers per hand, anatomically correct hands, stable motion, no morphing or extra limbs.'
+      break
+
+    case 'medium':
+      // Medium risk: Text elements - focus on legibility
+      riskSpecificInstructions = 'Render text with sharp edges, high contrast, perfect legibility, no gibberish or distorted text.'
+      break
+
+    case 'low':
+      // Low risk: Generic content - minimal additional instructions needed
+      riskSpecificInstructions = 'Professional cinematography, consistent quality throughout.'
+      break
+  }
+
+  // Combine instructions
+  const allInstructions = [globalInstructions, riskSpecificInstructions]
+    .filter(instruction => instruction.length > 0)
+    .join(' ')
+
+  // Append to prompt with proper spacing
+  if (enhancedPrompt.endsWith('.')) {
+    enhancedPrompt += ` ${allInstructions}`
+  } else {
+    enhancedPrompt += `. ${allInstructions}`
+  }
+
+  return enhancedPrompt
 }
 
 /**
@@ -644,12 +717,44 @@ export const VIDEO_GENERATION_CONFIG = {
   MAX_TITLE_LENGTH: 100,
 } as const
 
+export type QualityTier = 'standard' | 'premium'
+
+export interface QualityTierConfig {
+  resolution: '720p' | '1080p'
+  fps: number
+  modelPreference: 'standard' | 'premium'
+  enhancedPrompts: boolean
+  description: string
+}
+
+/**
+ * Quality tier configurations for video generation
+ * Defines the differences between Standard and Premium tiers
+ */
+export const QUALITY_TIERS: Record<QualityTier, QualityTierConfig> = {
+  standard: {
+    resolution: '720p',
+    fps: 30,
+    modelPreference: 'standard',
+    enhancedPrompts: false, // Standard users get basic prompts only
+    description: 'Fast, cost-effective generation with good quality'
+  },
+  premium: {
+    resolution: '1080p',
+    fps: 60,
+    modelPreference: 'premium',
+    enhancedPrompts: true, // Premium users get enhanced prompts with negative prompts and quality instructions
+    description: 'High-quality, cinematic generation with enhanced AI instructions'
+  }
+} as const
+
 export interface VideoGenerationParams {
   prompt: string
   imageUrls: string[]
   aspectRatio?: string
   quality?: string
   duration?: number
+  riskLevel?: QualityRiskLevel
 }
 
 /**
@@ -660,7 +765,7 @@ export interface VideoGenerationParams {
  */
 export function generateVideoGenerationPayload(
   params: VideoGenerationParams & { model?: string; scenes?: string[] }
-) {
+): any {
   const {
     prompt,
     imageUrls,
@@ -668,8 +773,17 @@ export function generateVideoGenerationPayload(
     quality = VIDEO_GENERATION_CONFIG.DEFAULT_QUALITY,
     duration, // Duration in seconds
     model = VIDEO_GENERATION_CONFIG.MODEL, // Default fallback to Sora 2
-    scenes // Array of scene descriptions for storyboard API
+    scenes, // Array of scene descriptions for storyboard API
+    riskLevel = 'low' // Default to low risk if not provided
   } = params
+
+  // Enhance prompt with quality instructions based on risk level
+  const enhancedPrompt = enhancePromptWithQualityInstructions(prompt, riskLevel)
+
+  // Create negative prompts string for appending to main prompt
+  // Since not all models support negative_prompt field, we append to main prompt
+  const negativePromptString = ` Avoid ${NEGATIVE_PROMPTS.join(', ')}.`
+  const finalPrompt = enhancedPrompt + negativePromptString
 
   // Handle Sora 2 Pro Storyboard API (different structure)
   if (model === 'sora-2-pro-storyboard' && scenes && scenes.length > 0) {
@@ -728,7 +842,7 @@ export function generateVideoGenerationPayload(
   return {
     model,
     input: {
-      prompt,
+      prompt: finalPrompt,
       image_urls: imageUrls,
       aspect_ratio: aspectRatio,
       quality: quality,

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { getTaskStatus } from '@/lib/kie'
 import { storeVideoFromKie, getSignedVideoUrl } from '@/lib/video-storage'
+import { validateVideoQuality, shouldAutoRefund, getQualityIssuesSummary } from '@/lib/quality-validation'
 
 export async function GET(
   request: NextRequest,
@@ -221,14 +222,122 @@ export async function GET(
             console.error('Error updating generation analytics:', analyticsError)
           }
 
-          // Return signed URL from storage if available, otherwise fallback to Kie.ai URL
-          return NextResponse.json({
-            id: video.id,
-            status: 'COMPLETED',
-            videoUrl: signedUrl || kieStatus.videoUrl,
-            duration: videoDuration,
-            createdAt,
-          })
+          // 8. Post-generation quality validation
+          try {
+            // Extract requested duration from video metadata for validation
+            const requestedDuration = (video.input_metadata as any)?.duration || videoDuration
+
+            // Validate video quality
+            const validationResult = await validateVideoQuality(
+              signedUrl || kieStatus.videoUrl,
+              requestedDuration,
+              undefined, // actualDuration not available from Kie.ai response
+              kieStatus // pass the full status response for potential metadata
+            )
+
+            // Update video record with quality metrics
+            const { error: qualityUpdateError } = await adminClient
+              .from('videos')
+              .update({
+                quality_score: validationResult.score,
+                quality_issues: validationResult.issues,
+                quality_validated_at: validationResult.validatedAt,
+              } as any)
+              .eq('id', videoId)
+
+            if (qualityUpdateError) {
+              console.error('Error updating video with quality metrics:', qualityUpdateError)
+            }
+
+            // 9. Auto-refund logic for critical quality failures
+            if (shouldAutoRefund(validationResult.score)) {
+              console.log(`[Quality Validation] Video ${videoId} failed quality check (score: ${validationResult.score}). Initiating auto-refund.`)
+
+              // Update video status to indicate quality failure
+              const qualityErrorReason = `Quality validation failed: ${getQualityIssuesSummary(validationResult.issues)}`
+
+              const { error: statusUpdateError } = await adminClient
+                .from('videos')
+                .update({
+                  status: 'FAILED',
+                  error_reason: qualityErrorReason,
+                })
+                .eq('id', videoId)
+
+              if (statusUpdateError) {
+                console.error('Error updating video status for quality failure:', statusUpdateError)
+              }
+
+              // Create REFUND transaction to restore the credit
+              const videoCostCredits = (video.input_metadata as any)?.costCredits || 1
+              const { error: refundError } = await adminClient.from('transactions').insert({
+                user_id: user.id,
+                amount: videoCostCredits,
+                type: 'REFUND',
+                provider: 'SYSTEM',
+                payment_id: null,
+                metadata: {
+                  video_id: videoId,
+                  reason: 'Quality validation failed',
+                  quality_score: validationResult.score,
+                  quality_issues: validationResult.issues,
+                  original_cost_credits: videoCostCredits,
+                } as any,
+              })
+
+              if (refundError) {
+                console.error('CRITICAL: Error creating refund transaction for quality failure:', refundError)
+              }
+
+              // Update analytics record with quality failure
+              const { error: analyticsQualityError } = await (adminClient as any)
+                .from('generation_analytics')
+                .update({
+                  status: 'FAILED',
+                  error_reason: qualityErrorReason,
+                })
+                .eq('video_id', videoId)
+
+              if (analyticsQualityError) {
+                console.error('Error updating generation analytics for quality failure:', analyticsQualityError)
+              }
+
+              // Return failed status with quality issues
+              return NextResponse.json({
+                id: video.id,
+                status: 'FAILED',
+                errorReason: qualityErrorReason,
+                qualityScore: validationResult.score,
+                qualityIssues: validationResult.issues,
+                duration: videoDuration,
+                createdAt,
+              })
+            }
+
+            // Video passed quality validation - return success with quality metrics
+            return NextResponse.json({
+              id: video.id,
+              status: 'COMPLETED',
+              videoUrl: signedUrl || kieStatus.videoUrl,
+              duration: videoDuration,
+              createdAt,
+              qualityScore: validationResult.score,
+              qualityIssues: validationResult.issues,
+            })
+          } catch (validationError) {
+            // Log validation error but don't fail the request - quality validation is non-critical for delivery
+            console.error('Error during quality validation:', validationError)
+
+            // Return success response without quality metrics
+            return NextResponse.json({
+              id: video.id,
+              status: 'COMPLETED',
+              videoUrl: signedUrl || kieStatus.videoUrl,
+              duration: videoDuration,
+              createdAt,
+              qualityValidationError: validationError instanceof Error ? validationError.message : 'Quality validation failed',
+            })
+          }
         } else if (kieStatus.status === 'FAILED') {
           // Update video record with failed status and error
           const errorReason = kieStatus.errorMessage || 'Video generation failed'

@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { createVideoTask } from '@/lib/kie'
-import { getFormatKey, selectModelForFormat, calculateVideoCost, usdToCredits } from '@/lib/kie-models'
+import { getFormatKey, selectModelForFormat, calculateVideoCost, usdToCredits, KIE_MODELS } from '@/lib/kie-models'
 import { VideoGenerationRequest, UGCContent, Json } from '@/types/supabase'
 import { kieCircuitBreaker } from '@/lib/circuit-breaker'
 import { validateStyleDuration } from '@/lib/validation'
+import { analyzeContentForQuality, getRiskLevelDescription } from '@/lib/quality-analysis'
+import { QUALITY_TIERS, QualityTier } from '@/lib/prompts'
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,6 +21,23 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // 1.1. Fetch user's quality tier and credit balance
+    const { data: userProfile, error: userError } = await supabase
+      .from('users')
+      .select('quality_tier, credits_balance')
+      .eq('id', user.id)
+      .single()
+
+    if (userError || !userProfile) {
+      console.error('Error fetching user profile:', userError)
+      return NextResponse.json({ error: 'Failed to fetch user profile' }, { status: 500 })
+    }
+
+    const userQualityTier: QualityTier = userProfile.quality_tier || 'standard'
+    const qualityConfig = QUALITY_TIERS[userQualityTier]
+
+    console.log(`[Quality Tier] User tier: ${userQualityTier}, Credits: ${userProfile.credits_balance}, Config: ${qualityConfig.description}`)
 
     // 2. Parse request body
     const body: VideoGenerationRequest = await request.json()
@@ -66,15 +85,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'At least one image URL is required' }, { status: 400 })
     }
 
+    // 2.3. Analyze content for quality risk assessment
+    const qualityRiskLevel = analyzeContentForQuality(finalPrompt, imageUrls)
+    console.log(`[Quality Analysis] Risk Level: ${qualityRiskLevel} - ${getRiskLevelDescription(qualityRiskLevel)}`)
+
     // 2.5. Determine format and select optimal model
     const format = style && duration
       ? getFormatKey(style, duration)
       : 'ugc_auth_15s' // Default fallback
 
-    const selectedModel = selectModelForFormat(format)
-
     // Parse duration directly from string format (e.g., '10s' -> 10, '30s' -> 30)
     const requestedDuration = parseInt((duration || '15s').replace('s', ''), 10)
+
+    let selectedModel = selectModelForFormat(format)
+
+    // 2.5.1. Quality tier model override
+    // Premium users ALWAYS get premium models, Standard users get standard models
+    if (userQualityTier === 'premium' && qualityConfig.modelPreference === 'premium') {
+      // For premium users, ensure we select a premium model if available
+      const premiumModels = Object.values(KIE_MODELS).filter(model =>
+        ['veo-3.1-quality', 'sora-2-pro', 'wan-2.6'].includes(model.id)
+      )
+
+      // Try to find a premium model that supports the requested duration
+      const premiumModelForDuration = premiumModels.find(model =>
+        model.maxDuration >= requestedDuration
+      )
+
+      if (premiumModelForDuration) {
+        selectedModel = premiumModelForDuration
+        console.log(`[Quality Tier] Premium user upgraded to ${selectedModel.name} (${selectedModel.id})`)
+      }
+    } else if (userQualityTier === 'standard' && qualityConfig.modelPreference === 'standard') {
+      // For standard users, ensure we use cost-effective models
+      const standardModels = Object.values(KIE_MODELS).filter(model =>
+        ['sora2', 'kling-2.6', 'hailuo-2.3', 'seedance-pro'].includes(model.id)
+      )
+
+      // Find the most cost-effective standard model that supports the duration
+      const standardModelForDuration = standardModels
+        .filter(model => model.maxDuration >= requestedDuration)
+        .sort((a, b) => a.pricing.perSecond - b.pricing.perSecond)[0]
+
+      if (standardModelForDuration) {
+        selectedModel = standardModelForDuration
+        console.log(`[Quality Tier] Standard user using ${selectedModel.name} (${selectedModel.id})`)
+      }
+    }
+
     const actualDuration = Math.min(requestedDuration, selectedModel.maxDuration)
 
     // Log the adjustment for monitoring and debugging
@@ -104,6 +162,9 @@ export async function POST(request: NextRequest) {
       duration: actualDuration,
       costUsd,
       costCredits,
+      qualityRiskLevel, // Quality risk assessment for future analysis
+      qualityTier: userQualityTier, // User's quality tier for analytics
+      qualityConfig: JSON.parse(JSON.stringify(qualityConfig)), // Quality configuration used
     } as Json
 
     // 6. Create video record first (status: PROCESSING)
@@ -165,6 +226,8 @@ export async function POST(request: NextRequest) {
       cost_credits: costCredits,
       cost_usd: costUsd,
       circuit_breaker_state: kieCircuitBreaker.getState(),
+      quality_tier: userQualityTier, // Track which tier was used
+      enhanced_prompts: qualityConfig.enhancedPrompts, // Track if enhanced prompts were used
     })
 
     if (analyticsError) {
@@ -191,7 +254,8 @@ export async function POST(request: NextRequest) {
           aspectRatio: finalAspectRatio,
           duration: actualDuration,
           model: selectedModel.kieApiModelName,
-          scenes // Pass scenes array for storyboard API
+          scenes, // Pass scenes array for storyboard API
+          riskLevel: qualityConfig.enhancedPrompts ? qualityRiskLevel : 'low' // Only enhance prompts for premium users
         })
       } else {
         // Regular models use combined script
@@ -201,6 +265,7 @@ export async function POST(request: NextRequest) {
           aspectRatio: finalAspectRatio,
           duration: actualDuration,
           model: selectedModel.kieApiModelName,
+          riskLevel: qualityConfig.enhancedPrompts ? qualityRiskLevel : 'low', // Only enhance prompts for premium users
         })
       }
     } catch (kieError) {
