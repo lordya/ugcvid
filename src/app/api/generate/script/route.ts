@@ -10,6 +10,13 @@ import { getSuccessfulExamplesForPrompt, formatExamplesForPrompt } from '@/lib/s
 import { createClient } from '@/lib/supabase/server'
 import { validateStyleDuration } from '@/lib/validation'
 import { jsonrepair } from 'jsonrepair'
+import {
+  getModelForScriptGeneration,
+  getModelConstraints,
+  enhancePromptWithModelGuidance,
+  validateScriptAgainstModel,
+  getModelInfoForResponse
+} from '@/lib/model-aware-script'
 
 // Helper to determine if model uses GPT-5 style parameters
 function isGPT5Model(model: string): boolean {
@@ -242,6 +249,26 @@ export async function POST(request: NextRequest) {
     const successfulExamples = await getSuccessfulExamplesForPrompt(user.id)
     const formattedExamples = formatExamplesForPrompt(successfulExamples)
 
+    // Fetch user profile for quality tier information
+    const { data: userProfile, error: profileError } = await supabase
+      .from('users')
+      .select('quality_tier')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError || !userProfile) {
+      console.error('Error fetching user profile:', profileError)
+      return NextResponse.json({ error: 'Failed to fetch user profile' }, { status: 500 })
+    }
+
+    const userQualityTier = userProfile.quality_tier || 'standard'
+
+    // Select optimal model for script generation
+    const selectedModel = getModelForScriptGeneration(style, duration, undefined, userQualityTier)
+    const modelConstraints = getModelConstraints(selectedModel)
+
+    console.log(`[Script Generation] Selected model: ${selectedModel.name} (${selectedModel.id}) for ${style}_${duration}`)
+
     // Initialize OpenAI client only when needed (not at module level)
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
@@ -255,13 +282,16 @@ export async function POST(request: NextRequest) {
 
     // Replace placeholders in the system prompt and inject successful examples
     // Pass language parameter to include language instructions in the prompt
-    const systemPrompt = replacePromptPlaceholdersWithExamples(
+    let systemPrompt = replacePromptPlaceholdersWithExamples(
       systemPromptTemplate,
       title,
       description,
       formattedExamples,
       targetLanguage
     )
+
+    // Enhance system prompt with model-specific guidance
+    systemPrompt = enhancePromptWithModelGuidance(systemPrompt, selectedModel, modelConstraints)
 
     // Generate user prompt
     const userPrompt = generateScriptGenerationUserPrompt({
@@ -345,12 +375,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate script against model constraints
+    const validationResult = validateScriptAgainstModel(scriptContent, selectedModel)
+
+    // Log validation results
+    if (!validationResult.isValid) {
+      console.warn(`[Script Validation] Script validation failed for ${selectedModel.name}:`, validationResult.warnings)
+    }
+
     return NextResponse.json({
       scriptContent,
       // Keep backward compatibility - extract key fields if they exist
       script: scriptContent?.voiceover?.join(' ') || '',
       title: scriptContent?.style || `${style} (${duration})`,
       description: scriptContent?.tone_instructions || description,
+      // Include model information and validation results
+      model: getModelInfoForResponse(selectedModel, modelConstraints),
+      validation: {
+        isValid: validationResult.isValid,
+        warnings: validationResult.warnings,
+        suggestions: validationResult.suggestions,
+        estimatedDuration: validationResult.estimatedDuration
+      }
     })
   } catch (error) {
     console.error('Script generation API error:', error)

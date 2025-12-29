@@ -54,7 +54,16 @@ export const KIE_MODELS: Record<string, KieModel> = {
     pricing: { perSecond: 0.07 }, // Verified: $1.05 for 15s (as of Dec 2024)
     capabilities: ['text-to-video', 'multi-shot', 'native-audio', 'storytelling'],
     bestFor: ['storytelling', 'narrative', 'multi-scene', 'extended-content'],
-    kieApiModelName: 'wan-2-6-text-to-video'
+    kieApiModelName: 'wan-2-6-text-to-video' // Temporarily disabled due to API issues
+  },
+  'sora2-temp': {
+    id: 'sora2-temp',
+    name: 'Sora 2 (Temp)',
+    maxDuration: 10,
+    pricing: { perSecond: 0.015 },
+    capabilities: ['text-to-video', 'image-to-video', 'audio-sync'],
+    bestFor: ['conversational', 'authentic', 'cost-effective'],
+    kieApiModelName: 'sora-2-text-to-video'
   },
   'veo-3.1-fast': {
     id: 'veo-3.1-fast',
@@ -124,7 +133,7 @@ export const FORMAT_MODEL_MAPPING: Record<string, { primary: string; backup: str
   'asmr_visual_10s': { primary: 'wan-2.6', backup: 'sora2' },
 
   // 15-second formats
-  'ugc_auth_15s': { primary: 'wan-2.6', backup: 'wan-2.6' },
+  'ugc_auth_15s': { primary: 'sora2-temp', backup: 'sora2' }, // Temporarily using Sora 2 due to Wan 2.6 API issues
   'green_screen_15s': { primary: 'wan-2.6', backup: 'sora2' },
   'pas_framework_15s': { primary: 'wan-2.6', backup: 'sora2' },
   'asmr_visual_15s': { primary: 'wan-2.6', backup: 'sora2' },

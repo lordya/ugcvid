@@ -562,13 +562,35 @@ export interface ScriptGenerationRequest {
 }
 
 export interface ScriptGenerationResponse {
-  ugcContent: UGCContent
+  ugcContent?: UGCContent
+  scriptContent?: StructuredScriptContent
   // Backward compatibility fields
   script: string
   title: string
-  caption: string
+  caption?: string
   description: string
-  aspectRatio: string
+  aspectRatio?: string
+  // Model-aware script generation fields
+  model?: {
+    id: string
+    name: string
+    maxDuration: number
+    supportedAspectRatios: string[]
+    capabilities: string[]
+    bestPractices: string[]
+    constraints: string[]
+    useCases: string[]
+    pricing?: {
+      perSecond: number
+      creditsPerSecond?: number
+    }
+  }
+  validation?: {
+    isValid: boolean
+    warnings: string[]
+    suggestions: string[]
+    estimatedDuration: number
+  }
 }
 
 export interface VideoGenerationRequest {

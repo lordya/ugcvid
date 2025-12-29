@@ -642,12 +642,13 @@ export function replacePromptPlaceholders(
 }
 
 /**
- * Replaces placeholders in system prompt and injects successful examples
+ * Replaces placeholders in system prompt and injects successful examples and model guidance
  * @param prompt - The system prompt template
  * @param productName - Product name to replace [PRODUCT_NAME]
  * @param productDescription - Product description to replace [PRODUCT_DESCRIPTION]
  * @param successExamples - Formatted successful examples string (optional)
  * @param language - Language code (e.g., 'en', 'es', 'fr'). Defaults to 'en' if not provided.
+ * @param modelGuidance - Model-specific guidance string (optional)
  * @returns Prompt with placeholders replaced and examples injected
  */
 export function replacePromptPlaceholdersWithExamples(
@@ -655,7 +656,8 @@ export function replacePromptPlaceholdersWithExamples(
   productName: string,
   productDescription: string,
   successExamples?: string,
-  language?: string
+  language?: string,
+  modelGuidance?: string
 ): string {
   let enhancedPrompt = prompt
     .replace(/\[PRODUCT_NAME\]/g, escapeRegexReplacement(productName))
@@ -700,6 +702,21 @@ export function replacePromptPlaceholdersWithExamples(
     } else {
       // If no CRITICAL RULES section found, append to end
       enhancedPrompt += successExamples
+    }
+  }
+
+  // Inject model guidance before the CRITICAL RULES section if provided
+  if (modelGuidance) {
+    // Find the CRITICAL RULES section and insert model guidance before it
+    const criticalRulesIndex = enhancedPrompt.indexOf('CRITICAL RULES:')
+    if (criticalRulesIndex !== -1) {
+      enhancedPrompt = enhancedPrompt.slice(0, criticalRulesIndex) +
+                       modelGuidance +
+                       '\n' +
+                       enhancedPrompt.slice(criticalRulesIndex)
+    } else {
+      // If no CRITICAL RULES section found, append to end
+      enhancedPrompt += modelGuidance
     }
   }
 
@@ -859,7 +876,7 @@ export function generateVideoGenerationPayload(
   const qualityConfig = QUALITY_TIERS[qualityTier]
 
   // Handle regular models with standard structure
-  return {
+  const payload: any = {
     model,
     input: {
       prompt: finalPrompt,
@@ -871,4 +888,11 @@ export function generateVideoGenerationPayload(
       ...(duration && { duration })
     }
   }
+
+  // Only add callback URL if explicitly configured (for backward compatibility)
+  if (process.env.KIE_CALLBACK_URL) {
+    payload.callBackUrl = process.env.KIE_CALLBACK_URL
+  }
+
+  return payload
 }

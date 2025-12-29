@@ -93,6 +93,8 @@ export default function WizardScriptPage() {
   const [selectionError, setSelectionError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const isGeneratingRef = useRef(false)
+  const [selectedModel, setSelectedModel] = useState<any>(null)
+  const [scriptValidation, setScriptValidation] = useState<any>(null)
 
   // Get product info
   const productTitle = metadata?.title || manualInput?.title || ''
@@ -165,6 +167,16 @@ export default function WizardScriptPage() {
         }
 
         const data = await response.json()
+
+        // Store model information if provided
+        if (data.model) {
+          setSelectedModel(data.model)
+        }
+
+        // Store validation results if provided
+        if (data.validation) {
+          setScriptValidation(data.validation)
+        }
 
         // Handle structured script content response
         if (data.scriptContent) {
@@ -425,9 +437,9 @@ export default function WizardScriptPage() {
 
   // Calculate dynamic cost based on style and duration
   const format = getFormatKey(style, duration)
-  const selectedModel = selectModelForFormat(format)
+  const costCalculationModel = selectModelForFormat(format)
   const parsedDuration = parseInt(duration.replace('s', ''), 10)
-  const costUsd = calculateVideoCost(selectedModel, parsedDuration)
+  const costUsd = calculateVideoCost(costCalculationModel, parsedDuration)
   const costCredits = usdToCredits(costUsd)
 
   // Show loading state
@@ -739,6 +751,73 @@ export default function WizardScriptPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Model Information Panel */}
+          {selectedModel && (
+            <Card className="bg-layer-2 border-border">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <div className="w-2 h-2 bg-primary rounded-full"></div>
+                  AI Model Selected: {selectedModel.name}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium text-muted-foreground">Max Duration:</span>
+                    <p className="text-foreground">{selectedModel.maxDuration} seconds</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Capabilities:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {selectedModel.capabilities.map((cap: string, index: number) => (
+                        <span key={index} className="px-2 py-1 bg-primary/10 text-primary rounded text-xs">
+                          {cap}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {selectedModel.bestPractices && selectedModel.bestPractices.length > 0 && (
+                  <div>
+                    <span className="font-medium text-muted-foreground text-sm">Best Practices:</span>
+                    <ul className="mt-2 space-y-1">
+                      {selectedModel.bestPractices.slice(0, 3).map((practice: string, index: number) => (
+                        <li key={index} className="text-xs text-muted-foreground flex items-start gap-2">
+                          <div className="w-1 h-1 bg-primary rounded-full mt-2 flex-shrink-0"></div>
+                          {practice}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Validation Warnings */}
+                {scriptValidation && !scriptValidation.isValid && scriptValidation.warnings.length > 0 && (
+                  <div className="p-3 bg-warning/10 border border-warning/20 rounded-md">
+                    <div className="flex items-start gap-2">
+                      <div className="w-4 h-4 text-warning mt-0.5">⚠️</div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-warning">Script Validation Issues</p>
+                        {scriptValidation.warnings.map((warning: string, index: number) => (
+                          <p key={index} className="text-xs text-warning">{warning}</p>
+                        ))}
+                        {scriptValidation.suggestions.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-warning/20">
+                            <p className="text-xs font-medium text-warning">Suggestions:</p>
+                            {scriptValidation.suggestions.map((suggestion: string, index: number) => (
+                              <p key={index} className="text-xs text-warning/80">• {suggestion}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
