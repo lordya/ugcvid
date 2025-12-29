@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { UGCContent, StructuredScriptContent } from '@/types/supabase'
+import { getFormatKey, selectModelForFormat } from '@/lib/kie-models'
 
 export interface ProductMetadata {
   title: string
@@ -101,6 +102,7 @@ interface WizardState {
   setImages: (images: string[]) => void
   setSelectedImages: (images: string[]) => void
   toggleImageSelection: (imageUrl: string) => void
+  getMaxImageLimit: () => number // Get max image limit based on current style and duration
   setManualInput: (input: { title: string; description: string; uploadedImages: File[] }) => void
   // Bulk upload actions
   setBulkMode: (isBulkMode: boolean) => void
@@ -165,14 +167,28 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   },
   setImages: (images) => set({ images }),
   setSelectedImages: (images) => set({ selectedImages: images }),
+  getMaxImageLimit: () => {
+    const { style, duration } = get()
+    try {
+      const format = getFormatKey(style, duration)
+      const model = selectModelForFormat(format)
+      // Return maxImageUrls from model, default to 1 if not specified
+      return model.maxImageUrls ?? 1
+    } catch (error) {
+      console.warn('[WizardStore] Error getting max image limit, defaulting to 1:', error)
+      return 1
+    }
+  },
   toggleImageSelection: (imageUrl) => {
-    const { selectedImages } = get()
+    const { selectedImages, getMaxImageLimit } = get()
+    const maxLimit = getMaxImageLimit()
+    
     if (selectedImages.includes(imageUrl)) {
       // Remove if already selected
       set({ selectedImages: selectedImages.filter((url) => url !== imageUrl) })
     } else {
-      // Add if not selected (but limit to 5)
-      if (selectedImages.length < 5) {
+      // Add if not selected (but limit to model's maxImageUrls)
+      if (selectedImages.length < maxLimit) {
         set({ selectedImages: [...selectedImages, imageUrl] })
       }
     }

@@ -78,6 +78,8 @@ export default function WizardScriptPage() {
     updateVoiceoverSegment,
     selectedImages,
     toggleImageSelection,
+    getMaxImageLimit,
+    setSelectedImages,
     setStep,
     reset,
     style,
@@ -99,11 +101,28 @@ export default function WizardScriptPage() {
   const productTitle = metadata?.title || manualInput?.title || ''
   const productDescription = metadata?.description || manualInput?.description || ''
   const availableImages = metadata?.images || []
+  
+  // Get max image limit based on current style and duration
+  const maxImageLimit = getMaxImageLimit()
 
   // Ensure step is set to 2 when component mounts
   useEffect(() => {
     setStep(2)
   }, [setStep])
+
+  // Trim selected images when limit changes (style or duration change)
+  useEffect(() => {
+    if (selectedImages.length > maxImageLimit) {
+      // Trim to the new limit, keeping the first N images
+      const trimmed = selectedImages.slice(0, maxImageLimit)
+      setSelectedImages(trimmed)
+      toast.info(`Image selection limited to ${maxImageLimit} for this format`, {
+        description: `This format supports up to ${maxImageLimit} image${maxImageLimit > 1 ? 's' : ''}.`,
+        duration: 3000,
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maxImageLimit, style, duration]) // Only run when style, duration, or maxImageLimit changes
 
 
   // Auto-trigger script generation if script is empty and metadata exists
@@ -308,8 +327,8 @@ export default function WizardScriptPage() {
     const currentSelected = selectedImages.length
     const isSelected = selectedImages.includes(imageUrl)
 
-    if (!isSelected && currentSelected >= 5) {
-      setSelectionError('Maximum 5 images can be selected')
+    if (!isSelected && currentSelected >= maxImageLimit) {
+      setSelectionError(`Maximum ${maxImageLimit} image${maxImageLimit > 1 ? 's' : ''} can be selected for this format`)
       setTimeout(() => setSelectionError(null), 3000)
       return
     }
@@ -546,10 +565,13 @@ export default function WizardScriptPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium">
-                    Select Images ({selectedImages.length}/5)
+                    Select Images ({selectedImages.length}/{maxImageLimit})
                   </label>
                   {selectedImages.length === 0 && (
                     <span className="text-xs text-warning">Select at least 1 image</span>
+                  )}
+                  {selectedImages.length >= maxImageLimit && (
+                    <span className="text-xs text-muted-foreground">Maximum reached</span>
                   )}
                 </div>
                 {availableImages.length > 0 ? (
