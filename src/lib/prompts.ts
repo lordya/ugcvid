@@ -654,12 +654,12 @@ export interface VideoGenerationParams {
 
 /**
  * Generates the video generation request payload for Kie.ai API
- * Based on the AFP UGC n8n workflow "Create Video" HTTP Request node
+ * Supports both regular models and Sora 2 Pro Storyboard API
  * @param params - Video generation parameters
  * @returns Request payload for Kie.ai API
  */
 export function generateVideoGenerationPayload(
-  params: VideoGenerationParams & { model?: string }
+  params: VideoGenerationParams & { model?: string; scenes?: string[] }
 ) {
   const {
     prompt,
@@ -667,17 +667,29 @@ export function generateVideoGenerationPayload(
     aspectRatio = VIDEO_GENERATION_CONFIG.DEFAULT_ASPECT_RATIO,
     quality = VIDEO_GENERATION_CONFIG.DEFAULT_QUALITY,
     duration, // Duration in seconds
-    model = VIDEO_GENERATION_CONFIG.MODEL // Default fallback to Sora 2
+    model = VIDEO_GENERATION_CONFIG.MODEL, // Default fallback to Sora 2
+    scenes // Array of scene descriptions for storyboard API
   } = params
 
+  // Handle Sora 2 Pro Storyboard API (different structure)
+  if (model === 'sora-2-pro-storyboard' && scenes && scenes.length > 0) {
+    return {
+      shots: scenes, // Array of scene descriptions
+      n_frames: duration || 25, // Use n_frames instead of duration
+      image_urls: imageUrls,
+      aspect_ratio: aspectRatio
+    }
+  }
+
+  // Handle regular models with standard structure
   return {
-    model, // Use provided model or default to Sora 2
+    model,
     input: {
       prompt,
       image_urls: imageUrls,
-    },
-    aspect_ratio: aspectRatio,
-    quality,
-    ...(duration && { duration }), // Include duration if provided
+      aspect_ratio: aspectRatio,
+      quality: quality,
+      ...(duration && { duration })
+    }
   }
 }

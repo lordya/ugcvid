@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body: VideoGenerationRequest = await request.json()
-    const { script, imageUrls, aspectRatio = 'portrait', ugcContent, style, duration } = body
+    const { script, imageUrls, aspectRatio = 'portrait', ugcContent, style, duration, structuredScript } = body
 
     // 2.1. Validate style and duration if provided
     if (style && duration) {
@@ -175,13 +175,34 @@ export async function POST(request: NextRequest) {
     // 8. Call Kie.ai API to create the video task with selected model
     let kieTaskId: string
     try {
-      kieTaskId = await createVideoTask({
-        script: finalPrompt,
-        imageUrls,
-        aspectRatio: finalAspectRatio,
-        duration: actualDuration, // Pass calculated duration (capped to model limits)
-        model: selectedModel.kieApiModelName, // Use selected model
-      })
+      // Handle storyboard models differently - they need scenes array instead of combined prompt
+      if (selectedModel.kieApiModelName === 'sora-2-pro-storyboard' && structuredScript) {
+        // Extract scenes from structured script for storyboard API
+        const scenes = structuredScript.visual_cues?.map((visualCue, index) => {
+          const timeRange = visualCue.match(/^(\d+-\d+s):/)?.[1] || `${index * 5}-${(index + 1) * 5}s`
+          const visualDesc = visualCue.replace(/^\d+-\d+s:\s*/, '')
+          const voiceoverText = structuredScript.voiceover?.[index] || ''
+          return `${timeRange}: ${visualDesc}\n[Audio] ${voiceoverText}`
+        }) || []
+
+        kieTaskId = await createVideoTask({
+          script: finalPrompt, // Keep for backward compatibility
+          imageUrls,
+          aspectRatio: finalAspectRatio,
+          duration: actualDuration,
+          model: selectedModel.kieApiModelName,
+          scenes // Pass scenes array for storyboard API
+        })
+      } else {
+        // Regular models use combined script
+        kieTaskId = await createVideoTask({
+          script: finalPrompt,
+          imageUrls,
+          aspectRatio: finalAspectRatio,
+          duration: actualDuration,
+          model: selectedModel.kieApiModelName,
+        })
+      }
     } catch (kieError) {
       console.error('Kie.ai API error:', kieError)
 

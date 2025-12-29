@@ -84,6 +84,7 @@ export interface CreateVideoTaskParams {
   quality?: string
   duration?: number // Duration in seconds
   model?: string // Model name for Kie.ai API (e.g., 'sora-2-text-to-video', 'wan-2-6-text-to-video')
+  scenes?: string[] // Array of scene descriptions for storyboard API
 }
 
 export interface CreateVideoTaskResponse {
@@ -113,6 +114,7 @@ export async function createVideoTask({
   quality = 'hd',
   duration, // Optional duration parameter
   model, // Optional model parameter
+  scenes, // Optional scenes array for storyboard API
 }: CreateVideoTaskParams): Promise<string> {
   const apiKey = process.env.KIE_API_KEY
 
@@ -137,6 +139,7 @@ export async function createVideoTask({
     quality,
     duration, // Pass duration to payload generator
     model, // Pass model to payload generator
+    scenes, // Pass scenes array for storyboard API
   })
 
   console.log('kie.ts:createVideoTask: About to call Kie.ai API', {requestBody,imageUrlCount:imageUrls.length,aspectRatio});
