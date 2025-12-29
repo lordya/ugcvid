@@ -108,7 +108,6 @@ const STRUCTURED_SCRIPT_SCHEMA = {
         camera: { type: "string" },
         consistency: { type: "string" }
       },
-      required: ["lighting", "camera", "consistency"],
       additionalProperties: false
     },
     narrative_arc: {
@@ -126,19 +125,7 @@ const STRUCTURED_SCRIPT_SCHEMA = {
     "style",
     "tone_instructions",
     "visual_cues",
-    "voiceover",
-    "text_overlay",
-    "music_recommendation",
-    "hashtags",
-    "background_content_suggestions",
-    "audio_design",
-    "pacing_and_editing",
-    "lighting_and_composition",
-    "color_grading",
-    "aspect_ratio",
-    "technical_directives",
-    "narrative_arc",
-    "cinematic_techniques"
+    "voiceover"
   ],
   additionalProperties: false
 } as const

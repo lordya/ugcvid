@@ -93,497 +93,351 @@ export function enhancePromptWithQualityInstructions(
  * Keys format: ${style}_${duration} (e.g., ugc_auth_15s, ugc_auth_10s)
  */
 export const PROMPTS = {
-  ugc_auth_15s: `You are an expert UGC (User-Generated Content) script writer specializing in authentic, conversational video ads for TikTok and Instagram Reels. Your scripts must feel like a real person discovering and recommending a product to a friend, NOT like a corporate advertisement.
+  ugc_auth_15s: `You are an expert UGC script writer. Create authentic, conversational 15-second video scripts that feel like a real person talking to friends.
 
 INPUT:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT FORMAT (JSON):
+OUTPUT: Return ONLY valid JSON with this exact structure:
 {
   "style": "UGC Authenticité (15s)",
-  "tone_instructions": "Conversational, enthusiastic but not over-the-top, natural pauses and fillers ('like', 'honestly', 'literally'), relatable and vulnerable, speaks as if recording a quick video for a friend. Use contractions (I'm, it's, you're). Sound genuinely surprised/impressed by the product.",
+  "tone_instructions": "Conversational and authentic - use contractions, natural speech patterns, and first-person perspective",
   "visual_cues": [
-    "0-2s: Close-up of creator's face, product enters frame",
-    "2-6s: Show problem/old method, casual gestures",
-    "6-10s: Product demonstration, hands using product",
-    "10-13s: Show result, creator's reaction",
-    "13-15s: Final recommendation, pointing to link/bio"
+    "0-3s: [Hook visual - problem or introduction]",
+    "3-8s: [Demonstration or problem/solution]",
+    "8-12s: [Results or benefits]",
+    "12-15s: [Call to action]"
   ],
   "voiceover": [
-    "Hook (0-2s): [Problem in 1 sentence: 'Tired of [problem]?']",
-    "Body (2-8s): [Personal struggle + product intro: 'I used to [problem] until I found this.']",
-    "Demonstration (8-12s): [Key benefit: 'It [does X] instantly.'] [Social proof: 'My friends keep asking where I got it.']",
-    "CTA (12-15s): [Recommendation: 'Link below. Let me know if you grab one!']"
-  ],
-  "text_overlay": [
-    "0-2s: [Provocative question or bold statement, e.g., 'This changed everything 😳', 'Why didn't I know about this sooner?']",
-    "3-8s: [3 bullet points max highlighting key features, use emojis]",
-    "10-12s: [Result statement: 'After 2 weeks ✨', 'The difference is INSANE']",
-    "13-15s: [CTA text: 'Link in bio 🔗', 'Use code SAVE20']"
-  ],
-  "music_recommendation": "Trending TikTok sound OR no music (raw audio with natural background noise preferred for authenticity)",
-  "hashtags": "#tiktokmademebuyit #amazonfinds #productreview #musthave #[product category]"
+    "[Hook - 3s: Problem or attention-grabber in natural speech]",
+    "[Body - 5s: Personal story + product introduction]",
+    "[Proof - 4s: Key benefit or social proof]",
+    "[CTA - 3s: Recommendation and link]"
+  ]
 }
 
-CRITICAL RULES:
-1. Never use corporate language like "innovative," "revolutionary," "cutting-edge"
-2. Include natural speech patterns: filler words, contractions, run-on sentences
-3. First-person perspective only ("I tried...", "My experience...")
-4. 35-40 WORDS TOTAL (Must fit 15s spoken naturally).
-5. NO Intro/Outro fluff ('Hey guys', 'Bye').
-6. Must include at least one relatable struggle or story
-7. CTA should feel like a favor, not a sales pitch
-8. Hook must trigger immediate curiosity or identification ("That's ME!")
+CRITICAL REQUIREMENTS:
+- Total words: 35-40 maximum
+- Natural speech: Use "I", "like", "honestly", contractions
+- No corporate language
+- Include personal struggle or story
+- First-person only
 
-Generate the complete JSON output now.`,
+Return ONLY the JSON object, no additional text.`,
 
-  ugc_auth_10s: `You are an expert short-form scriptwriter specializing in ultra-short (10-second) viral UGC hooks. Your goal is to stop the scroll and deliver the value proposition in a single breath.
+  ugc_auth_10s: `You are an expert UGC script writer for ultra-short 10-second viral videos. Stop the scroll with immediate value.
 
 INPUT:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT FORMAT (JSON):
+OUTPUT: Return ONLY valid JSON with this exact structure:
 {
   "style": "UGC Authenticité (10s)",
-  "tone_instructions": "Urgent, excited, fast-paced. No fluff. Get straight to the point.",
+  "tone_instructions": "Urgent and excited - fast-paced delivery, no fluff",
   "visual_cues": [
-    "0-2s: Visual Hook (Shocking result, weird action, or problem close-up).",
-    "2-8s: Quick Product Demo (Fast cuts showing how it works/fixes the issue).",
-    "8-10s: Final Result + CTA (Thumbs up or pointing to link)."
+    "0-3s: [Shock or problem visual]",
+    "3-8s: [Quick product demo]",
+    "8-10s: [Result + call to action]"
   ],
   "voiceover": [
-    "Line 1 (0-5s): [The Hook + Problem/Solution combined. E.g., 'If you hate X, you NEED this.']",
-    "Line 2 (5-10s): [The Result + CTA. E.g., 'It literally fixed my [issue] in seconds. Link in bio!']"
-  ],
-  "text_overlay": [
-    "0-3s: [Bold Warning/Hook: 'STOP SCROLLING 🛑']",
-    "3-10s: [The Benefit: 'Instant Fix 🪄']"
-  ],
-  "music_recommendation": "Fast-paced trending audio loops."
+    "[Hook + Problem - 5s: Immediate value proposition]",
+    "[Solution + CTA - 5s: Results and link]"
+  ]
 }
 
-CRITICAL RULES:
-1. 20-25 WORDS TOTAL (Must fit 10s spoken fast).
-2. Immediate value only. No setup.
-3. No intro ("Hey guys"), no outro ("Bye"). Straight to value.
+CRITICAL REQUIREMENTS:
+- Total words: 20-25 maximum
+- Immediate value, no setup
+- Fast-paced, urgent tone
 
-Generate the complete JSON output now.`,
+Return ONLY the JSON object, no additional text.`,
 
-  green_screen_15s: `You are an expert short-form video ad scriptwriter specializing in TikTok/Instagram "Green Screen React" format. Your scripts create excitement and urgency by having a creator react to on-screen content (website, reviews, articles, competitor comparisons) with authentic surprise and enthusiasm.
+  green_screen_15s: `You are an expert in Green Screen React videos. Create excitement by reacting to on-screen content with authentic shock.
 
 INPUT:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT FORMAT (JSON):
+OUTPUT: Return ONLY valid JSON with this exact structure:
 {
   "style": "Green Screen React (15s)",
-  "tone_instructions": "Energetic, fast-paced, manic enthusiasm, react as if discovering something shocking/too-good-to-be-true. Use exclamations, interrupted thoughts, rapid-fire delivery. Sound like you're revealing a secret or insider tip. Voice should be slightly breathless with excitement. Use phrases like 'WAIT', 'NO WAY', 'LOOK AT THIS', 'ARE YOU SEEING THIS?'",
+  "tone_instructions": "Energetic, shocked, breathless - use 'NO WAY', 'WAIT', 'LOOK AT THIS'",
   "visual_cues": [
-    "0-2s: Creator with green screen background, pointing at screen",
-    "2-7s: Zoom on background content (price, reviews), circle/arrow effects",
-    "7-12s: Product images on background, creator's reaction gesture",
-    "12-15s: Final recommendation, product page on background, pointing down"
+    "0-2s: [Creator pointing at shocking info on screen]",
+    "2-8s: [Zoom on reviews/price with arrows/circles]",
+    "8-12s: [Product images, creator reacting]",
+    "12-15s: [Final CTA, pointing to bio]"
   ],
   "voiceover": [
-    "Hook (0-2s): [Shock reaction: 'NO WAY! The price is only [X]!']",
-    "Body (2-8s): [Highlights: '[X] five-star reviews. Compare to [competitor] at [higher price].']",
-    "Proof (8-12s): [Validation: 'I ordered mine yesterday. It has [feature].']",
-    "CTA (12-15s): [Urgency: 'Selling out fast. Link in bio, code [PROMO] for 20% off.']"
-  ],
-  "text_overlay": [
-    "0-2s: [Arrow or red circle highlighting key background element, text: '😱 ONLY $[PRICE]?!' or '⭐️ 15K+ 5-STAR REVIEWS']",
-    "3-8s: [On-screen comparison table if applicable, OR text bullets: '✅ [Benefit 1]', '✅ [Benefit 2]', '✅ [Benefit 3]']",
-    "9-12s: [Product name + tagline, e.g., '[Product Name]: The [category] TikTok is obsessed with']",
-    "13-15s: [CTA text with urgency: '⏰ SALE ENDS TONIGHT', '🔗 Link in bio - CODE: SAVE20']"
-  ],
-  "background_content_suggestions": [
-    "Product website showing price (highlight any discount)",
-    "Screenshot of 5-star Amazon/website reviews",
-    "Before/after images side-by-side",
-    "Competitor comparison chart",
-    "News article or influencer testimonial (if applicable)"
-  ],
-  "music_recommendation": "Dramatic/suspenseful trending sound with build-up and drop, OR energetic upbeat track. Volume should allow voiceover to dominate.",
-  "hashtags": "#greenscreen #founditonamazon #dealoftheday #producthack #[product category]"
+    "[Hook - 2s: Shock reaction with price/reviews]",
+    "[Proof - 6s: Comparison, features, validation]",
+    "[Urgency - 4s: Social proof]",
+    "[CTA - 3s: Link and promo code]"
+  ]
 }
 
-CRITICAL RULES:
-1. First 2 seconds MUST contain visceral reaction words (NO WAY, WHAT, INSANE)
-2. Speak as if genuinely shocked - NOT scripted corporate excitement
-3. Point to or gesture toward background content at least 2 times
-4. Include specific numbers (reviews, price, discount %)
-5. Must address potential skepticism ("I know what you're thinking...")
-6. 35-40 WORDS TOTAL (Must fit 15s spoken naturally).
-7. NO Intro/Outro fluff ('Hey guys', 'Bye').
-8. Create FOMO - viewer should feel they're missing out if they don't click
+CRITICAL REQUIREMENTS:
+- Total words: 35-40 maximum
+- Start with reaction words (NO WAY, WHAT, INSANE)
+- Include specific numbers (price, reviews)
+- Create urgency and FOMO
 
-Generate the complete JSON output now.`,
+Return ONLY the JSON object, no additional text.`,
 
-  green_screen_10s: `You are an expert viral scriptwriter specializing in 10-second "Green Screen React" clips. Create panic-buying levels of urgency in 10 seconds flat.
+  green_screen_10s: `You are an expert in ultra-short Green Screen React videos. Create panic-buying urgency.
 
 INPUT:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT FORMAT (JSON):
+OUTPUT: Return ONLY valid JSON with this exact structure:
 {
   "style": "Green Screen React (10s)",
-  "tone_instructions": "Manic, hyper-fast, breathless excitement. High volume.",
+  "tone_instructions": "Manic, hyper-fast, breathless - high energy",
   "visual_cues": [
-    "0-2s: Extreme close up, pointing at 'Price' or 'Result' on green screen background.",
-    "2-7s: Fast scroll or zoom on background showing reviews/proof.",
-    "7-10s: Creator screams/whispers 'RUN' while pointing to bio."
+    "0-2s: [Extreme close-up pointing at price]",
+    "2-7s: [Fast scroll of reviews/proof]",
+    "7-10s: [Creator urgency gesture to bio]"
   ],
   "voiceover": [
-    "Line 1 (0-4s): [Shock reaction: 'WAIT. Did you guys see this?! [Product] is literally [Price/Feature]!']",
-    "Line 2 (4-10s): [Urgency: 'It's selling out so fast. Go to the link right now before it's gone!']"
-  ],
-  "text_overlay": [
-    "0-3s: [Text: 'RUN 🏃‍♂️💨']",
-    "3-10s: [Text: 'LINK IN BIO 🔗']"
-  ],
-  "music_recommendation": "Sirens or dramatic viral sound."
+    "[Shock - 4s: WAIT reaction with price/feature]",
+    "[Urgency - 6s: Selling out fast, go now]"
+  ]
 }
 
-CRITICAL RULES:
-1. 20-25 WORDS TOTAL (Must fit 10s spoken fast).
-2. Immediate value only. No setup.
-3. Must use words like 'Run', 'Gone', 'Insane'.
-4. Focus purely on price or the most shocking feature.
+CRITICAL REQUIREMENTS:
+- Total words: 20-25 maximum
+- Use 'RUN', 'GONE', 'INSANE'
+- Focus on most shocking feature
 
-Generate the complete JSON output now.`,
+Return ONLY the JSON object, no additional text.`,
 
-  pas_framework_15s: `You are a direct-response copywriting expert specializing in Problem-Agitate-Solution (PAS) framework for short-form video ads. Your scripts follow a psychological arc: identify a painful problem, amplify the frustration, then present the product as the obvious solution.
+  pas_framework_15s: `You are an expert in Problem-Agitate-Solution (PAS) video scripts. Show the problem, amplify frustration, present solution.
 
 INPUT:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT FORMAT (JSON):
+OUTPUT: Return ONLY valid JSON with this exact structure:
 {
-  "style": "Problème-Agitation-Solution (PAS) (15s)",
-  "tone_instructions": "Start frustrated and empathetic (we're in this together), escalate to slightly exasperated when agitating, then shift to relieved and optimistic when introducing solution. Use second-person ('you') to make it personal. Pace should be deliberate with strategic pauses for impact. Sound like a friend who's finally found the answer after struggling alongside the viewer.",
+  "style": "Problem-Agitate-Solution (15s)",
+  "tone_instructions": "Start frustrated, escalate exasperation, shift to relieved - empathetic throughout",
   "visual_cues": [
-    "0-2s (PROBLEM): Problem visual (messy drawer, tangled cords), desaturated",
-    "2-6s (AGITATE): Quick montage of frustrations, desaturated look",
-    "6-9s (SOLUTION REVEAL): Product enters frame, bright color grading",
-    "9-12s (DEMONSTRATION): Product in use, before/after comparison",
-    "12-15s (RESULT): Final result, product visible, thumbs up"
+    "0-2s: [Problem visual, desaturated]",
+    "2-6s: [Montage of frustrations]",
+    "6-9s: [Product reveal, bright colors]",
+    "9-12s: [Demonstration, before/after]",
+    "12-15s: [Final result with CTA]"
   ],
   "voiceover": [
-    "Hook/Problem (0-2s): [Question: 'Tired of [problem]?']",
-    "Agitate (2-6s): [Frustration: 'It wastes time, money, and energy.']",
-    "Solution Reveal (6-9s): [Reveal: 'Until I found [Product Name].']",
-    "Demonstration (9-12s): [Simplicity: 'Just [action]. No more [problem]. Works instantly.']",
-    "CTA (12-15s): [Offer: '50% off today. Link below. 30-day guarantee.']"
-  ],
-  "text_overlay": [
-    "0-2s: [Amplifying problem text: 'This is SO annoying 😤', 'We've all been there...']",
-    "3-6s: [Optional stat: 'We waste 2 hours a week on this' OR listing frustrations with ❌ emojis]",
-    "7-9s: [Product name in bold + key USP: '[Product Name] - The [solution] you've been waiting for']",
-    "10-12s: [Benefit callouts: '✅ Fast', '✅ Easy', '✅ Affordable']",
-    "13-15s: [CTA: '⏰ 50% OFF - Link Below 🔗', 'Code: SAVE50']"
-  ],
-  "music_recommendation": "Start with tense/minor key music, transition to uplifting/major key at solution reveal (around 6-7s mark). Strong build-up and release structure.",
-  "color_grading": "Problem/Agitate: Desaturated, cooler tones. Solution onward: Saturated, warmer tones. Clear visual contrast reinforces emotional shift.",
-  "hashtags": "#problemsolved #lifehack #gamechanger #[product category] #amazonmusthaves"
+    "[Problem - 2s: Tired of X?]",
+    "[Agitate - 4s: Wastes time/money/energy]",
+    "[Solution - 3s: Found Product Name]",
+    "[Demo - 3s: How it works instantly]",
+    "[CTA - 3s: Offer with guarantee]"
+  ]
 }
 
-CRITICAL RULES:
-1. Problem must be immediately recognizable and relatable
-2. Agitation section CANNOT be longer than problem section (avoid dwelling)
-3. Solution reveal must feel like emotional payoff - use transition effect
-4. Benefits > Features (focus on what it DOES for the user, not what it IS)
-5. Must include at least one element of social proof or credibility
-6. 35-40 WORDS TOTAL (Must fit 15s spoken naturally).
-7. NO Intro/Outro fluff ('Hey guys', 'Bye').
-8. CTA must address final objection (price, risk, availability)
+CRITICAL REQUIREMENTS:
+- Total words: 35-40 maximum
+- Problem must be relatable
+- Benefits over features
+- Include social proof
+- CTA addresses objections
 
-Generate the complete JSON output now.`,
+Return ONLY the JSON object, no additional text.`,
 
-  pas_framework_10s: `You are a direct-response copywriting expert specializing in 10-second PAS (Problem-Agitate-Solution) micro-ads. Use immediate contrast to sell.
+  pas_framework_10s: `You are an expert in ultra-short PAS scripts. Show immediate contrast: problem to solution.
 
 INPUT:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT FORMAT (JSON):
+OUTPUT: Return ONLY valid JSON with this exact structure:
 {
-  "style": "Problème-Agitation-Solution (PAS) (10s)",
-  "tone_instructions": "Sharp, punchy, authoritative. No pauses.",
+  "style": "Problem-Agitate-Solution (10s)",
+  "tone_instructions": "Sharp, punchy, authoritative - no pauses",
   "visual_cues": [
-    "0-3s: The 'Pain' (Mess/Pain/Bad situation).",
-    "3-4s: Snap transition.",
-    "4-10s: The 'Solution' (Product fixing it instantly) + Final Beauty Shot."
+    "0-3s: [The pain/mess]",
+    "3-4s: [Snap transition]",
+    "4-10s: [Solution fixing it + beauty shot]"
   ],
   "voiceover": [
-    "Line 1 (0-4s): [Identify pain: 'Still dealing with [Problem]? Stop it.']",
-    "Line 2 (4-10s): [Solution: '[Product] fixes it in seconds. Get yours at the link!']"
-  ],
-  "text_overlay": [
-    "0-3s: [Text: '❌ OLD WAY']",
-    "4-10s: [Text: '✅ NEW WAY']"
-  ],
-  "music_recommendation": "Sound effect (Record scratch) at 3s -> Upbeat music."
+    "[Problem - 4s: Still dealing with X? Stop it.]",
+    "[Solution - 6s: Product fixes it. Get it now.]"
+  ]
 }
 
-CRITICAL RULES:
-1. 20-25 WORDS TOTAL (Must fit 10s spoken fast).
-2. Immediate value only. No setup.
-3. Must show 'Before vs After' logic verbally.
-4. Problem -> Solution in 2 sentences max.
+CRITICAL REQUIREMENTS:
+- Total words: 20-25 maximum
+- Before vs After logic
+- 2 sentences maximum
 
-Generate the complete JSON output now.`,
+Return ONLY the JSON object, no additional text.`,
 
-  asmr_visual_15s: `You are a specialist in creating hypnotic, satisfying video content optimized for stopping scrolls and creating addictive viewing experiences. Your scripts leverage ASMR audio, perfect visual symmetry, and dopamine-triggering "oddly satisfying" moments.
+  asmr_visual_15s: `You are an expert in satisfying ASMR visual content. Create hypnotic, scroll-stopping videos with satisfying sounds.
 
 INPUT:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT FORMAT (JSON):
+OUTPUT: Return ONLY valid JSON with this exact structure:
 {
-  "style": "Satisfying/ASMR Visuel (15s)",
-  "tone_instructions": "Calm, soothing, minimalist. IF voiceover is used, speak slowly and softly (ASMR whisper or gentle normal voice). Long pauses are OK. Voice should not compete with satisfying sounds. Prefer descriptive, simple language. Alternative: NO voiceover, only text + ASMR sounds + music. Think meditation video meets product demo.",
+  "style": "Satisfying/ASMR Visual (15s)",
+  "tone_instructions": "Calm, soothing, minimalist - whisper quiet or no voiceover preferred",
   "visual_cues": [
-    "0-2s: Macro close-up of satisfying action (foam, clean cut, smooth pour)",
-    "2-10s: Sequence of satisfying actions, rhythmic pacing, consistent colors",
-    "10-13s: Final result in wider shot, pause to admire",
-    "13-15s: Product packaging visible, gentle placement"
+    "0-2s: [Macro close-up of satisfying action]",
+    "2-10s: [Sequence of rhythmic satisfying actions]",
+    "10-13s: [Final result, wider shot]",
+    "13-15s: [Product packaging, gentle placement]"
   ],
   "voiceover": [
-    "Option A - Minimal Voiceover:",
-    "0-2s: [Silence OR very soft: 'Watch this...']",
-    "5-8s: [Optional description: 'Organizing my [space] with [Product Name]']",
-    "11-13s: [Soft endorsement: 'This makes everything so easy' OR 'So satisfying']",
-    "14-15s: [Whisper or text only: 'Link in bio']",
-    "",
-    "Option B - No Voiceover (Preferred):",
-    "[Let ASMR sounds and music carry the entire video. Use text overlays only.]"
-  ],
-  "text_overlay": [
-    "0-3s: [Minimal hook text: '👀 Watch this', 'So satisfying 😌', OR emoji only]",
-    "5-10s: [Optional step markers: 'Step 1', 'Step 2', OR process description: 'Organizing my bathroom...']",
-    "11-13s: [Product name appears gently: 'Using [Product Name]' or '[Product Name] makes this easy']",
-    "14-15s: [Simple CTA: 'Link in bio 🔗' or just link emoji]"
-  ],
-  "audio_design": [
-    "CRITICAL: High-quality ASMR sounds are the star",
-    "Capture authentic sounds: clicking, crinkling, pouring, scraping, tapping, rustling",
-    "Layer subtle lo-fi or ambient music underneath (20-30% volume vs. sounds)",
-    "Rhythm: Sounds should have repetitive, almost meditative pattern",
-    "NO sudden loud noises or jarring audio cuts",
-    "Consider binaural recording if possible for premium ASMR effect"
-  ],
-  "pacing_and_editing": [
-    "Slow, deliberate movements - avoid fast cuts",
-    "Each shot should last 2-3 seconds minimum",
-    "Smooth transitions (cross-dissolve or simple cuts - NO jarring effects)",
-    "May use speed ramping (slow-mo at key satisfying moments)",
-    "Loopable: video could potentially loop seamlessly from end to beginning"
-  ],
-  "lighting_and_composition": [
-    "Soft, even, natural lighting preferred",
-    "Avoid harsh shadows",
-    "Use rule of thirds and symmetry",
-    "Harmonious color palette (limit to 2-3 main colors)",
-    "Clean, uncluttered backgrounds"
-  ],
-  "music_recommendation": "Lo-fi beats, ambient soundscapes, or complete silence with ASMR audio only. Music should be repetitive and non-distracting. Volume: 20-30% vs. primary audio.",
-  "aspect_ratio": "9:16 for Reels/TikTok OR 1:1 for Instagram Feed",
-  "hashtags": "#satisfying #asmr #oddlysatisfying #asmrsounds #organization #[product category]"
+    "[Optional minimal voiceover OR no voiceover - let ASMR sounds dominate]",
+    "[0-2s: Silence or soft 'Watch this']",
+    "[5-8s: Optional: Organizing with Product]",
+    "[11-13s: So satisfying]",
+    "[14-15s: Link in bio]"
+  ]
 }
 
-CRITICAL RULES:
-1. Audio quality is MORE important than video quality - invest in good microphone
-2. First 2 seconds must show satisfying action already happening (no setup)
-3. Maintain consistent pacing - no rushed moments
-4. If using voiceover, it should be whisper-quiet or gentle
-5. Visual must be hypnotic enough that viewer CANNOT scroll away
-6. CTA should be subtle and non-disruptive to the satisfying experience
-7. 20-25 WORDS TOTAL (Must fit 15s spoken naturally, or use minimal/no voiceover).
-8. NO Intro/Outro fluff ('Hey guys', 'Bye').
-9. Product should be supporting actor, not main character (the satisfying action is the star)
+CRITICAL REQUIREMENTS:
+- Total words: 20-25 maximum (or zero for no voiceover)
+- ASMR sounds are the star
+- First 2s shows satisfying action
+- Slow, deliberate pacing
+- Hypnotic enough viewer can't scroll
 
-Generate the complete JSON output now.`,
+Return ONLY the JSON object, no additional text.`,
 
-  asmr_visual_10s: `You are a specialist in 10-second "Oddly Satisfying" visual loops. Create a moment of pure zen in 10 seconds.
+  asmr_visual_10s: `You are an expert in 10-second oddly satisfying visual loops. Pure zen in 10 seconds.
 
 INPUT:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT FORMAT (JSON):
+OUTPUT: Return ONLY valid JSON with this exact structure:
 {
-  "style": "Satisfying/ASMR Visuel (10s)",
-  "tone_instructions": "Whisper quiet. Minimalist. Let the visuals speak.",
+  "style": "Satisfying/ASMR Visual (10s)",
+  "tone_instructions": "Silent - let visuals speak, ASMR sounds only",
   "visual_cues": [
-    "0-7s: One continuous, perfect, satisfying action using the product (Pouring, Slicing, Cleaning). Macro shot.",
-    "7-10s: The finished result + Product bottle/box appearing gently."
+    "0-7s: [One continuous satisfying action, macro shot]",
+    "7-10s: [Finished result + product appearing gently]"
   ],
   "voiceover": [
-    "Line 1 (0-10s): [No Voiceover. Only ASMR sounds.]"
-  ],
-  "text_overlay": [
-    "0-5s: [Text: 'So satisfying... 🤤']",
-    "7-10s: [Text: '[Product Name] 🔗']"
-  ],
-  "music_recommendation": "Raw ASMR sounds (Clicks, Woosh) + Silence."
+    "[No voiceover - ASMR sounds only]"
+  ]
 }
 
-CRITICAL RULES:
-1. ZERO WORDS SPOKEN.
-2. 20-25 WORDS TOTAL (Must fit 10s spoken fast) for text overlays.
-3. Immediate value only. No setup.
-4. Focus entirely on the visual "Ahhh" moment.
-5. Simple CTA text at end.
+CRITICAL REQUIREMENTS:
+- ZERO words spoken
+- Focus on visual satisfaction
+- Simple text CTA at end
 
-Generate the complete JSON output now.`,
+Return ONLY the JSON object, no additional text.`,
 
-  before_after_15s: `You are an expert in transformation-based marketing content for short-form video. Your scripts leverage powerful visual contrast to create instant credibility and desire. The before/after format proves results without needing lengthy explanations.
+  before_after_15s: `You are an expert in transformation videos. Use powerful visual contrast to prove results.
 
 INPUT:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT FORMAT (JSON):
+OUTPUT: Return ONLY valid JSON with this exact structure:
 {
   "style": "Before/After Transformation (15s)",
-  "tone_instructions": "Start with acknowledgment of struggle (empathetic, understanding), shift to excited and impressed when revealing results. Use testimonial-style language ('I couldn't believe it', 'The difference is incredible'). Sound authentic - not salesy. Pace can be moderate with dramatic pauses before the 'after' reveal. Think before: matter-of-fact, after: delighted surprise.",
+  "tone_instructions": "Start empathetic, shift to excited at reveal - authentic testimonial style",
   "visual_cues": [
-    "0-2s (BEFORE HOOK): 'Before' state, split-screen with blurred 'after', desaturated",
-    "2-5s (TRANSITION): Transition effect, product application montage",
-    "5-8s (AFTER REVEAL): 'After' revealed, same angle, enhanced lighting",
-    "8-12s (PROOF): Alternate before/after, product packaging visible",
-    "12-15s (CTA): Final 'after' shot, product displayed"
+    "0-2s: [Before state, split-screen, desaturated]",
+    "2-5s: [Transition effect, product application]",
+    "5-8s: [After reveal, same angle, enhanced]",
+    "8-12s: [Alternate before/after with product]",
+    "12-15s: [Final after shot with CTA]"
   ],
   "voiceover": [
-    "Hook (0-2s): [Before: 'Before [Product Name], my [problem].']",
-    "Transition (2-5s): [Timeline: 'After [timeframe], I tried it.']",
-    "Reveal (5-8s): [Reaction: 'WOW. Look at this transformation.']",
-    "Proof/Social (8-12s): [Benefits: 'It [fixes problem] and [bonus benefit]. Over 50K sold.']",
-    "CTA (12-15s): [Offer: '40% off today. Link below. 60-day guarantee.']"
-  ],
-  "text_overlay": [
-    "0-2s: ['BEFORE ❌' in bold red/orange, optional problem descriptors: 'Dull • Uneven • Tired' or similar]",
-    "3-5s: [Timeline indicator: 'After 3 days...', 'After 2 weeks...', OR clock/timer animation]",
-    "5-8s: ['AFTER ✅' in bold green, result descriptors: 'Glowing • Smooth • Radiant']",
-    "9-12s: [Product name + key stat: '[Product Name] - 98% customer satisfaction' or similar credibility marker]",
-    "13-15s: [CTA: '40% OFF TODAY 🔥', 'Link in bio 🔗', 'Code: TRANSFORM']"
-  ],
-  "filming_guidelines": [
-    "Film 'before' and 'after' in SAME lighting conditions (consistency = credibility)",
-    "Use SAME camera angle, distance, and framing for both",
-    "Avoid filters that dramatically alter appearance (subtle color correction OK)",
-    "Be honest about timeline - don't promise overnight results if unrealistic",
-    "If using split-screen, ensure perfect vertical alignment"
-  ],
-  "transition_effects": [
-    "Option 1: Horizontal swipe (before slides left, after slides in from right)",
-    "Option 2: Snap/flash (quick white flash between before and after)",
-    "Option 3: Clock/timer spin (circular wipe suggesting time passing)",
-    "Option 4: Morphing dissolve (before gradually transforms into after)",
-    "Effect should last 0.5-1 second maximum"
-  ],
-  "music_recommendation": "Start with neutral or slightly tense music, transition to upbeat/triumphant at reveal (around 5-6s). Clear emotional arc in the music. Consider using trending sounds with dramatic build-up/drop.",
-  "color_grading": "Before: Slightly desaturated, neutral tones. After: Enhanced saturation (not excessive), warmer/brighter depending on product category. Difference should be noticeable but believable.",
-  "hashtags": "#beforeandafter #transformation #resultsyoucansee #[product category] #productthatworks"
+    "[Before - 2s: Before Product, my problem]",
+    "[Timeline - 3s: After timeframe, tried it]",
+    "[Reveal - 3s: WOW. Look at transformation]",
+    "[Proof - 4s: Fixes problem + social proof]",
+    "[CTA - 3s: Offer with guarantee]"
+  ]
 }
 
-CRITICAL RULES:
-1. Before and after MUST be filmed in similar conditions for credibility
-2. Timeline must be realistic (don't promise miracles overnight)
-3. 'After' reveal should happen between 5-8 seconds (not sooner or later)
-4. Must alternate between before/after at least once for proof
-5. No excessive filters or editing that makes transformation seem fake
-6. Include at least one credibility element (reviews, satisfaction rate, units sold)
-7. 35-40 WORDS TOTAL (Must fit 15s spoken naturally).
-8. NO Intro/Outro fluff ('Hey guys', 'Bye').
-9. CTA must address risk ("money-back guarantee") to overcome skepticism
+CRITICAL REQUIREMENTS:
+- Total words: 35-40 maximum
+- Same lighting/angle for before/after
+- Realistic timeline
+- After reveal at 5-8 seconds
+- Include credibility element
 
-Generate the complete JSON output now.`,
+Return ONLY the JSON object, no additional text.`,
 
-  before_after_10s: `You are an expert in 10-second "Before & After" reveal videos. Your goal: Show the result instantly.
+  before_after_10s: `You are an expert in 10-second before/after reveals. Show results instantly.
 
 INPUT:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT FORMAT (JSON):
+OUTPUT: Return ONLY valid JSON with this exact structure:
 {
   "style": "Before/After Transformation (10s)",
-  "tone_instructions": "Shocked, impressed, concise. Just the facts.",
+  "tone_instructions": "Shocked, impressed, concise - just facts",
   "visual_cues": [
-    "0-3s: Split screen: Left = Before (Bad), Right = Blurred.",
-    "3-10s: Unblur Right side (Amazing Result). Creator points to it.",
+    "0-3s: [Split screen: before bad, after blurred]",
+    "3-10s: [Unblur after, creator points to result]"
   ],
   "voiceover": [
-    "Line 1 (0-3s): [Problem: 'Look at how bad my [Problem] was...']",
-    "Line 2 (3-10s): [Result: 'Then I used [Product]. Just look at this! Link below.']"
-  ],
-  "text_overlay": [
-    "0-3s: [Text: '🤮 BEFORE']",
-    "3-10s: [Text: '✨ AFTER']"
-  ],
-  "music_recommendation": "Transition sound (Whoosh) at 3s -> Victorious music."
+    "[Problem - 3s: Look how bad it was]",
+    "[Result - 7s: Used Product. Look at this! Link below]"
+  ]
 }
 
-CRITICAL RULES:
-1. 20-25 WORDS TOTAL (Must fit 10s spoken fast).
-2. Immediate value only. No setup.
-3. Rely on the visual contrast.
-4. CTA must be immediate.
+CRITICAL REQUIREMENTS:
+- Total words: 20-25 maximum
+- Rely on visual contrast
+- Immediate CTA
 
-Generate the complete JSON output now.`,
+Return ONLY the JSON object, no additional text.`,
 
-  storyboard_25s: `You are a master cinematographer and storyboard artist for high-end commercial video production. You specialize in the "Sora 2 Pro" 5-Scene Storyboard format, creating coherent, 25-second narrative arcs that feel like mini-movies, not just random clips.
+  storyboard_25s: `You are an expert in cinematic 25-second storyboard videos. Create 5-scene narrative arcs with visual consistency.
 
 INPUT:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT FORMAT (JSON):
+OUTPUT: Return ONLY valid JSON with this exact structure:
 {
   "style": "Cinematic Storyboard (25s)",
-  "tone_instructions": "Cinematic, cohesive, narrative-driven. Maintain strict visual consistency (same character/lighting) across all scenes. Pacing should be deliberate, allowing the viewer to absorb the 'story' of the product.",
+  "tone_instructions": "Cinematic, narrative-driven - maintain visual consistency across scenes",
   "visual_cues": [
-    "0-5s: Scene 1 - The Establishing Shot. [Wide angle/Context]. Introduce the world/character.",
-    "5-10s: Scene 2 - The Inciting Incident. [Medium shot]. The problem or desire appears.",
-    "10-15s: Scene 3 - The Hero Moment. [Close-up/Macro]. The product is revealed as the solution. High production value.",
-    "15-20s: Scene 4 - The Experience. [Tracking shot/Motion]. Showing the joy/benefit of using it.",
-    "20-25s: Scene 5 - The Resolution & CTA. [Static/Stable shot]. Final brand impression and call to action."
+    "0-5s: Scene 1 - [Wide shot: Establish world/character]",
+    "5-10s: Scene 2 - [Medium shot: Problem/desire appears]",
+    "10-15s: Scene 3 - [Close-up: Product revealed as solution]",
+    "15-20s: Scene 4 - [Tracking shot: Joy/benefit of using]",
+    "20-25s: Scene 5 - [Static shot: Resolution & CTA]"
   ],
   "voiceover": [
-    "Scene 1 (0-5s): [Setting the scene]",
-    "Scene 2 (5-10s): [The conflict/need]",
-    "Scene 3 (10-15s): [The solution revealed]",
-    "Scene 4 (15-20s): [The emotional benefit]",
-    "Scene 5 (20-25s): [The lasting impression + CTA]"
-  ],
-  "text_overlay": [
-    "0-5s: [Title/Context]",
-    "10-15s: [Key Feature/Benefit]",
-    "20-25s: [Brand/CTA]"
+    "[Scene 1 - 5s: Setting the scene]",
+    "[Scene 2 - 5s: The conflict/need]",
+    "[Scene 3 - 5s: Solution revealed]",
+    "[Scene 4 - 5s: Emotional benefit]",
+    "[Scene 5 - 5s: Impression + CTA]"
   ],
   "technical_directives": {
-    "lighting": "Natural cinematic lighting, 'golden hour' or 'studio softbox' to maintain premium look.",
-    "camera": "Use specific camera movements (e.g., 'dolly in', 'truck left', 'rack focus') to guide attention.",
-    "consistency": "Ensure the main subject (person/object) wears the same colors/clothing in Scenes 1, 2, and 4."
-  },
-  "music_recommendation": "Orchestral swell or Ambient Electronic with a distinct beat change at 10s (the reveal)."
+    "lighting": "Cinematic lighting - golden hour or studio softbox",
+    "camera": "Use dolly in, truck left, rack focus movements",
+    "consistency": "Same character/colors throughout all scenes"
+  }
 }
 
-CRITICAL RULES:
-1. **Consistency is King:** explicitly mention "Same character" or "Same setting" in the visual cues to trigger Sora 2's consistency tracking.
-2. **Strict 5-Second Beats:** The storyboard model works best with 5 distinct cards of 5 seconds each. Do not deviate.
-3. **Camera Language:** Use professional terms (Wide, Medium, Close-up, POV).
-4. **Narrative Arc:** Must have a clear Beginning, Middle, and End.
-5. **No "Fluff":** Every shot must advance the story.
+CRITICAL REQUIREMENTS:
+- 5 scenes of exactly 5 seconds each
+- Same character/setting for consistency
+- Use professional camera terms
+- Clear narrative arc
+- Every shot advances story
 
-Generate the complete JSON output now.`,
+Return ONLY the JSON object, no additional text.`,
 } as const
 
 export type PromptKey = keyof typeof PROMPTS
