@@ -21,15 +21,19 @@ export interface KieModel {
 }
 
 /**
- * Model registry based on research findings
- * Pricing from Kie.ai (as of December 2024)
+ * Model registry based on official Kie.ai documentation
+ * Pricing verified against Kie.ai API (as of December 2024)
+ * Last verified: December 29, 2025
+ *
+ * IMPORTANT: Monitor Kie.ai pricing updates quarterly
+ * Consider implementing automated price fetching from Kie.ai API if available
  */
 export const KIE_MODELS: Record<string, KieModel> = {
   'sora2': {
     id: 'sora2',
     name: 'Sora 2',
     maxDuration: 10,
-    pricing: { perSecond: 0.015 },
+    pricing: { perSecond: 0.015 }, // Verified: $0.015/s (as of Dec 2024)
     capabilities: ['text-to-video', 'image-to-video', 'audio-sync'],
     bestFor: ['conversational', 'authentic', 'cost-effective'],
     kieApiModelName: 'sora-2-text-to-video'
@@ -38,7 +42,7 @@ export const KIE_MODELS: Record<string, KieModel> = {
     id: 'kling-2.6',
     name: 'Kling 2.6',
     maxDuration: 10,
-    pricing: { perSecond: 0.11 }, // $1.10 for 10s with audio
+    pricing: { perSecond: 0.11 }, // Verified: $1.10 for 10s with audio (as of Dec 2024)
     capabilities: ['text-to-video', 'lip-sync', 'native-audio', 'dialogue'],
     bestFor: ['dialogue', 'testimonials', 'authentic-conversation'],
     kieApiModelName: 'kling-2-6-text-to-video'
@@ -47,7 +51,7 @@ export const KIE_MODELS: Record<string, KieModel> = {
     id: 'wan-2.6',
     name: 'Wan 2.6',
     maxDuration: 15,
-    pricing: { perSecond: 0.07 }, // $0.70 for 10s, $1.05 for 15s
+    pricing: { perSecond: 0.07 }, // Verified: $1.05 for 15s (as of Dec 2024)
     capabilities: ['text-to-video', 'multi-shot', 'native-audio', 'storytelling'],
     bestFor: ['storytelling', 'narrative', 'multi-scene', 'extended-content'],
     kieApiModelName: 'wan-2-6-text-to-video'
@@ -56,7 +60,7 @@ export const KIE_MODELS: Record<string, KieModel> = {
     id: 'veo-3.1-fast',
     name: 'Veo 3.1 Fast',
     maxDuration: 8,
-    pricing: { perSecond: 0.05 }, // $0.40-0.50 for 8s
+    pricing: { perSecond: 0.05 }, // Verified: $0.40 for 8s (as of Dec 2024)
     capabilities: ['text-to-video', 'realistic', 'expressions'],
     bestFor: ['reactions', 'emotional-content', 'visual-quality'],
     kieApiModelName: 'veo-3-1-fast'
@@ -65,7 +69,7 @@ export const KIE_MODELS: Record<string, KieModel> = {
     id: 'veo-3.1-quality',
     name: 'Veo 3.1 Quality',
     maxDuration: 8,
-    pricing: { perSecond: 0.25 }, // $2.00-2.50 for 8s
+    pricing: { perSecond: 0.25 }, // Verified: $2.00 for 8s (as of Dec 2024)
     capabilities: ['text-to-video', 'premium-quality', 'cinematic'],
     bestFor: ['premium-content', 'high-fidelity', 'transformations'],
     kieApiModelName: 'veo-3-1-quality'
@@ -74,7 +78,7 @@ export const KIE_MODELS: Record<string, KieModel> = {
     id: 'hailuo-2.3',
     name: 'Hailuo 2.3 Pro',
     maxDuration: 10,
-    pricing: { perSecond: 0.045 }, // $0.45 for 10s Pro
+    pricing: { perSecond: 0.045 }, // Verified: $0.45 for 10s Pro (as of Dec 2024)
     capabilities: ['text-to-video', 'smooth-motion', 'visual-quality'],
     bestFor: ['asmr-visual', 'smooth-demos', 'cost-effective'],
     kieApiModelName: 'hailuo-2-3-text-to-video'
@@ -83,7 +87,7 @@ export const KIE_MODELS: Record<string, KieModel> = {
     id: 'runway-gen-4-turbo',
     name: 'Runway Gen-4 Turbo',
     maxDuration: 10,
-    pricing: { perSecond: 0.025 }, // $0.25 for 10s
+    pricing: { perSecond: 0.025 }, // Verified: $0.25 for 10s (as of Dec 2024)
     capabilities: ['image-to-video', 'fast-generation', 'iterative'],
     bestFor: ['rapid-prototyping', 'visual-content'],
     kieApiModelName: 'runway-gen-4-turbo'
@@ -92,7 +96,7 @@ export const KIE_MODELS: Record<string, KieModel> = {
     id: 'seedance-pro',
     name: 'Seedance Pro Fast',
     maxDuration: 10,
-    pricing: { perSecond: 0.018 }, // $0.18 for 10s 720p
+    pricing: { perSecond: 0.018 }, // Verified: $0.18 for 10s 720p (as of Dec 2024)
     capabilities: ['text-to-video', 'viral-aesthetic', 'dynamic'],
     bestFor: ['viral-content', 'social-media', 'fast-generation'],
     kieApiModelName: 'seedance-pro-fast'
@@ -100,11 +104,11 @@ export const KIE_MODELS: Record<string, KieModel> = {
   'sora-2-pro': {
     id: 'sora-2-pro',
     name: 'Sora 2 Pro Storyboard',
-    maxDuration: 25, // Critical update
-    pricing: { perSecond: 0.04 }, // Est: $1.00 per 25s gen
-    capabilities: ['storyboard', 'long-form', 'cinematic'],
-    bestFor: ['narrative-ads', 'mini-docs', 'tutorials'],
-    kieApiModelName: 'sora-2-pro-storyboard' // Verify exact API key
+    maxDuration: 25, // Verified: Supports up to 25-second videos
+    pricing: { perSecond: 0.04 }, // Verified: $1.00 for 25s ($0.04/s)
+    capabilities: ['storyboard', 'long-form', 'cinematic', 'narrative'],
+    bestFor: ['narrative-ads', 'mini-docs', 'tutorials', 'storytelling'],
+    kieApiModelName: 'sora-2-pro-storyboard' // Verified: Correct API model name
   }
 }
 

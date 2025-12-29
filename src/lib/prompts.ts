@@ -673,11 +673,54 @@ export function generateVideoGenerationPayload(
 
   // Handle Sora 2 Pro Storyboard API (different structure)
   if (model === 'sora-2-pro-storyboard' && scenes && scenes.length > 0) {
+    // Validate scenes array
+    if (scenes.length === 0) {
+      throw new Error('Storyboard API requires at least one scene')
+    }
+
+    // Transform scenes array into proper API format
+    const shots = scenes.map((scene, index) => {
+      // Extract duration from time range (e.g., "0-5s: Scene description" -> 5 seconds)
+      const timeMatch = scene.match(/^(\d+)-(\d+)s:/)
+      const duration = timeMatch ? parseInt(timeMatch[2]) - parseInt(timeMatch[1]) : 5
+
+      // Validate duration
+      if (duration <= 0) {
+        throw new Error(`Invalid scene duration for scene ${index + 1}: ${duration}s`)
+      }
+
+      // Extract scene description (remove time range and audio part)
+      const sceneDesc = scene
+        .replace(/^\d+-\d+s:\s*/, '') // Remove time range prefix
+        .replace(/\n\[Audio\].*$/, '') // Remove audio part suffix
+        .trim()
+
+      if (!sceneDesc) {
+        throw new Error(`Empty scene description for scene ${index + 1}`)
+      }
+
+      return {
+        Scene: sceneDesc,
+        duration: duration
+      }
+    })
+
+    // Validate total duration matches expected duration
+    const totalDuration = shots.reduce((sum, shot) => sum + shot.duration, 0)
+    const expectedDuration = duration || 25
+    if (totalDuration !== expectedDuration) {
+      console.warn(`[Storyboard API] Scene durations (${totalDuration}s) don't match expected duration (${expectedDuration}s)`)
+    }
+
     return {
-      shots: scenes, // Array of scene descriptions
-      n_frames: duration || 25, // Use n_frames instead of duration
-      image_urls: imageUrls,
-      aspect_ratio: aspectRatio
+      model, // Required: specify the storyboard model ('sora-2-pro-storyboard')
+      callBackUrl: process.env.KIE_CALLBACK_URL || 'https://your-domain.com/api/callback', // Optional callback URL - verify if still supported
+      input: {
+        n_frames: String(expectedDuration), // Total video duration as string
+        image_urls: imageUrls,
+        aspect_ratio: aspectRatio,
+        shots: shots // Array of scene objects with Scene and duration properties
+      }
     }
   }
 
