@@ -61,7 +61,7 @@ export interface BatchItemStatus {
 
 interface WizardState {
   step: number // Regular: 1: Input, 2: Review, 3: Processing | Bulk: 1: Upload, 2: Validate, 3: Review, 4: Process
-  style: string // Video style: 'ugc', 'green_screen', 'pas', 'asmr', 'before_after'
+  style: string // Video style: 'ugc_auth', 'green_screen', 'pas_framework', 'asmr_visual', 'before_after', 'storyboard'
   duration: '10s' | '15s' | '25s' // Video duration
   language: string // Target language code (e.g., 'en', 'es', 'fr')
   url: string
@@ -117,7 +117,7 @@ interface WizardState {
 
 const initialState = {
   step: 1,
-  style: 'ugc',
+  style: 'ugc_auth',
   duration: '15s' as const,
   language: 'en',
   url: '',

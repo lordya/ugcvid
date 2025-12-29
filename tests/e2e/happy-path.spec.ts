@@ -14,20 +14,54 @@ import { test, expect, Page, Route } from '@playwright/test'
 
 test.describe('Happy Path: Video Generation Flow', () => {
   test.beforeEach(async ({ page }) => {
-    // Mock authentication - bypass login by setting session cookie
-    // In a real scenario, you might want to use actual test credentials
-    // For now, we'll mock the auth check to return a user
-    await page.addInitScript(() => {
-      // Mock Supabase auth to always return a test user
-      // This is a simplified approach - in production you'd use actual test auth
-      window.localStorage.setItem('test-user', JSON.stringify({
-        id: 'test-user-id',
-        email: 'test@example.com'
-      }))
+    // Mock all external API calls first
+    await setupMocks(page)
+
+    // Set authentication cookies that Supabase uses
+    await page.context().addCookies([
+      {
+        name: 'sb-access-token',
+        value: 'fake-access-token',
+        domain: 'localhost',
+        path: '/',
+      },
+      {
+        name: 'sb-refresh-token',
+        value: 'fake-refresh-token',
+        domain: 'localhost',
+        path: '/',
+      }
+    ])
+
+    // Mock Supabase auth.getUser() calls - this is what the middleware uses
+    await page.route('**/auth/v1/user', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          user: {
+            id: 'test-user-id',
+            email: 'test@example.com',
+            aud: 'authenticated',
+            role: 'authenticated',
+            email_confirmed_at: new Date().toISOString()
+          },
+          access_token: 'fake-access-token',
+          refresh_token: 'fake-refresh-token'
+        }),
+      })
     })
 
-    // Mock all external API calls
-    await setupMocks(page)
+    // Mock user profile queries
+    await page.route('**/rest/v1/users?select=quality_tier&id=eq.test-user-id', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{
+          quality_tier: 'standard'
+        }]),
+      })
+    })
   })
 
   test('User can generate a video through the full wizard flow', async ({ page }) => {
@@ -81,8 +115,8 @@ test.describe('Happy Path: Video Generation Flow', () => {
     // Click generate
     await generateButton.click()
 
-    // Step 6: Wait for redirect to library
-    await page.waitForURL('/library', { timeout: 10000 })
+    // Step 6: Wait for redirect to library (includes 2s delay in the app)
+    await page.waitForURL('/library', { timeout: 15000 })
 
     // Step 7: Verify we're on the library page
     await expect(page.locator('h1')).toContainText(/Library/i)
@@ -123,8 +157,8 @@ test.describe('Happy Path: Video Generation Flow', () => {
     const generateButton = page.locator('button:has-text("Generate Video")').first()
     await generateButton.click()
 
-    // Check for toast notification
-    const toast = page.locator('text=/Generation started|Your video is being created/i')
+    // Check for toast notification - look for the specific "Generation Started" text
+    const toast = page.locator('text=/Generation Started/i').first()
     await expect(toast).toBeVisible({ timeout: 2000 })
   })
 })
@@ -233,10 +267,38 @@ async function setupMocks(page: Page) {
     })
   })
 
-  // Mock library API to return a video after generation
-  await page.route('**/library**', async (route: Route) => {
-    // Let the route continue normally, but we'll intercept the API calls
-    await route.continue()
+  // Mock library page to return a fake library page for testing
+  await page.route('**/library', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: `
+        <!DOCTYPE html>
+        <html>
+          <head><title>Library</title></head>
+          <body>
+            <h1>Library</h1>
+            <div data-video-id="test-video-1" class="video-card">
+              <div class="status">COMPLETED</div>
+            </div>
+          </body>
+        </html>
+      `,
+    })
+  })
+
+  // Mock library API calls
+  await page.route('**/rest/v1/videos*', async (route: Route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{
+        id: 'test-video-1',
+        status: 'COMPLETED',
+        video_url: 'https://example.com/video/test-video.mp4',
+        created_at: new Date().toISOString()
+      }]),
+    })
   })
 }
 
