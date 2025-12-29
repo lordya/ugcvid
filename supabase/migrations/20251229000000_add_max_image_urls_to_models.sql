@@ -180,3 +180,4 @@ WHERE kie_api_model_name IN (
 
 COMMENT ON COLUMN public.model_prompts.model_config IS 'Model configuration including pricing, capabilities, constraints, max_image_urls (max number of image URLs allowed), and image_url_field_name (field name: "image_url" or "image_urls")';
 
+

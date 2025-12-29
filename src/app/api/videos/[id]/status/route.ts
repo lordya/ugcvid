@@ -7,6 +7,7 @@ import { QUALITY_TIERS } from '@/lib/prompts'
 import { selectModelForQualityRisk, KIE_MODELS } from '@/lib/kie-models'
 import { createVideoTask } from '@/lib/kie'
 import { analyzeContentForQuality } from '@/lib/quality-analysis'
+import { Tables } from '@/types/supabase'
 
 export async function GET(
   request: NextRequest,
@@ -37,7 +38,7 @@ export async function GET(
       .from('videos')
       .select('*')
       .eq('id', videoId)
-      .single()
+      .single() as { data: Tables<'videos'> | null, error: any }
 
     if (videoError || !video) {
       console.error('Error fetching video:', videoError)
@@ -165,13 +166,16 @@ export async function GET(
 
     // 8. If status is COMPLETED, check if quality validation needs to be done
     // Quality validation is triggered on first status check after completion
-    if (video.status === 'COMPLETED' && !video.quality_validated_at && video.video_url) {
+    if (video.status === 'COMPLETED' && !(video as any).quality_validated_at && video.video_url) {
       try {
         // Get signed URL for video validation
         let videoUrlForValidation = video.video_url
         if (video.storage_path) {
           try {
-            videoUrlForValidation = await getSignedVideoUrl(video.storage_path)
+            const signedUrl = await getSignedVideoUrl(video.storage_path)
+            if (signedUrl) {
+              videoUrlForValidation = signedUrl
+            }
           } catch (urlError) {
             console.error('Error getting signed URL for quality validation:', urlError)
             // Fall back to original video_url
