@@ -18,6 +18,8 @@ export interface KieModel {
   capabilities: string[]
   bestFor: string[]
   kieApiModelName: string // Actual model name for Kie.ai API
+  maxImageUrls?: number // Maximum number of image URLs allowed (default: 1)
+  imageUrlFieldName?: 'image_url' | 'image_urls' // Field name to use in API payload
 }
 
 /**
@@ -36,7 +38,9 @@ export const KIE_MODELS: Record<string, KieModel> = {
     pricing: { perSecond: 0.05 }, // $0.40 for 8s
     capabilities: ['text-to-video', 'realistic', 'expressions', 'fast'],
     bestFor: ['reactions', 'emotional-content', 'fast-generation'],
-    kieApiModelName: 'veo3_fast'
+    kieApiModelName: 'veo3_fast',
+    maxImageUrls: 1,
+    imageUrlFieldName: 'image_url'
   },
   'veo-3.1-quality': {
     id: 'veo-3.1-quality',
@@ -45,7 +49,9 @@ export const KIE_MODELS: Record<string, KieModel> = {
     pricing: { perSecond: 0.25 }, // $2.00 for 8s
     capabilities: ['text-to-video', 'premium-quality', 'cinematic', 'high-fidelity'],
     bestFor: ['premium-content', 'transformations', 'professional'],
-    kieApiModelName: 'veo3'
+    kieApiModelName: 'veo3',
+    maxImageUrls: 1,
+    imageUrlFieldName: 'image_url'
   },
   'runway-gen-4-turbo': {
     id: 'runway-gen-4-turbo',
@@ -54,7 +60,9 @@ export const KIE_MODELS: Record<string, KieModel> = {
     pricing: { perSecond: 0.025 }, // $0.25 for 10s
     capabilities: ['image-to-video', 'fast-generation', 'iterative', 'text-to-video'],
     bestFor: ['rapid-prototyping', 'visual-content', 'iterative-work'],
-    kieApiModelName: 'runway-duration-5-generate' // Supports 5-10s durations
+    kieApiModelName: 'runway-duration-5-generate', // Supports 5-10s durations
+    maxImageUrls: 1,
+    imageUrlFieldName: 'image_url'
   },
   'wan-2.2-turbo': {
     id: 'wan-2.2-turbo',
@@ -63,7 +71,9 @@ export const KIE_MODELS: Record<string, KieModel> = {
     pricing: { perSecond: 0.1 }, // High-speed turbo pricing
     capabilities: ['text-to-video', 'image-to-video', 'turbo', 'fast'],
     bestFor: ['high-speed', 'prototyping', 'cost-effective'],
-    kieApiModelName: 'wan/2-2-a14b-text-to-video-turbo'
+    kieApiModelName: 'wan/2-2-a14b-text-to-video-turbo',
+    maxImageUrls: 1,
+    imageUrlFieldName: 'image_url'
   },
   'wan-2.6': {
     id: 'wan-2.6',
@@ -72,7 +82,9 @@ export const KIE_MODELS: Record<string, KieModel> = {
     pricing: { perSecond: 0.07 }, // $1.05 for 15s
     capabilities: ['text-to-video', 'image-to-video', 'multi-shot', 'storytelling'],
     bestFor: ['storytelling', 'narrative', 'multi-scene', 'extended-content'],
-    kieApiModelName: 'wan/2-6-text-to-video'
+    kieApiModelName: 'wan/2-6-text-to-video',
+    maxImageUrls: 1,
+    imageUrlFieldName: 'image_url'
   },
   'kling-2.1-master': {
     id: 'kling-2.1-master',
@@ -81,7 +93,9 @@ export const KIE_MODELS: Record<string, KieModel> = {
     pricing: { perSecond: 0.11 }, // $1.10 for 10s with audio
     capabilities: ['text-to-video', 'image-to-video', 'lip-sync', 'dialogue', 'high-quality'],
     bestFor: ['dialogue', 'testimonials', 'professional', 'lip-sync'],
-    kieApiModelName: 'kling/v2-1-master-text-to-video'
+    kieApiModelName: 'kling/v2-1-master-text-to-video',
+    maxImageUrls: 1,
+    imageUrlFieldName: 'image_url'
   },
   'kling-2.6': {
     id: 'kling-2.6',
@@ -90,7 +104,9 @@ export const KIE_MODELS: Record<string, KieModel> = {
     pricing: { perSecond: 0.11 }, // $1.10 for 10s with audio
     capabilities: ['text-to-video', 'lip-sync', 'native-audio', 'dialogue', 'avatar'],
     bestFor: ['dialogue', 'testimonials', 'authentic-conversation', 'avatar'],
-    kieApiModelName: 'kling/v2-1-standard' // Using most recent available
+    kieApiModelName: 'kling/v2-1-standard', // Using most recent available
+    maxImageUrls: 1,
+    imageUrlFieldName: 'image_url'
   },
   'sora-2-text-to-video': {
     id: 'sora-2-text-to-video',
@@ -99,7 +115,9 @@ export const KIE_MODELS: Record<string, KieModel> = {
     pricing: { perSecond: 0.015 }, // $0.015/s
     capabilities: ['text-to-video', 'image-to-video', 'audio-sync', 'high-quality'],
     bestFor: ['conversational', 'authentic', 'cost-effective', 'professional'],
-    kieApiModelName: 'sora-2-pro-text-to-video'
+    kieApiModelName: 'sora-2-pro-text-to-video',
+    maxImageUrls: 10,
+    imageUrlFieldName: 'image_urls'
   },
   'sora-2-pro': {
     id: 'sora-2-pro',
@@ -108,7 +126,9 @@ export const KIE_MODELS: Record<string, KieModel> = {
     pricing: { perSecond: 0.04 }, // $1.00 for 25s
     capabilities: ['storyboard', 'long-form', 'cinematic', 'narrative', 'multi-scene'],
     bestFor: ['narrative-ads', 'mini-docs', 'tutorials', 'storytelling', 'cinematic'],
-    kieApiModelName: 'sora-2-pro-storyboard'
+    kieApiModelName: 'sora-2-pro-storyboard',
+    maxImageUrls: 10,
+    imageUrlFieldName: 'image_urls'
   },
   'hailuo-2.3': {
     id: 'hailuo-2.3',
@@ -117,7 +137,9 @@ export const KIE_MODELS: Record<string, KieModel> = {
     pricing: { perSecond: 0.045 }, // $0.45 for 10s
     capabilities: ['text-to-video', 'smooth-motion', 'visual-quality', 'artistic'],
     bestFor: ['asmr-visual', 'smooth-demos', 'artistic', 'cost-effective'],
-    kieApiModelName: 'hailuo/02-text-to-video-pro'
+    kieApiModelName: 'hailuo/02-text-to-video-pro',
+    maxImageUrls: 1,
+    imageUrlFieldName: 'image_url'
   },
   'bytedance-v1-lite': {
     id: 'bytedance-v1-lite',
@@ -126,7 +148,9 @@ export const KIE_MODELS: Record<string, KieModel> = {
     pricing: { perSecond: 0.1 }, // Fast, cost-effective
     capabilities: ['text-to-video', 'image-to-video', 'fast', 'lite'],
     bestFor: ['fast-generation', 'prototyping', 'social-media', 'cost-effective'],
-    kieApiModelName: 'bytedance/v1-lite-text-to-video'
+    kieApiModelName: 'bytedance/v1-lite-text-to-video',
+    maxImageUrls: 1,
+    imageUrlFieldName: 'image_url'
   },
   'seedance-pro': {
     id: 'seedance-pro',
@@ -135,7 +159,9 @@ export const KIE_MODELS: Record<string, KieModel> = {
     pricing: { perSecond: 0.018 }, // $0.18 for 10s
     capabilities: ['text-to-video', 'viral-aesthetic', 'dynamic', 'fast'],
     bestFor: ['viral-content', 'social-media', 'fast-generation', 'trending'],
-    kieApiModelName: 'seedance-pro-fast'
+    kieApiModelName: 'seedance-pro-fast',
+    maxImageUrls: 1,
+    imageUrlFieldName: 'image_url'
   },
   'grok-imagine-video': {
     id: 'grok-imagine-video',
@@ -144,7 +170,9 @@ export const KIE_MODELS: Record<string, KieModel> = {
     pricing: { perSecond: 0.05 }, // Creative pricing
     capabilities: ['text-to-video', 'image-to-video', 'creative', 'motion'],
     bestFor: ['creative', 'experimental', 'motion-graphics', 'unique'],
-    kieApiModelName: 'grok-imagine/text-to-video'
+    kieApiModelName: 'grok-imagine/text-to-video',
+    maxImageUrls: 10,
+    imageUrlFieldName: 'image_urls'
   }
 }
 
@@ -212,11 +240,11 @@ export function selectModelForFormat(format: string): KieModel {
     console.warn('[Format Fallback]', {
       format,
       reason: 'format_not_in_mapping',
-      fallback: 'sora2',
+      fallback: 'sora-2-text-to-video',
       timestamp: new Date().toISOString(),
       availableFormats: Object.keys(FORMAT_MODEL_MAPPING)
     })
-    return KIE_MODELS.sora2
+    return KIE_MODELS['sora-2-text-to-video']
   }
   
   const model = KIE_MODELS[mapping.primary]
@@ -232,7 +260,7 @@ export function selectModelForFormat(format: string): KieModel {
       availableModels: Object.keys(KIE_MODELS)
     })
     const backupModel = KIE_MODELS[mapping.backup]
-    return backupModel || KIE_MODELS.sora2
+    return backupModel || KIE_MODELS['sora-2-text-to-video']
   }
   
   return model
@@ -280,11 +308,11 @@ export function getBackupModelForFormat(format: string): KieModel {
   const mapping = FORMAT_MODEL_MAPPING[format]
 
   if (!mapping) {
-    return KIE_MODELS.sora2
+    return KIE_MODELS['sora-2-text-to-video']
   }
 
   const backupModel = KIE_MODELS[mapping.backup]
-  return backupModel || KIE_MODELS.sora2
+  return backupModel || KIE_MODELS['sora-2-text-to-video']
 }
 
 /**

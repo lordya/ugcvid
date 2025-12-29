@@ -6,7 +6,7 @@
  */
 
 import { getLanguageName } from './languages'
-import { MODEL_QUALITY_CONFIGS, KieModel } from './kie-models'
+import { MODEL_QUALITY_CONFIGS, KieModel, KIE_MODELS } from './kie-models'
 import { QualityRiskLevel } from './quality-analysis'
 import { getModelPromptByKey } from './db/model-prompts'
 
@@ -771,6 +771,28 @@ export function generateVideoGenerationPayload(
     qualityTier = 'standard' // Default to standard tier if not provided
   } = params
 
+  // Get model configuration to check image URL limits
+  // First try to find model by kieApiModelName, then by model ID
+  let modelInfo: KieModel | undefined = undefined
+  for (const [key, value] of Object.entries(KIE_MODELS)) {
+    if (value.kieApiModelName === model || value.id === model) {
+      modelInfo = value
+      break
+    }
+  }
+
+  // Get max image URLs and field name from model config
+  const maxImageUrls = modelInfo?.maxImageUrls ?? 1 // Default to 1 if not specified
+  const imageUrlFieldName = modelInfo?.imageUrlFieldName ?? 'image_url' // Default to singular
+
+  // Validate and limit image URLs based on model constraints
+  if (imageUrls.length > maxImageUrls) {
+    console.warn(
+      `[Image URL Limit] Model ${model} only accepts ${maxImageUrls} image URL(s), but ${imageUrls.length} provided. Limiting to first ${maxImageUrls}.`
+    )
+  }
+  const limitedImageUrls = imageUrls.slice(0, maxImageUrls)
+
   // Enhance prompt with quality instructions based on risk level
   const enhancedPrompt = enhancePromptWithQualityInstructions(prompt, riskLevel)
 
@@ -834,12 +856,15 @@ export function generateVideoGenerationPayload(
       console.warn(`[Storyboard API] Scene durations (${totalDuration}s) don't match expected duration (${expectedDuration}s)`)
     }
 
+    // Storyboard API uses image_urls (plural) - validate limit
+    const storyboardImageUrls = limitedImageUrls.length > 10 ? limitedImageUrls.slice(0, 10) : limitedImageUrls
+
     return {
       model, // Required: specify the storyboard model ('sora-2-pro-storyboard')
       callBackUrl: process.env.KIE_CALLBACK_URL || 'https://your-domain.com/api/callback', // Optional callback URL - verify if still supported
       input: {
         n_frames: String(expectedDuration), // Total video duration as string
-        image_urls: imageUrls,
+        image_urls: storyboardImageUrls,
         aspect_ratio: aspectRatio,
         shots: shots // Array of scene objects with Scene and duration properties
       }
@@ -852,18 +877,31 @@ export function generateVideoGenerationPayload(
   // Format duration according to model-specific requirements
   const durationParams = formatDurationForModel(model, duration)
 
+  // Build input object with correct image URL field name
+  const input: any = {
+    prompt: finalPrompt,
+    aspect_ratio: aspectRatio,
+    quality: quality,
+    resolution: qualityConfig.resolution,
+    fps: qualityConfig.fps,
+    ...(durationParams || {})
+  }
+
+  // Use the correct field name based on model (image_url vs image_urls)
+  if (imageUrlFieldName === 'image_url') {
+    // Models that use singular image_url - only use first image
+    if (limitedImageUrls.length > 0) {
+      input.image_url = limitedImageUrls[0]
+    }
+  } else {
+    // Models that use plural image_urls - use array
+    input.image_urls = limitedImageUrls
+  }
+
   // Handle regular models with standard structure
   const payload: any = {
     model,
-    input: {
-      prompt: finalPrompt,
-      image_urls: imageUrls,
-      aspect_ratio: aspectRatio,
-      quality: quality,
-      resolution: qualityConfig.resolution,
-      fps: qualityConfig.fps,
-      ...(durationParams || {})
-    }
+    input
   }
 
   // Only add callback URL if explicitly configured (for backward compatibility)
