@@ -572,6 +572,185 @@ export interface VideoGenerationParams {
 }
 
 /**
+ * Model-specific duration parameter configuration
+ * Based on official Kie.ai API documentation for each model
+ * 
+ * Maps each model's kieApiModelName to:
+ * - parameterName: The API parameter name (e.g., 'duration', 'n_frames')
+ * - format: How to format the value ('string' or 'number')
+ * - required: Whether the parameter is required
+ */
+const MODEL_DURATION_CONFIG: Record<string, {
+  parameterName: string
+  format: 'string' | 'number'
+  required: boolean
+}> = {
+  // Sora 2 Pro Storyboard - uses n_frames instead of duration
+  'sora-2-pro-storyboard': {
+    parameterName: 'n_frames',
+    format: 'string',
+    required: true
+  },
+  // Wan models - duration as string
+  'wan/2-6-text-to-video': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  'wan/2-2-a14b-text-to-video-turbo': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  'wan/2-2-text-to-video': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  'wan/2-2-image-to-video': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  'wan/2-6-image-to-video': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  // Kling models - duration as string
+  'kling/v2-1-master-text-to-video': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  'kling/v2-1-standard': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  'kling/v2-1-master-image-to-video': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  // Bytedance models - duration as string
+  'bytedance/v1-lite-text-to-video': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  'bytedance/v1-lite-image-to-video': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  'bytedance/v1-pro-image-to-video': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  // Hailuo models - duration as string
+  'hailuo/02-text-to-video-pro': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  'hailuo/02-text-to-video-standard': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  'hailuo/02-image-to-video-pro': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  // Runway models - duration as string
+  'runway-duration-5-generate': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  // Sora 2 models - duration as string (if supported)
+  'sora-2-pro-text-to-video': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  'sora-2-pro-image-to-video': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  // Grok models - duration format not documented, default to string
+  'grok-imagine/text-to-video': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  'grok-imagine/image-to-video': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  // Seedance - duration format not documented, default to string
+  'seedance-pro-fast': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  // Veo3.1 models - duration format not documented in unified API
+  // Default to string format for safety
+  'veo3_fast': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  },
+  'veo3': {
+    parameterName: 'duration',
+    format: 'string',
+    required: false
+  }
+}
+
+/**
+ * Get duration parameter configuration for a specific model
+ * @param model - The Kie.ai API model name (e.g., 'wan/2-6-text-to-video')
+ * @returns Duration configuration or null if model doesn't support duration
+ */
+function getModelDurationConfig(model: string): {
+  parameterName: string
+  format: 'string' | 'number'
+  required: boolean
+} | null {
+  return MODEL_DURATION_CONFIG[model] || null
+}
+
+/**
+ * Format duration value according to model requirements
+ * @param model - The Kie.ai API model name
+ * @param duration - Duration in seconds (number)
+ * @returns Formatted duration value or null if model doesn't support duration
+ */
+function formatDurationForModel(model: string, duration?: number): { [key: string]: string | number } | null {
+  if (duration === undefined || duration === null) {
+    return null
+  }
+
+  const config = getModelDurationConfig(model)
+  
+  // If model has specific config, use it
+  if (config) {
+    const value = config.format === 'string' ? String(duration) : duration
+    return { [config.parameterName]: value }
+  }
+
+  // Default: most models use 'duration' as string
+  // This is a safe fallback based on the error we encountered
+  return { duration: String(duration) }
+}
+
+/**
  * Generates the video generation request payload for Kie.ai API
  * Supports both regular models and Sora 2 Pro Storyboard API
  * @param params - Video generation parameters
@@ -644,12 +823,12 @@ export function generateVideoGenerationPayload(
 
       return {
         Scene: sceneDesc,
-        duration: duration
+        duration: String(duration)
       }
     })
 
     // Validate total duration matches expected duration
-    const totalDuration = shots.reduce((sum, shot) => sum + shot.duration, 0)
+    const totalDuration = shots.reduce((sum, shot) => sum + parseInt(String(shot.duration), 10), 0)
     const expectedDuration = duration || 25
     if (totalDuration !== expectedDuration) {
       console.warn(`[Storyboard API] Scene durations (${totalDuration}s) don't match expected duration (${expectedDuration}s)`)
@@ -670,6 +849,9 @@ export function generateVideoGenerationPayload(
   // Get quality configuration for the tier
   const qualityConfig = QUALITY_TIERS[qualityTier]
 
+  // Format duration according to model-specific requirements
+  const durationParams = formatDurationForModel(model, duration)
+
   // Handle regular models with standard structure
   const payload: any = {
     model,
@@ -680,7 +862,7 @@ export function generateVideoGenerationPayload(
       quality: quality,
       resolution: qualityConfig.resolution,
       fps: qualityConfig.fps,
-      ...(duration && { duration })
+      ...(durationParams || {})
     }
   }
 
