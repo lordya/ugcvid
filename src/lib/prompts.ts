@@ -6,8 +6,207 @@
  */
 
 import { getLanguageName } from './languages'
-import { MODEL_QUALITY_CONFIGS } from './kie-models'
+import { MODEL_QUALITY_CONFIGS, KieModel } from './kie-models'
 import { QualityRiskLevel } from './quality-analysis'
+
+/**
+ * Strict JSON Schema for script generation to comply with OpenAI Structured Outputs.
+ * All properties defined in each level must be included in the required array.
+ * additionalProperties must be false at every level.
+ */
+export const SCRIPT_GENERATION_SCHEMA = {
+  type: "object",
+  properties: {
+    style: {
+      type: "string",
+      description: "The video style/format being used"
+    },
+    tone_instructions: {
+      type: "string",
+      description: "Instructions for the overall tone and delivery"
+    },
+    visual_cues: {
+      type: "array",
+      items: { type: "string" },
+      description: "Array of visual cue descriptions with timestamps"
+    },
+    voiceover: {
+      type: "array",
+      items: { type: "string" },
+      description: "Array of voiceover script segments matching visual_cues"
+    },
+    text_overlay: {
+      type: "array",
+      items: { type: "string" },
+      description: "Optional array of text overlay cues with timestamps"
+    },
+    music_recommendation: {
+      type: "string",
+      description: "Recommended background music style or track"
+    },
+    hashtags: {
+      type: "string",
+      description: "Recommended hashtags for social media"
+    },
+    technical_directives: {
+      type: "object",
+      description: "Technical production directives including lighting, camera work, and consistency requirements",
+      properties: {
+        lighting: {
+          type: "string",
+          description: "Lighting setup and style recommendations"
+        },
+        camera: {
+          type: "string",
+          description: "Camera movement and shot composition guidelines"
+        },
+        consistency: {
+          type: "string",
+          description: "Consistency requirements across scenes"
+        }
+      },
+      required: ["lighting", "camera", "consistency"],
+      additionalProperties: false
+    }
+  },
+  required: [
+    "style",
+    "tone_instructions",
+    "visual_cues",
+    "voiceover",
+    "text_overlay",
+    "music_recommendation",
+    "hashtags",
+    "technical_directives"
+  ],
+  additionalProperties: false
+} as const
+
+/**
+ * Generate model-specific prompt enhancements including negative prompts and quality instructions
+ *
+ * @param model - KieModel instance
+ * @param formatKey - Format key (e.g., 'ugc_auth_15s')
+ * @returns Model-specific prompt enhancement string
+ */
+export function generateModelSpecificEnhancements(model: KieModel, formatKey: string): string {
+  const modelConfig = MODEL_QUALITY_CONFIGS[model.id]
+
+  if (!modelConfig) {
+    // Fallback for models without specific config
+    return `\n\nModel Requirements: Use ${model.name} for optimal results.`
+  }
+
+  // Build negative prompts section
+  const negativePromptsSection = modelConfig.negativePrompt.length > 0
+    ? `\n• Avoid: ${modelConfig.negativePrompt.join(', ')}`
+    : ''
+
+  // Build quality instructions section
+  const qualityInstructionsSection = modelConfig.qualityInstructions
+    ? `\n• Quality Focus: ${modelConfig.qualityInstructions}`
+    : ''
+
+  // Build capability focus based on format
+  const capabilityFocus = getCapabilityFocusForFormat(formatKey, model.id)
+
+  // Build duration constraint
+  const durationConstraint = `\n• Duration Limit: Keep total content within ${model.maxDuration} seconds`
+
+  const enhancement = `
+MODEL-SPECIFIC REQUIREMENTS FOR ${model.name.toUpperCase()}:${durationConstraint}${capabilityFocus}${qualityInstructionsSection}${negativePromptsSection}
+
+INTEGRATE THESE REQUIREMENTS NATURALLY INTO YOUR SCRIPT DESIGN.`
+
+  return enhancement
+}
+
+/**
+ * Get format-specific capability focus for a given model
+ *
+ * @param formatKey - Format key (e.g., 'ugc_auth_15s')
+ * @param modelId - Model ID
+ * @returns Capability focus string
+ */
+function getCapabilityFocusForFormat(formatKey: string, modelId: string): string {
+  const formatCapabilities: Record<string, Record<string, string>> = {
+    // UGC Auth formats - Conversational, authentic content
+    'ugc_auth_10s': {
+      'sora-2-text-to-video': '\n• Leverage OpenAI Sora\'s natural conversational style and high fidelity',
+      'kling-2.6': '\n• Optimize for Kling\'s authentic lip-sync and AI avatar dialogue delivery',
+      'wan-2.6': '\n• Focus on Wan\'s genuine storytelling flow and multi-scene capabilities',
+      'default': '\n• Emphasize authentic, conversational delivery with natural speech patterns'
+    },
+    'ugc_auth_15s': {
+      'sora-2-text-to-video': '\n• Leverage OpenAI Sora\'s professional quality for authentic conversations',
+      'kling-2.6': '\n• Optimize for Kling\'s lip-sync precision and dialogue authenticity',
+      'wan-2.6': '\n• Use Wan\'s storytelling capabilities for extended authentic narratives',
+      'default': '\n• Emphasize authentic, conversational delivery with professional quality'
+    },
+
+    // Green Screen React formats - Energetic reactions
+    'green_screen_10s': {
+      'kling-2.6': '\n• Maximize Kling\'s lip-sync precision for reaction delivery and dialogue',
+      'wan-2.6': '\n• Use Wan\'s multi-scene capabilities for dynamic reaction sequences',
+      'veo-3.1-fast': '\n• Capture Google Veo\'s authentic emotional reactions and expressions',
+      'default': '\n• Focus on energetic, shocked reactions with precise timing and expressions'
+    },
+    'green_screen_15s': {
+      'kling-2.6': '\n• Maximize Kling\'s lip-sync precision for extended reaction delivery',
+      'wan-2.6': '\n• Use Wan\'s multi-scene capabilities for longer reaction sequences',
+      'veo-3.1-fast': '\n• Leverage Google Veo\'s fast, high-quality reaction captures',
+      'default': '\n• Focus on energetic, shocked reactions with professional timing'
+    },
+
+    // PAS Framework formats - Problem-solution narratives
+    'pas_framework_10s': {
+      'wan-2.6': '\n• Excel at Wan\'s problem-solution narrative structure and transitions',
+      'veo-3.1-quality': '\n• Use Google Veo\'s premium quality for transformation reveals',
+      'sora-2-text-to-video': '\n• Leverage Sora\'s natural storytelling for problem-solution flow',
+      'default': '\n• Structure content with clear problem-agitate-solution flow and smooth transitions'
+    },
+    'pas_framework_15s': {
+      'wan-2.6': '\n• Excel at Wan\'s extended problem-solution narrative capabilities',
+      'veo-3.1-quality': '\n• Use Google Veo\'s cinematic quality for compelling transformations',
+      'sora-2-pro': '\n• Leverage Sora Pro\'s cinematic storytelling for narrative arcs',
+      'default': '\n• Structure content with clear problem-agitate-solution flow and professional quality'
+    },
+
+    // ASMR Visual formats - Smooth, satisfying motion
+    'asmr_visual_10s': {
+      'hailuo-2.3': '\n• Optimize Hailuo\'s smooth, artistic motion sequences and visual clarity',
+      'wan-2.6': '\n• Create Wan\'s hypnotic visual flow and consistent quality',
+      'default': '\n• Focus on smooth, satisfying visual sequences with artistic motion'
+    },
+    'asmr_visual_15s': {
+      'hailuo-2.3': '\n• Optimize Hailuo\'s extended smooth motion sequences and artistic styles',
+      'wan-2.6': '\n• Create Wan\'s hypnotic multi-scene visual flow',
+      'default': '\n• Focus on smooth, satisfying visual sequences with professional motion'
+    },
+
+    // Before/After formats - Transformation content
+    'before_after_15s': {
+      'wan-2.6': '\n• Perfect for Wan\'s transformation narratives and multi-scene capabilities',
+      'veo-3.1-quality': '\n• Ensure Google Veo\'s premium consistent quality across before/after shots',
+      'sora-2-text-to-video': '\n• Leverage Sora\'s high fidelity for clear transformation comparisons',
+      'default': '\n• Maintain identical angles and lighting for comparison shots with premium quality'
+    },
+
+    // Storyboard format - Long-form cinematic content
+    'storyboard_25s': {
+      'sora-2-pro': '\n• Leverage Sora Pro\'s cinematic storytelling and storyboard capabilities',
+      'wan-2.6': '\n• Use Wan\'s multi-scene narrative structure for extended content',
+      'default': '\n• Create detailed 5-scene cinematic narrative with professional transitions'
+    }
+  }
+
+  const formatConfig = formatCapabilities[formatKey]
+  if (formatConfig) {
+    return formatConfig[modelId] || formatConfig['default'] || ''
+  }
+
+  return ''
+}
 
 export interface ScriptGenerationParams {
   productName: string
@@ -95,349 +294,91 @@ export function enhancePromptWithQualityInstructions(
 export const PROMPTS = {
   ugc_auth_15s: `You are an expert UGC script writer. Create authentic, conversational 15-second video scripts that feel like a real person talking to friends.
 
-INPUT:
+Create content for:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT: Return ONLY valid JSON with this exact structure:
-{
-  "style": "UGC Authenticité (15s)",
-  "tone_instructions": "Conversational and authentic - use contractions, natural speech patterns, and first-person perspective",
-  "visual_cues": [
-    "0-3s: [Hook visual - problem or introduction]",
-    "3-8s: [Demonstration or problem/solution]",
-    "8-12s: [Results or benefits]",
-    "12-15s: [Call to action]"
-  ],
-  "voiceover": [
-    "[Hook - 3s: Problem or attention-grabber in natural speech]",
-    "[Body - 5s: Personal story + product introduction]",
-    "[Proof - 4s: Key benefit or social proof]",
-    "[CTA - 3s: Recommendation and link]"
-  ]
-}
-
-CRITICAL REQUIREMENTS:
-- Total words: 35-40 maximum
-- Natural speech: Use "I", "like", "honestly", contractions
-- No corporate language
-- Include personal struggle or story
-- First-person only
-
-Return ONLY the JSON object, no additional text.`,
+Style guidelines: Conversational and authentic - use contractions, natural speech patterns, and first-person perspective. Use "I", "like", "honestly", contractions. No corporate language. Include personal struggle or story. First-person only. Total words: 35-40 maximum.`,
 
   ugc_auth_10s: `You are an expert UGC script writer for ultra-short 10-second viral videos. Stop the scroll with immediate value.
 
-INPUT:
+Create content for:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT: Return ONLY valid JSON with this exact structure:
-{
-  "style": "UGC Authenticité (10s)",
-  "tone_instructions": "Urgent and excited - fast-paced delivery, no fluff",
-  "visual_cues": [
-    "0-3s: [Shock or problem visual]",
-    "3-8s: [Quick product demo]",
-    "8-10s: [Result + call to action]"
-  ],
-  "voiceover": [
-    "[Hook + Problem - 5s: Immediate value proposition]",
-    "[Solution + CTA - 5s: Results and link]"
-  ]
-}
-
-CRITICAL REQUIREMENTS:
-- Total words: 20-25 maximum
-- Immediate value, no setup
-- Fast-paced, urgent tone
-
-Return ONLY the JSON object, no additional text.`,
+Style guidelines: Urgent and excited - fast-paced delivery, no fluff. Total words: 20-25 maximum. Immediate value, no setup. Fast-paced, urgent tone.`,
 
   green_screen_15s: `You are an expert in Green Screen React videos. Create excitement by reacting to on-screen content with authentic shock.
 
-INPUT:
+Create content for:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT: Return ONLY valid JSON with this exact structure:
-{
-  "style": "Green Screen React (15s)",
-  "tone_instructions": "Energetic, shocked, breathless - use 'NO WAY', 'WAIT', 'LOOK AT THIS'",
-  "visual_cues": [
-    "0-2s: [Creator pointing at shocking info on screen]",
-    "2-8s: [Zoom on reviews/price with arrows/circles]",
-    "8-12s: [Product images, creator reacting]",
-    "12-15s: [Final CTA, pointing to bio]"
-  ],
-  "voiceover": [
-    "[Hook - 2s: Shock reaction with price/reviews]",
-    "[Proof - 6s: Comparison, features, validation]",
-    "[Urgency - 4s: Social proof]",
-    "[CTA - 3s: Link and promo code]"
-  ]
-}
-
-CRITICAL REQUIREMENTS:
-- Total words: 35-40 maximum
-- Start with reaction words (NO WAY, WHAT, INSANE)
-- Include specific numbers (price, reviews)
-- Create urgency and FOMO
-
-Return ONLY the JSON object, no additional text.`,
+Style guidelines: Energetic, shocked, breathless - use 'NO WAY', 'WAIT', 'LOOK AT THIS'. Start with reaction words (NO WAY, WHAT, INSANE). Include specific numbers (price, reviews). Create urgency and FOMO. Total words: 35-40 maximum.`,
 
   green_screen_10s: `You are an expert in ultra-short Green Screen React videos. Create panic-buying urgency.
 
-INPUT:
+Create content for:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT: Return ONLY valid JSON with this exact structure:
-{
-  "style": "Green Screen React (10s)",
-  "tone_instructions": "Manic, hyper-fast, breathless - high energy",
-  "visual_cues": [
-    "0-2s: [Extreme close-up pointing at price]",
-    "2-7s: [Fast scroll of reviews/proof]",
-    "7-10s: [Creator urgency gesture to bio]"
-  ],
-  "voiceover": [
-    "[Shock - 4s: WAIT reaction with price/feature]",
-    "[Urgency - 6s: Selling out fast, go now]"
-  ]
-}
-
-CRITICAL REQUIREMENTS:
-- Total words: 20-25 maximum
-- Use 'RUN', 'GONE', 'INSANE'
-- Focus on most shocking feature
-
-Return ONLY the JSON object, no additional text.`,
+Style guidelines: Manic, hyper-fast, breathless - high energy. Use 'RUN', 'GONE', 'INSANE'. Focus on most shocking feature. Total words: 20-25 maximum.`,
 
   pas_framework_15s: `You are an expert in Problem-Agitate-Solution (PAS) video scripts. Show the problem, amplify frustration, present solution.
 
-INPUT:
+Create content for:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT: Return ONLY valid JSON with this exact structure:
-{
-  "style": "Problem-Agitate-Solution (15s)",
-  "tone_instructions": "Start frustrated, escalate exasperation, shift to relieved - empathetic throughout",
-  "visual_cues": [
-    "0-2s: [Problem visual, desaturated]",
-    "2-6s: [Montage of frustrations]",
-    "6-9s: [Product reveal, bright colors]",
-    "9-12s: [Demonstration, before/after]",
-    "12-15s: [Final result with CTA]"
-  ],
-  "voiceover": [
-    "[Problem - 2s: Tired of X?]",
-    "[Agitate - 4s: Wastes time/money/energy]",
-    "[Solution - 3s: Found Product Name]",
-    "[Demo - 3s: How it works instantly]",
-    "[CTA - 3s: Offer with guarantee]"
-  ]
-}
-
-CRITICAL REQUIREMENTS:
-- Total words: 35-40 maximum
-- Problem must be relatable
-- Benefits over features
-- Include social proof
-- CTA addresses objections
-
-Return ONLY the JSON object, no additional text.`,
+Style guidelines: Start frustrated, escalate exasperation, shift to relieved - empathetic throughout. Problem must be relatable. Benefits over features. Include social proof. CTA addresses objections. Total words: 35-40 maximum.`,
 
   pas_framework_10s: `You are an expert in ultra-short PAS scripts. Show immediate contrast: problem to solution.
 
-INPUT:
+Create content for:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT: Return ONLY valid JSON with this exact structure:
-{
-  "style": "Problem-Agitate-Solution (10s)",
-  "tone_instructions": "Sharp, punchy, authoritative - no pauses",
-  "visual_cues": [
-    "0-3s: [The pain/mess]",
-    "3-4s: [Snap transition]",
-    "4-10s: [Solution fixing it + beauty shot]"
-  ],
-  "voiceover": [
-    "[Problem - 4s: Still dealing with X? Stop it.]",
-    "[Solution - 6s: Product fixes it. Get it now.]"
-  ]
-}
-
-CRITICAL REQUIREMENTS:
-- Total words: 20-25 maximum
-- Before vs After logic
-- 2 sentences maximum
-
-Return ONLY the JSON object, no additional text.`,
+Style guidelines: Sharp, punchy, authoritative - no pauses. Before vs After logic. 2 sentences maximum. Total words: 20-25 maximum.`,
 
   asmr_visual_15s: `You are an expert in satisfying ASMR visual content. Create hypnotic, scroll-stopping videos with satisfying sounds.
 
-INPUT:
+Create content for:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT: Return ONLY valid JSON with this exact structure:
-{
-  "style": "Satisfying/ASMR Visual (15s)",
-  "tone_instructions": "Calm, soothing, minimalist - whisper quiet or no voiceover preferred",
-  "visual_cues": [
-    "0-2s: [Macro close-up of satisfying action]",
-    "2-10s: [Sequence of rhythmic satisfying actions]",
-    "10-13s: [Final result, wider shot]",
-    "13-15s: [Product packaging, gentle placement]"
-  ],
-  "voiceover": [
-    "[Optional minimal voiceover OR no voiceover - let ASMR sounds dominate]",
-    "[0-2s: Silence or soft 'Watch this']",
-    "[5-8s: Optional: Organizing with Product]",
-    "[11-13s: So satisfying]",
-    "[14-15s: Link in bio]"
-  ]
-}
-
-CRITICAL REQUIREMENTS:
-- Total words: 20-25 maximum (or zero for no voiceover)
-- ASMR sounds are the star
-- First 2s shows satisfying action
-- Slow, deliberate pacing
-- Hypnotic enough viewer can't scroll
-
-Return ONLY the JSON object, no additional text.`,
+Style guidelines: Calm, soothing, minimalist - whisper quiet or no voiceover preferred. ASMR sounds are the star. First 2s shows satisfying action. Slow, deliberate pacing. Hypnotic enough viewer can't scroll. Total words: 20-25 maximum (or zero for no voiceover).`,
 
   asmr_visual_10s: `You are an expert in 10-second oddly satisfying visual loops. Pure zen in 10 seconds.
 
-INPUT:
+Create content for:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT: Return ONLY valid JSON with this exact structure:
-{
-  "style": "Satisfying/ASMR Visual (10s)",
-  "tone_instructions": "Silent - let visuals speak, ASMR sounds only",
-  "visual_cues": [
-    "0-7s: [One continuous satisfying action, macro shot]",
-    "7-10s: [Finished result + product appearing gently]"
-  ],
-  "voiceover": [
-    "[No voiceover - ASMR sounds only]"
-  ]
-}
-
-CRITICAL REQUIREMENTS:
-- ZERO words spoken
-- Focus on visual satisfaction
-- Simple text CTA at end
-
-Return ONLY the JSON object, no additional text.`,
+Style guidelines: Silent - let visuals speak, ASMR sounds only. ZERO words spoken. Focus on visual satisfaction. Simple text CTA at end.`,
 
   before_after_15s: `You are an expert in transformation videos. Use powerful visual contrast to prove results.
 
-INPUT:
+Create content for:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT: Return ONLY valid JSON with this exact structure:
-{
-  "style": "Before/After Transformation (15s)",
-  "tone_instructions": "Start empathetic, shift to excited at reveal - authentic testimonial style",
-  "visual_cues": [
-    "0-2s: [Before state, split-screen, desaturated]",
-    "2-5s: [Transition effect, product application]",
-    "5-8s: [After reveal, same angle, enhanced]",
-    "8-12s: [Alternate before/after with product]",
-    "12-15s: [Final after shot with CTA]"
-  ],
-  "voiceover": [
-    "[Before - 2s: Before Product, my problem]",
-    "[Timeline - 3s: After timeframe, tried it]",
-    "[Reveal - 3s: WOW. Look at transformation]",
-    "[Proof - 4s: Fixes problem + social proof]",
-    "[CTA - 3s: Offer with guarantee]"
-  ]
-}
-
-CRITICAL REQUIREMENTS:
-- Total words: 35-40 maximum
-- Same lighting/angle for before/after
-- Realistic timeline
-- After reveal at 5-8 seconds
-- Include credibility element
-
-Return ONLY the JSON object, no additional text.`,
+Style guidelines: Start empathetic, shift to excited at reveal - authentic testimonial style. Same lighting/angle for before/after. Realistic timeline. After reveal at 5-8 seconds. Include credibility element. Total words: 35-40 maximum.`,
 
   before_after_10s: `You are an expert in 10-second before/after reveals. Show results instantly.
 
-INPUT:
+Create content for:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT: Return ONLY valid JSON with this exact structure:
-{
-  "style": "Before/After Transformation (10s)",
-  "tone_instructions": "Shocked, impressed, concise - just facts",
-  "visual_cues": [
-    "0-3s: [Split screen: before bad, after blurred]",
-    "3-10s: [Unblur after, creator points to result]"
-  ],
-  "voiceover": [
-    "[Problem - 3s: Look how bad it was]",
-    "[Result - 7s: Used Product. Look at this! Link below]"
-  ]
-}
-
-CRITICAL REQUIREMENTS:
-- Total words: 20-25 maximum
-- Rely on visual contrast
-- Immediate CTA
-
-Return ONLY the JSON object, no additional text.`,
+Style guidelines: Shocked, impressed, concise - just facts. Rely on visual contrast. Immediate CTA. Total words: 20-25 maximum.`,
 
   storyboard_25s: `You are an expert in cinematic 25-second storyboard videos. Create 5-scene narrative arcs with visual consistency.
 
-INPUT:
+Create content for:
 - Product Name: [PRODUCT_NAME]
 - Product Description: [PRODUCT_DESCRIPTION]
 
-OUTPUT: Return ONLY valid JSON with this exact structure:
-{
-  "style": "Cinematic Storyboard (25s)",
-  "tone_instructions": "Cinematic, narrative-driven - maintain visual consistency across scenes",
-  "visual_cues": [
-    "0-5s: Scene 1 - [Wide shot: Establish world/character]",
-    "5-10s: Scene 2 - [Medium shot: Problem/desire appears]",
-    "10-15s: Scene 3 - [Close-up: Product revealed as solution]",
-    "15-20s: Scene 4 - [Tracking shot: Joy/benefit of using]",
-    "20-25s: Scene 5 - [Static shot: Resolution & CTA]"
-  ],
-  "voiceover": [
-    "[Scene 1 - 5s: Setting the scene]",
-    "[Scene 2 - 5s: The conflict/need]",
-    "[Scene 3 - 5s: Solution revealed]",
-    "[Scene 4 - 5s: Emotional benefit]",
-    "[Scene 5 - 5s: Impression + CTA]"
-  ],
-  "technical_directives": {
-    "lighting": "Cinematic lighting - golden hour or studio softbox",
-    "camera": "Use dolly in, truck left, rack focus movements",
-    "consistency": "Same character/colors throughout all scenes"
-  }
-}
-
-CRITICAL REQUIREMENTS:
-- 5 scenes of exactly 5 seconds each
-- Same character/setting for consistency
-- Use professional camera terms
-- Clear narrative arc
-- Every shot advances story
-
-Return ONLY the JSON object, no additional text.`,
+Style guidelines: Cinematic, narrative-driven - maintain visual consistency across scenes. 5 scenes of exactly 5 seconds each. Same character/setting for consistency. Use professional camera terms. Clear narrative arc. Every shot advances story.`,
 } as const
 
 export type PromptKey = keyof typeof PROMPTS
@@ -511,7 +452,9 @@ export function replacePromptPlaceholdersWithExamples(
   productDescription: string,
   successExamples?: string,
   language?: string,
-  modelGuidance?: string
+  modelGuidance?: string,
+  model?: KieModel,
+  formatKey?: string
 ): string {
   let enhancedPrompt = prompt
     .replace(/\[PRODUCT_NAME\]/g, escapeRegexReplacement(productName))
@@ -571,6 +514,23 @@ export function replacePromptPlaceholdersWithExamples(
     } else {
       // If no CRITICAL RULES section found, append to end
       enhancedPrompt += modelGuidance
+    }
+  }
+
+  // Inject model-specific enhancements including negative prompts
+  if (model && formatKey) {
+    const modelEnhancements = generateModelSpecificEnhancements(model, formatKey)
+
+    // Find the CRITICAL RULES section and insert model enhancements before it
+    const criticalRulesIndex = enhancedPrompt.indexOf('CRITICAL RULES:')
+    if (criticalRulesIndex !== -1) {
+      enhancedPrompt = enhancedPrompt.slice(0, criticalRulesIndex) +
+                       modelEnhancements +
+                       '\n' +
+                       enhancedPrompt.slice(criticalRulesIndex)
+    } else {
+      // If no CRITICAL RULES section found, append to end
+      enhancedPrompt += modelEnhancements
     }
   }
 

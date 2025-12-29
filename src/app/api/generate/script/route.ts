@@ -4,12 +4,12 @@ import { ScriptGenerationRequest, ScriptGenerationResponse, StructuredScriptCont
 import {
   generateScriptGenerationUserPrompt,
   getSystemPrompt,
-  replacePromptPlaceholdersWithExamples
+  replacePromptPlaceholdersWithExamples,
+  SCRIPT_GENERATION_SCHEMA
 } from '@/lib/prompts'
 import { getSuccessfulExamplesForPrompt, formatExamplesForPrompt } from '@/lib/success-examples'
 import { createClient } from '@/lib/supabase/server'
 import { validateStyleDuration } from '@/lib/validation'
-import { jsonrepair } from 'jsonrepair'
 import {
   getModelForScriptGeneration,
   getModelConstraints,
@@ -23,129 +23,7 @@ function isGPT5Model(model: string): boolean {
   return model.startsWith('gpt-5')
 }
 
-// Helper function to clean JSON responses from LLMs that may include Markdown formatting
-function cleanJsonResponse(rawContent: string): string {
-  let cleaned = rawContent.trim()
 
-  // Remove Markdown code blocks if present
-  const jsonCodeBlockRegex = /^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i
-  const match = cleaned.match(jsonCodeBlockRegex)
-  if (match) {
-    cleaned = match[1].trim()
-  }
-
-  return cleaned
-}
-
-// JSON Schema for Structured Script Content - guarantees valid parsing with OpenAI Structured Outputs
-const STRUCTURED_SCRIPT_SCHEMA = {
-  type: "object",
-  properties: {
-    style: {
-      type: "string",
-      description: "The video style/format being used"
-    },
-    tone_instructions: {
-      type: "string",
-      description: "Instructions for the overall tone and delivery"
-    },
-    visual_cues: {
-      type: "array",
-      items: { type: "string" },
-      description: "Array of visual cue descriptions with timestamps (e.g., '0-5s: Show product packaging')"
-    },
-    voiceover: {
-      type: "array",
-      items: { type: "string" },
-      description: "Array of voiceover script segments matching visual_cues"
-    },
-    text_overlay: {
-      type: ["array", "null"],
-      items: { type: "string" },
-      description: "Optional array of text overlay cues with timestamps"
-    },
-    music_recommendation: {
-      type: ["string", "null"],
-      description: "Recommended background music style or track"
-    },
-    hashtags: {
-      type: ["string", "null"],
-      description: "Recommended hashtags for social media"
-    },
-    background_content_suggestions: {
-      type: ["array", "null"],
-      items: { type: "string" },
-      description: "Suggestions for background content/elements"
-    },
-    audio_design: {
-      type: ["array", "null"],
-      items: { type: "string" },
-      description: "Audio design recommendations (sound effects, music transitions, etc.)"
-    },
-    pacing_and_editing: {
-      type: ["array", "null"],
-      items: { type: "string" },
-      description: "Pacing and editing recommendations"
-    },
-    lighting_and_composition: {
-      type: ["array", "null"],
-      items: { type: "string" },
-      description: "Lighting and composition suggestions"
-    },
-    color_grading: {
-      type: ["string", "null"],
-      description: "Color grading recommendations"
-    },
-    aspect_ratio: {
-      type: ["string", "null"],
-      description: "Recommended aspect ratio for the video"
-    },
-    technical_directives: {
-      type: ["object", "null"],
-      description: "Technical production directives including lighting, camera work, and consistency requirements",
-      properties: {
-        lighting: { type: "string" },
-        camera: { type: "string" },
-        consistency: { type: "string" }
-      },
-      additionalProperties: false
-    },
-    narrative_arc: {
-      type: ["array", "null"],
-      items: { type: "string" },
-      description: "Description of the narrative structure"
-    },
-    cinematic_techniques: {
-      type: ["array", "null"],
-      items: { type: "string" },
-      description: "Cinematic techniques and production recommendations"
-    }
-  },
-  required: [
-    "style",
-    "tone_instructions",
-    "visual_cues",
-    "voiceover"
-  ],
-  additionalProperties: false
-} as const
-
-// ROBUST JSON PARSING: Uses jsonrepair library for reliable JSON repair
-function robustJsonParse(jsonString: string): StructuredScriptContent {
-  try {
-    return JSON.parse(jsonString)
-  } catch (e) {
-    console.warn('Initial JSON parse failed, attempting repair with jsonrepair...')
-
-    try {
-      const repaired = jsonrepair(jsonString)
-      return JSON.parse(repaired)
-    } catch (repairError) {
-      console.error('JSON repair failed:', repairError)
-      throw new Error("Failed to repair JSON response")
-    }
-  }
-}
 
 // Build model-specific parameters
 function buildModelParams(
@@ -274,7 +152,10 @@ export async function POST(request: NextRequest) {
       title,
       description,
       formattedExamples,
-      targetLanguage
+      targetLanguage,
+      undefined, // modelGuidance is handled separately below
+      selectedModel,
+      promptKey
     )
 
     // Enhance system prompt with model-specific guidance
@@ -300,9 +181,9 @@ export async function POST(request: NextRequest) {
       response_format: {
         type: "json_schema",
         json_schema: {
-          name: "structured_script_content",
-          schema: STRUCTURED_SCRIPT_SCHEMA,
-          strict: true
+          name: "script_generation",
+          strict: true,
+          schema: SCRIPT_GENERATION_SCHEMA
         }
       }
     }
@@ -340,27 +221,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Parse the JSON response - Structured Outputs should guarantee validity, but fallback to repair
-    let scriptContent: StructuredScriptContent;
-
-    try {
-      // Clean the response to remove potential Markdown formatting (though Structured Outputs should prevent this)
-      const cleanedContent = cleanJsonResponse(rawContent);
-      scriptContent = robustJsonParse(cleanedContent);
-    } catch (parseError) {
-      console.error('Failed to parse AI response even after repair attempts:', parseError)
-      console.error('Raw content:', rawContent)
-
-      // Return raw content in error response for manual override fallback
-      return NextResponse.json(
-        {
-          error: 'AI response parsing failed',
-          rawContent: rawContent, // Include raw content for UI fallback
-          suggestion: 'The AI generated content but it could not be formatted automatically. Please review and edit manually.'
-        },
-        { status: 422 } // Unprocessable Entity - content exists but needs manual intervention
-      )
-    }
+    // Parse the JSON response - Structured Outputs guarantee valid JSON
+    const scriptContent: StructuredScriptContent = JSON.parse(rawContent)
 
     // Validate script against model constraints
     const validationResult = validateScriptAgainstModel(scriptContent, selectedModel)
