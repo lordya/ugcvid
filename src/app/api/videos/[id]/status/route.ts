@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { getTaskStatus } from '@/lib/kie'
-import { storeVideoFromKie, getSignedVideoUrl } from '@/lib/video-storage'
+import { getSignedVideoUrl } from '@/lib/video-storage'
 import { validateVideoQuality, shouldAutoRefund, getQualityIssuesSummary } from '@/lib/quality-validation'
 import { QUALITY_TIERS } from '@/lib/prompts'
 import { selectModelForQualityRisk, KIE_MODELS } from '@/lib/kie-models'
@@ -140,8 +139,8 @@ export async function GET(
     const videoDuration = (video.input_metadata as any)?.duration || undefined
     const createdAt = video.created_at || undefined
 
-    // 6. If status is already COMPLETED or FAILED, return immediately (no external call)
-    if (video.status === 'COMPLETED' || video.status === 'FAILED') {
+    // 6. If status is FAILED, return immediately (no processing needed)
+    if (video.status === 'FAILED') {
       return NextResponse.json({
         id: video.id,
         status: video.status,
@@ -152,407 +151,277 @@ export async function GET(
       })
     }
 
-    // 7. If status is PROCESSING, check Kie.ai status
+    // 7. If status is PROCESSING, return database status (updated by webhooks)
+    // Webhooks handle real-time status updates from kie.ai, so we just read from DB
     if (video.status === 'PROCESSING') {
-      if (!video.kie_task_id) {
-        // Video is in PROCESSING state but has no task_id - this shouldn't happen
-        // but we'll mark it as failed
-        await adminClient
+      // Return current status from database (webhook updates this in real-time)
+      return NextResponse.json({
+        id: video.id,
+        status: 'PROCESSING',
+        duration: videoDuration,
+        createdAt,
+      })
+    }
+
+    // 8. If status is COMPLETED, check if quality validation needs to be done
+    // Quality validation is triggered on first status check after completion
+    if (video.status === 'COMPLETED' && !video.quality_validated_at && video.video_url) {
+      try {
+        // Get signed URL for video validation
+        let videoUrlForValidation = video.video_url
+        if (video.storage_path) {
+          try {
+            videoUrlForValidation = await getSignedVideoUrl(video.storage_path)
+          } catch (urlError) {
+            console.error('Error getting signed URL for quality validation:', urlError)
+            // Fall back to original video_url
+          }
+        }
+
+        // Extract requested duration from video metadata for validation
+        const requestedDuration = (video.input_metadata as any)?.duration || videoDuration
+
+        // Validate video quality
+        const validationResult = await validateVideoQuality(
+          videoUrlForValidation,
+          requestedDuration,
+          undefined, // actualDuration not available
+          { videoUrl: videoUrlForValidation } // minimal metadata
+        )
+
+        // Update video record with quality metrics
+        const { error: qualityUpdateError } = await adminClient
           .from('videos')
           .update({
-            status: 'FAILED',
-            error_reason: 'Video task ID is missing',
-          })
+            quality_score: validationResult.score,
+            quality_issues: validationResult.issues,
+            quality_validated_at: validationResult.validatedAt,
+          } as any)
           .eq('id', videoId)
 
-        return NextResponse.json({
-          id: video.id,
-          status: 'FAILED',
-          errorReason: 'Video task ID is missing',
-        })
-      }
+        if (qualityUpdateError) {
+          console.error('Error updating video with quality metrics:', qualityUpdateError)
+        }
 
-      try {
-        // Call Kie.ai to check status
-        const kieStatus = await getTaskStatus(video.kie_task_id)
+        // Auto-regeneration or refund logic for quality failures
+        if (shouldAutoRefund(validationResult.score)) {
+          console.log(`[Quality Validation] Video ${videoId} failed quality check (score: ${validationResult.score}). Auto-regenerate: ${autoRegenerateEnabled}`)
 
-        if (kieStatus.status === 'COMPLETED' && kieStatus.videoUrl) {
-          // Try to download and store video in Supabase Storage
-          let storagePath: string | null = null
-          let signedUrl: string | null = null
+          // Check if auto-regeneration is enabled and video hasn't been regenerated before
+          const videoMetadata = video.input_metadata as any
+          const isAlreadyRegenerated = videoMetadata?.is_regeneration === true
+          const regenerationCount = videoMetadata?.regeneration_count || 0
 
-          try {
-            storagePath = await storeVideoFromKie(kieStatus.videoUrl, user.id, videoId)
-            
-            if (storagePath) {
-              // Generate signed URL for the stored video
-              signedUrl = await getSignedVideoUrl(storagePath)
-            }
-          } catch (storageError) {
-            console.error('Error storing video in Supabase Storage:', storageError)
-            // Continue with Kie.ai URL as fallback
-          }
+          if (autoRegenerateEnabled && !isAlreadyRegenerated && regenerationCount < 1) {
+            console.log(`[Auto-Regeneration] Attempting regeneration for video ${videoId}`)
 
-          // Update video record with completed status, URL, and storage path
-          const updateData: {
-            status: 'COMPLETED'
-            video_url: string
-            updated_at: string
-            storage_path?: string | null
-          } = {
-            status: 'COMPLETED',
-            video_url: kieStatus.videoUrl,
-            updated_at: new Date().toISOString(),
-          }
+            try {
+              // Extract original parameters for regeneration
+              const originalPrompt = video.final_script || videoMetadata?.script || ''
+              const imageUrls = videoMetadata?.images || []
+              const originalStyle = videoMetadata?.format?.split('_')?.[0] || 'ugc'
+              const originalDuration = videoMetadata?.duration || videoDuration
+              const originalFormat = videoMetadata?.format || 'ugc_auth_15s'
 
-          if (storagePath) {
-            updateData.storage_path = storagePath
-          }
+              // Re-analyze content to get current risk level
+              const qualityRiskLevel = analyzeContentForQuality(originalPrompt, imageUrls)
 
-          const { error: updateError } = await adminClient
-            .from('videos')
-            .update(updateData)
-            .eq('id', videoId)
+              // Select a better model for regeneration (force premium models for quality)
+              const regenerationModel = selectModelForQualityRisk(originalFormat, qualityRiskLevel, 'premium')
 
-          if (updateError) {
-            console.error('Error updating video:', updateError)
-            // Still return the status even if update fails
-          }
+              console.log(`[Auto-Regeneration] Original model: ${videoMetadata?.model}, New model: ${regenerationModel.id}, Risk: ${qualityRiskLevel}`)
 
-          // Update analytics record with completion
-          const completedAt = new Date().toISOString()
-          const generationTimeSeconds = createdAt 
-            ? Math.floor((new Date(completedAt).getTime() - new Date(createdAt).getTime()) / 1000)
-            : null
+              // Trigger regeneration with enhanced parameters
+              const newKieTaskId = await createVideoTask({
+                script: originalPrompt,
+                imageUrls,
+                aspectRatio: videoMetadata?.aspect_ratio || 'portrait',
+                duration: originalDuration,
+                model: regenerationModel.kieApiModelName,
+                riskLevel: qualityRiskLevel,
+                qualityTier: 'premium' // Force premium tier for regeneration
+              })
 
-          // Note: generation_analytics table is new and may not be in TypeScript types yet
-          const { error: analyticsError } = await adminClient
-            .from('generation_analytics')
-            .update({
-              status: 'COMPLETED',
-              completed_at: completedAt,
-              generation_time_seconds: generationTimeSeconds,
-            })
-            .eq('video_id', videoId)
-
-          if (analyticsError) {
-            // Log error but don't fail the request - analytics is non-critical
-            console.error('Error updating generation analytics:', analyticsError)
-          }
-
-          // 8. Post-generation quality validation
-          try {
-            // Extract requested duration from video metadata for validation
-            const requestedDuration = (video.input_metadata as any)?.duration || videoDuration
-
-            // Validate video quality
-            const validationResult = await validateVideoQuality(
-              signedUrl || kieStatus.videoUrl,
-              requestedDuration,
-              undefined, // actualDuration not available from Kie.ai response
-              kieStatus // pass the full status response for potential metadata
-            )
-
-            // Update video record with quality metrics
-            const { error: qualityUpdateError } = await adminClient
-              .from('videos')
-              .update({
-                quality_score: validationResult.score,
-                quality_issues: validationResult.issues,
-                quality_validated_at: validationResult.validatedAt,
-              } as any)
-              .eq('id', videoId)
-
-            if (qualityUpdateError) {
-              console.error('Error updating video with quality metrics:', qualityUpdateError)
-            }
-
-            // 9. Auto-regeneration or refund logic for quality failures
-            if (shouldAutoRefund(validationResult.score)) {
-              console.log(`[Quality Validation] Video ${videoId} failed quality check (score: ${validationResult.score}). Auto-regenerate: ${autoRegenerateEnabled}`)
-
-              // Check if auto-regeneration is enabled and video hasn't been regenerated before
-              const videoMetadata = video.input_metadata as any
-              const isAlreadyRegenerated = videoMetadata?.is_regeneration === true
-              const regenerationCount = videoMetadata?.regeneration_count || 0
-
-              if (autoRegenerateEnabled && !isAlreadyRegenerated && regenerationCount < 1) {
-                console.log(`[Auto-Regeneration] Attempting regeneration for video ${videoId}`)
-
-                try {
-                  // Extract original parameters for regeneration
-                  const originalPrompt = video.final_script || videoMetadata?.script || ''
-                  const imageUrls = videoMetadata?.images || []
-                  const originalStyle = videoMetadata?.format?.split('_')?.[0] || 'ugc'
-                  const originalDuration = videoMetadata?.duration || videoDuration
-                  const originalFormat = videoMetadata?.format || 'ugc_auth_15s'
-
-                  // Re-analyze content to get current risk level
-                  const qualityRiskLevel = analyzeContentForQuality(originalPrompt, imageUrls)
-
-                  // Select a better model for regeneration (force premium models for quality)
-                  const regenerationModel = selectModelForQualityRisk(originalFormat, qualityRiskLevel, 'premium')
-
-                  console.log(`[Auto-Regeneration] Original model: ${videoMetadata?.model}, New model: ${regenerationModel.id}, Risk: ${qualityRiskLevel}`)
-
-                  // Trigger regeneration with enhanced parameters
-                  const newKieTaskId = await createVideoTask({
-                    script: originalPrompt,
-                    imageUrls,
-                    aspectRatio: videoMetadata?.aspect_ratio || 'portrait',
-                    duration: originalDuration,
-                    model: regenerationModel.kieApiModelName,
-                    riskLevel: qualityRiskLevel,
-                    qualityTier: 'premium' // Force premium tier for regeneration
-                  })
-
-                  // Update video record for regeneration
-                  const { error: regenerationUpdateError } = await adminClient
-                    .from('videos')
-                    .update({
-                      status: 'PROCESSING',
-                      kie_task_id: newKieTaskId,
-                      input_metadata: {
-                        ...videoMetadata,
-                        is_regeneration: true,
-                        regeneration_count: regenerationCount + 1,
-                        original_video_id: videoId,
-                        regeneration_reason: `Quality validation failed (score: ${validationResult.score})`,
-                        original_quality_score: validationResult.score,
-                        original_quality_issues: validationResult.issues,
-                        regeneration_model: regenerationModel.id,
-                        regeneration_timestamp: new Date().toISOString()
-                      } as any,
-                      updated_at: new Date().toISOString()
-                    })
-                    .eq('id', videoId)
-
-                  if (regenerationUpdateError) {
-                    console.error('Error updating video for regeneration:', regenerationUpdateError)
-                    // Fall back to refund if regeneration update fails
-                    throw new Error('Failed to update video for regeneration')
-                  }
-
-                  // Update analytics with regeneration attempt
-                  const { error: analyticsRegenerationError } = await (adminClient as any)
-                    .from('generation_analytics')
-                    .update({
-                      status: 'PROCESSING',
-                      regeneration_attempted: true,
-                      regeneration_reason: `Quality validation failed (score: ${validationResult.score})`,
-                      regeneration_model: regenerationModel.id
-                    })
-                    .eq('video_id', videoId)
-
-                  if (analyticsRegenerationError) {
-                    console.error('Error updating analytics for regeneration:', analyticsRegenerationError)
-                  }
-
-                  console.log(`[Auto-Regeneration] Successfully initiated regeneration for video ${videoId} with model ${regenerationModel.id}`)
-
-                  // Return processing status for regeneration
-                  return NextResponse.json({
-                    id: video.id,
-                    status: 'PROCESSING',
-                    message: 'Video quality was below threshold. Auto-regeneration initiated with enhanced settings.',
-                    qualityScore: validationResult.score,
-                    qualityIssues: validationResult.issues,
-                    regenerationModel: regenerationModel.id,
-                    duration: videoDuration,
-                    createdAt,
-                  })
-
-                } catch (regenerationError) {
-                  console.error(`[Auto-Regeneration] Failed to regenerate video ${videoId}:`, regenerationError)
-                  // Fall back to refund if regeneration fails
-                }
-              }
-
-              // If auto-regeneration is not enabled or failed, proceed with refund
-              console.log(`[Quality Validation] Video ${videoId} failed quality check (score: ${validationResult.score}). Initiating refund.`)
-
-              // Update video status to indicate quality failure
-              const qualityErrorReason = `Quality validation failed: ${getQualityIssuesSummary(validationResult.issues)}`
-
-              const { error: statusUpdateError } = await adminClient
+              // Update video record for regeneration
+              const { error: regenerationUpdateError } = await adminClient
                 .from('videos')
                 .update({
-                  status: 'FAILED',
-                  error_reason: qualityErrorReason,
+                  status: 'PROCESSING',
+                  kie_task_id: newKieTaskId,
+                  input_metadata: {
+                    ...videoMetadata,
+                    is_regeneration: true,
+                    regeneration_count: regenerationCount + 1,
+                    original_video_id: videoId,
+                    regeneration_reason: `Quality validation failed (score: ${validationResult.score})`,
+                    original_quality_score: validationResult.score,
+                    original_quality_issues: validationResult.issues,
+                    regeneration_model: regenerationModel.id,
+                    regeneration_timestamp: new Date().toISOString()
+                  } as any,
+                  updated_at: new Date().toISOString()
                 })
                 .eq('id', videoId)
 
-              if (statusUpdateError) {
-                console.error('Error updating video status for quality failure:', statusUpdateError)
+              if (regenerationUpdateError) {
+                console.error('Error updating video for regeneration:', regenerationUpdateError)
+                // Fall back to refund if regeneration update fails
+                throw new Error('Failed to update video for regeneration')
               }
 
-              // Create REFUND transaction to restore the credit
-              const videoCostCredits = (video.input_metadata as any)?.costCredits || 1
-              const { error: refundError } = await adminClient.from('transactions').insert({
-                user_id: user.id,
-                amount: videoCostCredits,
-                type: 'REFUND',
-                provider: 'SYSTEM',
-                payment_id: null,
-                metadata: {
-                  video_id: videoId,
-                  reason: 'Quality validation failed',
-                  quality_score: validationResult.score,
-                  quality_issues: validationResult.issues,
-                  original_cost_credits: videoCostCredits,
-                  auto_regenerate_attempted: autoRegenerateEnabled,
-                } as any,
-              })
-
-              if (refundError) {
-                console.error('CRITICAL: Error creating refund transaction for quality failure:', refundError)
-              }
-
-              // Update analytics record with quality failure
-              const { error: analyticsQualityError } = await (adminClient as any)
+              // Update analytics with regeneration attempt
+              const { error: analyticsRegenerationError } = await (adminClient as any)
                 .from('generation_analytics')
                 .update({
-                  status: 'FAILED',
-                  error_reason: qualityErrorReason,
+                  status: 'PROCESSING',
+                  regeneration_attempted: true,
+                  regeneration_reason: `Quality validation failed (score: ${validationResult.score})`,
+                  regeneration_model: regenerationModel.id
                 })
                 .eq('video_id', videoId)
 
-              if (analyticsQualityError) {
-                console.error('Error updating generation analytics for quality failure:', analyticsQualityError)
+              if (analyticsRegenerationError) {
+                console.error('Error updating analytics for regeneration:', analyticsRegenerationError)
               }
 
-              // Return failed status with quality issues
+              console.log(`[Auto-Regeneration] Successfully initiated regeneration for video ${videoId} with model ${regenerationModel.id}`)
+
+              // Return processing status for regeneration
               return NextResponse.json({
                 id: video.id,
-                status: 'FAILED',
-                errorReason: qualityErrorReason,
+                status: 'PROCESSING',
+                message: 'Video quality was below threshold. Auto-regeneration initiated with enhanced settings.',
                 qualityScore: validationResult.score,
                 qualityIssues: validationResult.issues,
-                autoRegenerateAttempted: autoRegenerateEnabled,
+                regenerationModel: regenerationModel.id,
                 duration: videoDuration,
                 createdAt,
               })
+
+            } catch (regenerationError) {
+              console.error(`[Auto-Regeneration] Failed to regenerate video ${videoId}:`, regenerationError)
+              // Fall back to refund if regeneration fails
             }
-
-            // Video passed quality validation - return success with quality metrics
-            return NextResponse.json({
-              id: video.id,
-              status: 'COMPLETED',
-              videoUrl: signedUrl || kieStatus.videoUrl,
-              duration: videoDuration,
-              createdAt,
-              qualityScore: validationResult.score,
-              qualityIssues: validationResult.issues,
-            })
-          } catch (validationError) {
-            // Log validation error but don't fail the request - quality validation is non-critical for delivery
-            console.error('Error during quality validation:', validationError)
-
-            // Return success response without quality metrics
-            return NextResponse.json({
-              id: video.id,
-              status: 'COMPLETED',
-              videoUrl: signedUrl || kieStatus.videoUrl,
-              duration: videoDuration,
-              createdAt,
-              qualityValidationError: validationError instanceof Error ? validationError.message : 'Quality validation failed',
-            })
           }
-        } else if (kieStatus.status === 'FAILED') {
-          // Update video record with failed status and error
-          const errorReason = kieStatus.errorMessage || 'Video generation failed'
 
-          const { error: updateError } = await adminClient
+          // If auto-regeneration is not enabled or failed, proceed with refund
+          console.log(`[Quality Validation] Video ${videoId} failed quality check (score: ${validationResult.score}). Initiating refund.`)
+
+          // Update video status to indicate quality failure
+          const qualityErrorReason = `Quality validation failed: ${getQualityIssuesSummary(validationResult.issues)}`
+
+          const { error: statusUpdateError } = await adminClient
             .from('videos')
             .update({
               status: 'FAILED',
-              error_reason: errorReason,
-              updated_at: new Date().toISOString(),
+              error_reason: qualityErrorReason,
             })
             .eq('id', videoId)
 
-          if (updateError) {
-            console.error('Error updating video:', updateError)
+          if (statusUpdateError) {
+            console.error('Error updating video status for quality failure:', statusUpdateError)
           }
 
-          // CRITICAL: Create REFUND transaction to restore the credit
-          // Get actual cost from video metadata
+          // Create REFUND transaction to restore the credit
           const videoCostCredits = (video.input_metadata as any)?.costCredits || 1
           const { error: refundError } = await adminClient.from('transactions').insert({
             user_id: user.id,
-            amount: videoCostCredits, // Refund actual cost
+            amount: videoCostCredits,
             type: 'REFUND',
             provider: 'SYSTEM',
             payment_id: null,
             metadata: {
               video_id: videoId,
-              reason: 'Video generation failed',
+              reason: 'Quality validation failed',
+              quality_score: validationResult.score,
+              quality_issues: validationResult.issues,
               original_cost_credits: videoCostCredits,
-              error_message: errorReason,
+              auto_regenerate_attempted: autoRegenerateEnabled,
             } as any,
           })
 
           if (refundError) {
-            console.error('CRITICAL: Error creating refund transaction:', refundError)
-            // Log this as a critical error - credit was deducted but refund failed
-            // In production, you might want to alert admins about this
+            console.error('CRITICAL: Error creating refund transaction for quality failure:', refundError)
           }
 
-          // Update analytics record with failure
-          const completedAt = new Date().toISOString()
-          const generationTimeSeconds = createdAt 
-            ? Math.floor((new Date(completedAt).getTime() - new Date(createdAt).getTime()) / 1000)
-            : null
-
-          // Note: generation_analytics table is new and may not be in TypeScript types yet
-          const { error: analyticsError } = await adminClient
+          // Update analytics record with quality failure
+          const { error: analyticsQualityError } = await (adminClient as any)
             .from('generation_analytics')
             .update({
               status: 'FAILED',
-              completed_at: completedAt,
-              error_reason: errorReason,
-              generation_time_seconds: generationTimeSeconds,
+              error_reason: qualityErrorReason,
             })
             .eq('video_id', videoId)
 
-          if (analyticsError) {
-            // Log error but don't fail the request - analytics is non-critical
-            console.error('Error updating generation analytics:', analyticsError)
+          if (analyticsQualityError) {
+            console.error('Error updating generation analytics for quality failure:', analyticsQualityError)
           }
 
+          // Return failed status with quality issues
           return NextResponse.json({
             id: video.id,
             status: 'FAILED',
-            errorReason,
-            duration: videoDuration,
-            createdAt,
-          })
-        } else {
-          // Still processing (PROCESSING status)
-          return NextResponse.json({
-            id: video.id,
-            status: 'PROCESSING',
-            progress: kieStatus.progress,
+            errorReason: qualityErrorReason,
+            qualityScore: validationResult.score,
+            qualityIssues: validationResult.issues,
+            autoRegenerateAttempted: autoRegenerateEnabled,
             duration: videoDuration,
             createdAt,
           })
         }
-      } catch (kieError) {
-        console.error('Error checking Kie.ai status:', kieError)
 
-        // If we can't check status, return current status without updating
-        // This prevents us from marking videos as failed due to temporary API issues
+        // Video passed quality validation - return success with quality metrics
+        const finalVideoUrl = video.storage_path 
+          ? await getSignedVideoUrl(video.storage_path).catch(() => video.video_url)
+          : video.video_url
+
         return NextResponse.json({
           id: video.id,
-          status: video.status,
-          errorReason: kieError instanceof Error ? kieError.message : 'Failed to check status',
+          status: 'COMPLETED',
+          videoUrl: finalVideoUrl,
           duration: videoDuration,
           createdAt,
+          qualityScore: validationResult.score,
+          qualityIssues: validationResult.issues,
+        })
+      } catch (validationError) {
+        // Log validation error but don't fail the request - quality validation is non-critical for delivery
+        console.error('Error during quality validation:', validationError)
+
+        // Return success response without quality metrics
+        const finalVideoUrl = video.storage_path 
+          ? await getSignedVideoUrl(video.storage_path).catch(() => video.video_url)
+          : video.video_url
+
+        return NextResponse.json({
+          id: video.id,
+          status: 'COMPLETED',
+          videoUrl: finalVideoUrl,
+          duration: videoDuration,
+          createdAt,
+          qualityValidationError: validationError instanceof Error ? validationError.message : 'Quality validation failed',
         })
       }
     }
 
-    // 8. For any other status (DRAFT, SCRIPT_GENERATED), return as-is
+    // 9. If status is COMPLETED and already validated, return with quality metrics if available
+    if (video.status === 'COMPLETED') {
+      const finalVideoUrl = video.storage_path 
+        ? await getSignedVideoUrl(video.storage_path).catch(() => video.video_url)
+        : video.video_url
+
+      return NextResponse.json({
+        id: video.id,
+        status: video.status,
+        videoUrl: finalVideoUrl,
+        duration: videoDuration,
+        createdAt,
+        qualityScore: (video as any).quality_score || undefined,
+        qualityIssues: (video as any).quality_issues || undefined,
+      })
+    }
+
+    // 10. For any other status (DRAFT, SCRIPT_GENERATED), return as-is
     return NextResponse.json({
       id: video.id,
       status: video.status,
