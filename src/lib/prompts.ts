@@ -98,12 +98,8 @@ export function generateModelSpecificEnhancements(model: KieModel, formatKey: st
     return `\n\nModel Requirements: Use ${model.name} for optimal results.`
   }
 
-  // Build negative prompts section
-  const negativePromptsSection = modelConfig.negativePrompt.length > 0
-    ? `\n• Avoid: ${modelConfig.negativePrompt.join(', ')}`
-    : ''
-
-  // Build quality instructions section
+  // Build quality instructions section (keeping this for script guidance)
+  // Note: Negative prompts are NOT included here - they're only for video generation
   const qualityInstructionsSection = modelConfig.qualityInstructions
     ? `\n• Quality Focus: ${modelConfig.qualityInstructions}`
     : ''
@@ -115,7 +111,7 @@ export function generateModelSpecificEnhancements(model: KieModel, formatKey: st
   const durationConstraint = `\n• Duration Limit: Keep total content within ${model.maxDuration} seconds`
 
   const enhancement = `
-MODEL-SPECIFIC REQUIREMENTS FOR ${model.name.toUpperCase()}:${durationConstraint}${capabilityFocus}${qualityInstructionsSection}${negativePromptsSection}
+MODEL-SPECIFIC REQUIREMENTS FOR ${model.name.toUpperCase()}:${durationConstraint}${capabilityFocus}${qualityInstructionsSection}
 
 INTEGRATE THESE REQUIREMENTS NATURALLY INTO YOUR SCRIPT DESIGN.`
 
@@ -295,89 +291,45 @@ export function enhancePromptWithQualityInstructions(
 export const PROMPTS = {
   ugc_auth_15s: `You are an expert UGC script writer. Create authentic, conversational 15-second video scripts that feel like a real person talking to friends.
 
-Create content for:
-- Product Name: [PRODUCT_NAME]
-- Product Description: [PRODUCT_DESCRIPTION]
-
 Style guidelines: Conversational and authentic - use contractions, natural speech patterns, and first-person perspective. Use "I", "like", "honestly", contractions. No corporate language. Include personal struggle or story. First-person only. Total words: 35-40 maximum.`,
 
   ugc_auth_10s: `You are an expert UGC script writer for ultra-short 10-second viral videos. Stop the scroll with immediate value.
-
-Create content for:
-- Product Name: [PRODUCT_NAME]
-- Product Description: [PRODUCT_DESCRIPTION]
 
 Style guidelines: Urgent and excited - fast-paced delivery, no fluff. Total words: 20-25 maximum. Immediate value, no setup. Fast-paced, urgent tone.`,
 
   green_screen_15s: `You are an expert in Green Screen React videos. Create excitement by reacting to on-screen content with authentic shock.
 
-Create content for:
-- Product Name: [PRODUCT_NAME]
-- Product Description: [PRODUCT_DESCRIPTION]
-
 Style guidelines: Energetic, shocked, breathless - use 'NO WAY', 'WAIT', 'LOOK AT THIS'. Start with reaction words (NO WAY, WHAT, INSANE). Include specific numbers (price, reviews). Create urgency and FOMO. Total words: 35-40 maximum.`,
 
   green_screen_10s: `You are an expert in ultra-short Green Screen React videos. Create panic-buying urgency.
-
-Create content for:
-- Product Name: [PRODUCT_NAME]
-- Product Description: [PRODUCT_DESCRIPTION]
 
 Style guidelines: Manic, hyper-fast, breathless - high energy. Use 'RUN', 'GONE', 'INSANE'. Focus on most shocking feature. Total words: 20-25 maximum.`,
 
   pas_framework_15s: `You are an expert in Problem-Agitate-Solution (PAS) video scripts. Show the problem, amplify frustration, present solution.
 
-Create content for:
-- Product Name: [PRODUCT_NAME]
-- Product Description: [PRODUCT_DESCRIPTION]
-
 Style guidelines: Start frustrated, escalate exasperation, shift to relieved - empathetic throughout. Problem must be relatable. Benefits over features. Include social proof. CTA addresses objections. Total words: 35-40 maximum.`,
 
   pas_framework_10s: `You are an expert in ultra-short PAS scripts. Show immediate contrast: problem to solution.
-
-Create content for:
-- Product Name: [PRODUCT_NAME]
-- Product Description: [PRODUCT_DESCRIPTION]
 
 Style guidelines: Sharp, punchy, authoritative - no pauses. Before vs After logic. 2 sentences maximum. Total words: 20-25 maximum.`,
 
   asmr_visual_15s: `You are an expert in satisfying ASMR visual content. Create hypnotic, scroll-stopping videos with satisfying sounds.
 
-Create content for:
-- Product Name: [PRODUCT_NAME]
-- Product Description: [PRODUCT_DESCRIPTION]
-
 Style guidelines: Calm, soothing, minimalist - whisper quiet or no voiceover preferred. ASMR sounds are the star. First 2s shows satisfying action. Slow, deliberate pacing. Hypnotic enough viewer can't scroll. Total words: 20-25 maximum (or zero for no voiceover).`,
 
   asmr_visual_10s: `You are an expert in 10-second oddly satisfying visual loops. Pure zen in 10 seconds.
-
-Create content for:
-- Product Name: [PRODUCT_NAME]
-- Product Description: [PRODUCT_DESCRIPTION]
 
 Style guidelines: Silent - let visuals speak, ASMR sounds only. ZERO words spoken. Focus on visual satisfaction. Simple text CTA at end.`,
 
   before_after_15s: `You are an expert in transformation videos. Use powerful visual contrast to prove results.
 
-Create content for:
-- Product Name: [PRODUCT_NAME]
-- Product Description: [PRODUCT_DESCRIPTION]
-
 Style guidelines: Start empathetic, shift to excited at reveal - authentic testimonial style. Same lighting/angle for before/after. Realistic timeline. After reveal at 5-8 seconds. Include credibility element. Total words: 35-40 maximum.`,
 
   before_after_10s: `You are an expert in 10-second before/after reveals. Show results instantly.
 
-Create content for:
-- Product Name: [PRODUCT_NAME]
-- Product Description: [PRODUCT_DESCRIPTION]
-
 Style guidelines: Shocked, impressed, concise - just facts. Rely on visual contrast. Immediate CTA. Total words: 20-25 maximum.`,
 
   storyboard_25s: `You are an expert in cinematic 25-second storyboard videos. Create 5-scene narrative arcs with visual consistency.
-
-Create content for:
-- Product Name: [PRODUCT_NAME]
-- Product Description: [PRODUCT_DESCRIPTION]
 
 Style guidelines: Cinematic, narrative-driven - maintain visual consistency across scenes. 5 scenes of exactly 5 seconds each. Same character/setting for consistency. Use professional camera terms. Clear narrative arc. Every shot advances story.`,
 } as const
@@ -485,9 +437,9 @@ export function replacePromptPlaceholdersWithExamples(
   model?: KieModel,
   formatKey?: string
 ): string {
+  // Product name/description are now only in user prompt, not system prompt
+  // No need to replace placeholders here anymore
   let enhancedPrompt = prompt
-    .replace(/\[PRODUCT_NAME\]/g, escapeRegexReplacement(productName))
-    .replace(/\[PRODUCT_DESCRIPTION\]/g, escapeRegexReplacement(productDescription))
 
   // Add language instruction if language is provided and not English
   if (language && language !== 'en') {
