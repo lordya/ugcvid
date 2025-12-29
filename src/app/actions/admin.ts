@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { Json } from '@/types/supabase'
+import { ModelPrompt, ModelPromptInsert, ModelPromptUpdate } from '@/types/model-prompts'
 
 /**
  * Check if the current user is an admin based on ADMIN_EMAILS env variable
@@ -29,6 +30,28 @@ const adjustCreditsSchema = z.object({
   userId: z.string().uuid('Invalid user ID'),
   amount: z.number().int('Amount must be an integer'),
   reason: z.string().min(1, 'Reason is required'),
+})
+
+const modelPromptInsertSchema = z.object({
+  model_id: z.string().min(1, 'Model ID is required'),
+  model_name: z.string().min(1, 'Model name is required'),
+  kie_api_model_name: z.string().min(1, 'KIE API model name is required'),
+  style: z.enum(['ugc_auth', 'green_screen', 'pas_framework', 'asmr_visual', 'before_after', 'storyboard']),
+  duration: z.enum(['10s', '15s', '25s', '30s']),
+  system_prompt: z.string().min(50, 'System prompt must be at least 50 characters'),
+  negative_prompts: z.array(z.string()).optional().default([]),
+  quality_instructions: z.string().nullable().optional(),
+  guidelines: z.any().nullable().optional(),
+  model_config: z.any().nullable().optional(),
+  is_active: z.boolean().optional().default(true),
+})
+
+const modelPromptUpdateSchema = modelPromptInsertSchema.extend({
+  id: z.string().uuid('Invalid prompt ID'),
+}).partial().required({ id: true })
+
+const deletePromptSchema = z.object({
+  id: z.string().uuid('Invalid prompt ID'),
 })
 
 export interface AdminUser {
@@ -321,6 +344,9 @@ export interface SystemStats {
   totalUsers: number
   totalVideos: number
   creditsConsumed: number
+  totalPrompts: number
+  activePrompts: number
+  promptsByModel: number
 }
 
 /**
@@ -375,16 +401,267 @@ export async function getSystemStats(): Promise<{ stats: SystemStats | null; err
       ? transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0)
       : 0
 
+    // Get model prompts statistics
+    const { count: totalPrompts, error: promptsError } = await (adminClient as any)
+      .from('model_prompts')
+      .select('*', { count: 'exact', head: true })
+
+    if (promptsError) {
+      console.error('Error fetching total prompts:', promptsError)
+      return { stats: null, error: `Failed to fetch prompts: ${promptsError.message}` }
+    }
+
+    const { count: activePrompts, error: activePromptsError } = await (adminClient as any)
+      .from('model_prompts')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true)
+
+    if (activePromptsError) {
+      console.error('Error fetching active prompts:', activePromptsError)
+      return { stats: null, error: `Failed to fetch active prompts: ${activePromptsError.message}` }
+    }
+
+    // Get unique models count
+    const { data: uniqueModels, error: uniqueModelsError } = await (adminClient as any)
+      .from('model_prompts')
+      .select('model_id')
+      .eq('is_active', true)
+
+    if (uniqueModelsError) {
+      console.error('Error fetching unique models:', uniqueModelsError)
+      return { stats: null, error: `Failed to fetch unique models: ${uniqueModelsError.message}` }
+    }
+
+    const promptsByModel = uniqueModels
+      ? [...new Set((uniqueModels as { model_id: string }[]).map(p => p.model_id))].length
+      : 0
+
     return {
       stats: {
         totalUsers: totalUsers || 0,
         totalVideos: totalVideos || 0,
         creditsConsumed,
+        totalPrompts: totalPrompts || 0,
+        activePrompts: activePrompts || 0,
+        promptsByModel,
       },
     }
   } catch (error) {
     console.error('Error in getSystemStats:', error)
     return { stats: null, error: 'Failed to fetch system statistics' }
+  }
+}
+
+/**
+ * Get all model prompts for admin view
+ * Uses service role key to bypass RLS
+ */
+export async function getAdminModelPrompts(): Promise<{ prompts: ModelPrompt[]; error?: string }> {
+  const { isAdmin } = await checkAdminAccess()
+
+  if (!isAdmin) {
+    return { prompts: [], error: 'Unauthorized: Admin access required' }
+  }
+
+  try {
+    const adminClient = createAdminClient()
+
+    const { data: prompts, error } = await (adminClient as any)
+      .from('model_prompts')
+      .select('*')
+      .order('model_id', { ascending: true })
+      .order('style', { ascending: true })
+      .order('duration', { ascending: true })
+
+    if (error) {
+      console.error('Error fetching admin model prompts:', error)
+      return { prompts: [], error: error.message }
+    }
+
+    return { prompts: prompts || [] }
+  } catch (error) {
+    console.error('Error in getAdminModelPrompts:', error)
+    return { prompts: [], error: 'Failed to fetch model prompts' }
+  }
+}
+
+/**
+ * Create a new model prompt
+ */
+export async function createModelPrompt(
+  prompt: ModelPromptInsert
+): Promise<{ prompt: ModelPrompt | null; error?: string }> {
+  const { isAdmin } = await checkAdminAccess()
+
+  if (!isAdmin) {
+    return { prompt: null, error: 'Unauthorized: Admin access required' }
+  }
+
+  // Validate input
+  const validatedData = modelPromptInsertSchema.safeParse(prompt)
+  if (!validatedData.success) {
+    const firstError = validatedData.error.issues[0]
+    return { prompt: null, error: firstError?.message || 'Validation failed' }
+  }
+
+  try {
+    const adminClient = createAdminClient()
+
+    // Check for uniqueness constraint (model_id + style + duration)
+    const { data: existing, error: checkError } = await (adminClient as any)
+      .from('model_prompts')
+      .select('id')
+      .eq('model_id', prompt.model_id)
+      .eq('style', prompt.style)
+      .eq('duration', prompt.duration)
+      .limit(1)
+
+    if (checkError) {
+      console.error('Error checking uniqueness:', checkError)
+      return { prompt: null, error: 'Failed to validate uniqueness' }
+    }
+
+    if (existing && existing.length > 0) {
+      return { prompt: null, error: 'A prompt already exists for this model, style, and duration combination' }
+    }
+
+    const { data, error } = await (adminClient as any)
+      .from('model_prompts')
+      .insert(prompt)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error creating model prompt:', error)
+      return { prompt: null, error: 'Failed to create model prompt' }
+    }
+
+    revalidatePath('/admin/prompts')
+    return { prompt: data as ModelPrompt }
+  } catch (error) {
+    console.error('Error in createModelPrompt:', error)
+    return { prompt: null, error: 'Failed to create model prompt' }
+  }
+}
+
+/**
+ * Update an existing model prompt
+ */
+export async function updateModelPrompt(
+  id: string,
+  updates: Partial<ModelPromptUpdate>
+): Promise<{ prompt: ModelPrompt | null; error?: string }> {
+  const { isAdmin } = await checkAdminAccess()
+
+  if (!isAdmin) {
+    return { prompt: null, error: 'Unauthorized: Admin access required' }
+  }
+
+  // Validate input
+  const validatedData = modelPromptUpdateSchema.safeParse({ id, ...updates })
+  if (!validatedData.success) {
+    const firstError = validatedData.error.issues[0]
+    return { prompt: null, error: firstError?.message || 'Validation failed' }
+  }
+
+  try {
+    const adminClient = createAdminClient()
+
+    // If updating model_id, style, or duration, check uniqueness constraint
+    if (updates.model_id || updates.style || updates.duration) {
+      const currentPrompt = await (adminClient as any)
+        .from('model_prompts')
+        .select('model_id, style, duration')
+        .eq('id', id)
+        .single()
+
+      if (currentPrompt.data) {
+        const finalModelId = updates.model_id || currentPrompt.data.model_id
+        const finalStyle = updates.style || currentPrompt.data.style
+        const finalDuration = updates.duration || currentPrompt.data.duration
+
+        const { data: existing, error: checkError } = await (adminClient as any)
+          .from('model_prompts')
+          .select('id')
+          .eq('model_id', finalModelId)
+          .eq('style', finalStyle)
+          .eq('duration', finalDuration)
+          .neq('id', id)
+          .limit(1)
+
+        if (checkError) {
+          console.error('Error checking uniqueness:', checkError)
+          return { prompt: null, error: 'Failed to validate uniqueness' }
+        }
+
+        if (existing && existing.length > 0) {
+          return { prompt: null, error: 'A prompt already exists for this model, style, and duration combination' }
+        }
+      }
+    }
+
+    const { data, error } = await (adminClient as any)
+      .from('model_prompts')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error updating model prompt:', error)
+      return { prompt: null, error: 'Failed to update model prompt' }
+    }
+
+    revalidatePath('/admin/prompts')
+    return { prompt: data as ModelPrompt }
+  } catch (error) {
+    console.error('Error in updateModelPrompt:', error)
+    return { prompt: null, error: 'Failed to update model prompt' }
+  }
+}
+
+/**
+ * Delete a model prompt (soft delete by setting is_active = false)
+ */
+export async function deleteModelPrompt(id: string): Promise<{ success: boolean; error?: string }> {
+  const { isAdmin } = await checkAdminAccess()
+
+  if (!isAdmin) {
+    return { success: false, error: 'Unauthorized: Admin access required' }
+  }
+
+  // Validate input
+  const validatedData = deletePromptSchema.safeParse({ id })
+  if (!validatedData.success) {
+    const firstError = validatedData.error.issues[0]
+    return { success: false, error: firstError?.message || 'Validation failed' }
+  }
+
+  try {
+    const adminClient = createAdminClient()
+
+    // Soft delete by setting is_active = false
+    const { error } = await (adminClient as any)
+      .from('model_prompts')
+      .update({
+        is_active: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+
+    if (error) {
+      console.error('Error deleting model prompt:', error)
+      return { success: false, error: 'Failed to delete model prompt' }
+    }
+
+    revalidatePath('/admin/prompts')
+    return { success: true }
+  } catch (error) {
+    console.error('Error in deleteModelPrompt:', error)
+    return { success: false, error: 'Failed to delete model prompt' }
   }
 }
 

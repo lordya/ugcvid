@@ -2,14 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { 
-  Video, 
-  Library, 
-  CreditCard, 
-  Settings, 
-  LogOut, 
+import {
+  Video,
+  Library,
+  CreditCard,
+  Settings,
+  LogOut,
   User,
-  ChevronDown
+  ChevronDown,
+  Shield
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState, useEffect, useRef } from 'react'
@@ -23,6 +24,11 @@ const navigation = [
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
+const adminNavigation = [
+  { name: 'Admin Dashboard', href: '/admin', icon: Shield },
+  { name: 'Model Prompts', href: '/admin/prompts', icon: Settings },
+]
+
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
@@ -30,6 +36,7 @@ export function Sidebar() {
   const [creditsBalance, setCreditsBalance] = useState<number>(0)
   const [videoCount, setVideoCount] = useState<number>(0)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [isAdmin, setIsAdmin] = useState<boolean>(false)
   const profileRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -60,6 +67,19 @@ export function Sidebar() {
           .eq('user_id', authUser.id)
 
         setVideoCount(count || 0)
+
+        // Check if user is admin by trying to access an admin route
+        try {
+          const response = await fetch('/api/admin/check-access', {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          })
+          setIsAdmin(response.ok)
+        } catch {
+          setIsAdmin(false)
+        }
       }
     }
 
@@ -114,7 +134,7 @@ export function Sidebar() {
           const active = isActive(item.href)
           const isCreateButton = item.href === '/wizard'
           const shouldPulse = isCreateButton && videoCount === 0
-          
+
           return (
             <Link
               key={item.name}
@@ -132,6 +152,35 @@ export function Sidebar() {
             </Link>
           )
         })}
+
+        {/* Admin Navigation */}
+        {isAdmin && (
+          <>
+            <div className="px-3 py-2">
+              <div className="border-t border-border"></div>
+            </div>
+            {adminNavigation.map((item) => {
+              const Icon = item.icon
+              const active = isActive(item.href)
+
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    'relative flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                    active
+                      ? 'bg-layer-3 text-[#6366F1]'
+                      : 'text-muted-foreground hover:bg-layer-3 hover:text-foreground'
+                  )}
+                >
+                  <Icon className="w-5 h-5" />
+                  {item.name}
+                </Link>
+              )
+            })}
+          </>
+        )}
       </nav>
 
       {/* User Profile Dropdown */}
