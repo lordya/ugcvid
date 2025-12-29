@@ -52,7 +52,17 @@ export async function getSystemPrompt(
  * @returns Promise<ModelPrompt | null>
  */
 export async function getModelPromptByKey(key: string): Promise<ModelPrompt | null> {
-  const [style, duration] = key.split('_').slice(-2)
+  // Parse format key: e.g., 'ugc_auth_15s' -> style: 'ugc_auth', duration: '15s'
+  // Duration always ends with 's', so find the last underscore before the duration
+  const durationMatch = key.match(/_(\d+s)$/)
+  if (!durationMatch) {
+    console.warn(`[ModelPrompts] Invalid format key: ${key} (expected format: style_duration, e.g., ugc_auth_15s)`)
+    return null
+  }
+  
+  const duration = durationMatch[1] // e.g., '15s'
+  const style = key.slice(0, durationMatch.index) // Everything before '_15s'
+  
   const modelId = await findBestModelForFormat(style, duration)
 
   if (!modelId) {
