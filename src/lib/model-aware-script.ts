@@ -10,6 +10,7 @@ import { QualityRiskLevel } from './quality-analysis'
 import { QualityTier } from './prompts'
 import { StructuredScriptContent } from '@/types/supabase'
 import { getGuideInfoForModel, getCompleteModelInfo } from './kie-models-guide'
+import { getModelConfig } from './db/model-prompts'
 
 /**
  * Model constraints extracted from kie_ai_models_guide.md
@@ -71,12 +72,31 @@ export function getModelForScriptGeneration(
 }
 
 /**
- * Extract model constraints from the guide data
+ * Extract model constraints from database or guide data with fallback
  *
  * @param model - KieModel instance
- * @returns ModelConstraints for the given model
+ * @returns Promise<ModelConstraints> for the given model
  */
-export function getModelConstraints(model: KieModel): ModelConstraints {
+export async function getModelConstraints(model: KieModel): Promise<ModelConstraints> {
+  try {
+    // Try to get model config from database first
+    const dbModel = await getModelConfig(model.id)
+    if (dbModel && dbModel.model_config) {
+      const config = dbModel.model_config
+      return {
+        maxDuration: config.maxDuration || model.maxDuration,
+        supportedAspectRatios: ['16:9', '9:16', '1:1'], // Default aspect ratios
+        capabilities: config.capabilities || model.capabilities,
+        bestPractices: config.capabilities || [], // Use capabilities as best practices
+        constraints: [], // TODO: Add constraints to model_config
+        useCases: config.bestFor || model.bestFor
+      }
+    }
+  } catch (error) {
+    console.warn(`[ModelConstraints] Database query failed for ${model.id}, falling back to guide:`, error)
+  }
+
+  // Fallback to hardcoded guide data
   const guideInfo = getGuideInfoForModel(model)
 
   return {
@@ -121,11 +141,11 @@ export function createModelGuidance(model: KieModel, constraints: ModelConstrain
  * @param constraints - Model constraints
  * @returns Enhanced prompt with model guidance
  */
-export function enhancePromptWithModelGuidance(
+export async function enhancePromptWithModelGuidance(
   systemPrompt: string,
   model: KieModel,
   constraints: ModelConstraints
-): string {
+): Promise<string> {
   const guidance = createModelGuidance(model, constraints)
 
   const modelGuidanceSection = `

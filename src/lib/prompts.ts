@@ -8,6 +8,7 @@
 import { getLanguageName } from './languages'
 import { MODEL_QUALITY_CONFIGS, KieModel } from './kie-models'
 import { QualityRiskLevel } from './quality-analysis'
+import { getModelPromptByKey } from './db/model-prompts'
 
 /**
  * Strict JSON Schema for script generation to comply with OpenAI Structured Outputs.
@@ -397,11 +398,39 @@ Product description: ${productDescription}`
 }
 
 /**
- * Gets a system prompt by key with fallback to default
- * @param key - The prompt key to lookup
+ * Gets a system prompt by key from database with fallback to hardcoded prompts
+ * @param key - The prompt key to lookup (e.g., 'ugc_auth_15s')
  * @returns The system prompt string
  */
-export function getSystemPrompt(key: string): string {
+export async function getSystemPrompt(key: string): Promise<string> {
+  try {
+    // Try to get prompt from database first
+    const dbPrompt = await getModelPromptByKey(key)
+    if (dbPrompt) {
+      console.log(`[Prompts] Using database prompt for ${key}`)
+      return dbPrompt.system_prompt
+    }
+  } catch (error) {
+    console.warn(`[Prompts] Database query failed for ${key}, falling back to hardcoded:`, error)
+  }
+
+  // Fallback to hardcoded prompts
+  console.log(`[Prompts] Using hardcoded prompt for ${key}`)
+  const prompt = PROMPTS[key as PromptKey]
+  if (!prompt) {
+    console.warn(`Prompt key '${key}' not found, falling back to ugc_auth_15s`)
+    return PROMPTS.ugc_auth_15s
+  }
+  return prompt
+}
+
+/**
+ * Synchronous version of getSystemPrompt for backward compatibility
+ * @param key - The prompt key to lookup
+ * @returns The system prompt string
+ * @deprecated Use the async getSystemPrompt function instead
+ */
+export function getSystemPromptSync(key: string): string {
   const prompt = PROMPTS[key as PromptKey]
   if (!prompt) {
     console.warn(`Prompt key '${key}' not found, falling back to ugc_auth_15s`)

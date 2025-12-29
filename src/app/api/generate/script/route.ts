@@ -7,6 +7,7 @@ import {
   replacePromptPlaceholdersWithExamples,
   SCRIPT_GENERATION_SCHEMA
 } from '@/lib/prompts'
+import { getModelPromptByKey } from '@/lib/db/model-prompts'
 import { getSuccessfulExamplesForPrompt, formatExamplesForPrompt } from '@/lib/success-examples'
 import { createClient } from '@/lib/supabase/server'
 import { validateStyleDuration } from '@/lib/validation'
@@ -130,7 +131,7 @@ export async function POST(request: NextRequest) {
 
     // Select optimal model for script generation
     const selectedModel = getModelForScriptGeneration(style, duration, undefined, userQualityTier)
-    const modelConstraints = getModelConstraints(selectedModel)
+    const modelConstraints = await getModelConstraints(selectedModel)
 
     console.log(`[Script Generation] Selected model: ${selectedModel.name} (${selectedModel.id}) for ${style}_${duration}`)
 
@@ -142,8 +143,22 @@ export async function POST(request: NextRequest) {
     // Construct the prompt key as ${style}_${duration}
     const promptKey = `${style}_${duration}`
 
-    // Get the system prompt from the registry
-    const systemPromptTemplate = getSystemPrompt(promptKey)
+    // Try to get the system prompt from database first, fallback to hardcoded prompts
+    let systemPromptTemplate = ''
+
+    try {
+      const dbPrompt = await getModelPromptByKey(promptKey)
+      if (dbPrompt) {
+        systemPromptTemplate = dbPrompt.system_prompt
+        console.log(`[Script Generation] Using database prompt for ${promptKey}`)
+      } else {
+        console.log(`[Script Generation] Database prompt not found for ${promptKey}, falling back to hardcoded`)
+        systemPromptTemplate = await getSystemPrompt(promptKey)
+      }
+    } catch (error) {
+      console.warn(`[Script Generation] Database query failed for ${promptKey}, falling back to hardcoded:`, error)
+      systemPromptTemplate = await getSystemPrompt(promptKey)
+    }
 
     // Replace placeholders in the system prompt and inject successful examples
     // Pass language parameter to include language instructions in the prompt
@@ -159,7 +174,7 @@ export async function POST(request: NextRequest) {
     )
 
     // Enhance system prompt with model-specific guidance
-    systemPrompt = enhancePromptWithModelGuidance(systemPrompt, selectedModel, modelConstraints)
+    systemPrompt = await enhancePromptWithModelGuidance(systemPrompt, selectedModel, modelConstraints)
 
     // Generate user prompt
     const userPrompt = generateScriptGenerationUserPrompt({
