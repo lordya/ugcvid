@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
-import { ScriptGenerationRequest, ScriptGenerationResponse, StructuredScriptContent } from '@/types/supabase'
+import { ScriptGenerationRequest, ScriptGenerationResponse, StructuredScriptContent, AdvancedScriptGenerationResponse } from '@/types/supabase'
+import { QualityTier } from '@/lib/prompts'
 import {
   generateScriptGenerationUserPrompt,
   getSystemPrompt,
   replacePromptPlaceholdersWithExamples,
+  replacePromptPlaceholdersWithAngles,
   SCRIPT_GENERATION_SCHEMA
 } from '@/lib/prompts'
+import { selectAngles, saveVideoScripts, SelectedAngle } from '@/lib/script-engine'
 import { getModelPromptByKey } from '@/lib/db/model-prompts'
 import { getSuccessfulExamplesForPrompt, formatExamplesForPrompt } from '@/lib/success-examples'
+import { getModelForScriptGeneration } from '@/lib/model-aware-script'
 import { createClient } from '@/lib/supabase/server'
 import { validateStyleDuration } from '@/lib/validation'
 import {
-  getModelForScriptGeneration,
   getModelConstraints,
   enhancePromptWithModelGuidance,
   validateScriptAgainstModel,
@@ -71,7 +74,7 @@ function buildModelParams(
 export async function POST(request: NextRequest) {
   try {
     const body: ScriptGenerationRequest = await request.json()
-    const { title, description, style, duration, language } = body
+    const { title, description, style, duration, language, video_id, manual_angle_ids } = body
 
     if (!title || !description || !style || !duration) {
       return NextResponse.json(
@@ -80,8 +83,56 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Initialize Supabase client and authenticate user first
+    const supabase = await createClient()
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    // Check if this is advanced script generation (with angles)
+    const isAdvancedGeneration = video_id !== undefined || manual_angle_ids !== undefined
+
     // Use provided language or default to English
     const targetLanguage = language || 'en'
+
+    // Fetch user profile for quality tier information (needed for both generation types)
+    const { data: userProfile, error: profileError } = await supabase
+      .from('users')
+      .select('quality_tier')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError || !userProfile) {
+      console.error('Error fetching user profile:', profileError)
+      return NextResponse.json({ error: 'Failed to fetch user profile' }, { status: 500 })
+    }
+
+    const userQualityTier: QualityTier = (userProfile.quality_tier === 'premium' ? 'premium' : 'standard')
+
+    // Handle advanced script generation
+    if (isAdvancedGeneration) {
+      const result = await generateAdvancedScripts(
+        title,
+        description,
+        style,
+        duration,
+        targetLanguage,
+        video_id,
+        manual_angle_ids,
+        user.id,
+        userQualityTier,
+        supabase
+      )
+
+      return NextResponse.json(result)
+    }
+
+    // Continue with legacy single script generation
 
     // Validate style and duration combination
     const validation = validateStyleDuration(style, duration)
@@ -100,37 +151,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Initialize Supabase client to get user ID
-    const supabase = await createClient()
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
-    }
-
     // Fetch successful examples for the user (with global fallback)
     const successfulExamples = await getSuccessfulExamplesForPrompt(user.id)
     const formattedExamples = formatExamplesForPrompt(successfulExamples)
 
-    // Fetch user profile for quality tier information
-    const { data: userProfile, error: profileError } = await supabase
-      .from('users')
-      .select('quality_tier')
-      .eq('id', user.id)
-      .single()
-
-    if (profileError || !userProfile) {
-      console.error('Error fetching user profile:', profileError)
-      return NextResponse.json({ error: 'Failed to fetch user profile' }, { status: 500 })
-    }
-
-    const userQualityTier = userProfile.quality_tier || 'standard'
-
     // Select optimal model for script generation
-    const selectedModel = getModelForScriptGeneration(style, duration, undefined, userQualityTier)
+    const selectedModel = getModelForScriptGeneration(style, duration, undefined, userQualityTier as QualityTier)
     const modelConstraints = await getModelConstraints(selectedModel)
 
     console.log(`[Script Generation] Selected model: ${selectedModel.name} (${selectedModel.id}) for ${style}_${duration}`)
@@ -277,6 +303,139 @@ export async function POST(request: NextRequest) {
       { error: 'Failed to generate script' },
       { status: 500 }
     )
+  }
+}
+
+/**
+ * Advanced script generation with parallel angle-based generation
+ */
+async function generateAdvancedScripts(
+  title: string,
+  description: string,
+  style: string,
+  duration: string,
+  language: string | undefined,
+  video_id: string | undefined,
+  manual_angle_ids: string[] | undefined,
+  userId: string,
+  userQualityTier: string,
+  supabase: any
+): Promise<AdvancedScriptGenerationResponse> {
+  // Select angles for generation
+  const selectedAngles = await selectAngles(manual_angle_ids)
+  console.log(`[Advanced Script Generation] Selected ${selectedAngles.length} angles:`, selectedAngles.map(a => a.id))
+
+  // Fetch successful examples for the user
+  const successfulExamples = await getSuccessfulExamplesForPrompt(userId)
+  const formattedExamples = formatExamplesForPrompt(successfulExamples)
+
+  // Select optimal model for script generation
+  const selectedModel = getModelForScriptGeneration(style, duration, undefined, userQualityTier as QualityTier)
+  const modelConstraints = await getModelConstraints(selectedModel)
+
+  console.log(`[Advanced Script Generation] Selected model: ${selectedModel.name} (${selectedModel.id}) for ${style}_${duration}`)
+
+  // Initialize OpenAI client
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OpenAI API key is not configured')
+  }
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
+
+  // Get the God Mode system prompt
+  const systemPromptTemplate = await getSystemPrompt('god_mode_script')
+
+  // Generate user prompt
+  const userPrompt = generateScriptGenerationUserPrompt({
+    productName: title,
+    productDescription: description,
+    style,
+    duration
+  })
+
+  // Generate scripts for all angles in parallel
+  const generationPromises = selectedAngles.map(async (angle: SelectedAngle) => {
+    try {
+      // Enhance system prompt with angle-specific content
+      const systemPrompt = replacePromptPlaceholdersWithAngles(
+        systemPromptTemplate,
+        angle.keywords_string,
+        angle.description,
+        angle.prompt_template,
+        formattedExamples,
+        language,
+        undefined, // modelGuidance handled separately
+        selectedModel,
+        `${style}_${duration}`
+      )
+
+      console.log(`[Advanced Script Generation] Generating script for angle: ${angle.id}`)
+
+      // For advanced generation, we want clean text output, not JSON
+      const completion = await openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL || 'gpt-4o',
+        messages: [
+          { role: 'system' as const, content: systemPrompt },
+          { role: 'user' as const, content: userPrompt },
+        ],
+        temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.8'),
+        max_tokens: parseInt(process.env.OPENAI_MAX_TOKENS || '500', 10),
+      })
+
+      const content = completion.choices[0]?.message?.content?.trim()
+
+      if (!content) {
+        throw new Error(`Failed to generate script for angle ${angle.id}`)
+      }
+
+      return {
+        angle: {
+          id: angle.id,
+          label: angle.label,
+          description: angle.description,
+          keywords: angle.keywords
+        },
+        content
+      }
+    } catch (error) {
+      console.error(`[Advanced Script Generation] Error generating script for angle ${angle.id}:`, error)
+      throw error
+    }
+  })
+
+  // Wait for all scripts to be generated
+  const generatedScripts = await Promise.all(generationPromises)
+
+  // Save to database if video_id is provided
+  let savedScripts: any[] = []
+  if (video_id) {
+    try {
+      savedScripts = await saveVideoScripts(
+        generatedScripts.map(script => ({
+          video_id,
+          angle_id: script.angle.id,
+          content: script.content
+        }))
+      )
+      console.log(`[Advanced Script Generation] Saved ${savedScripts.length} scripts to database`)
+    } catch (error) {
+      console.error('[Advanced Script Generation] Error saving scripts to database:', error)
+      // Continue with response even if saving fails
+    }
+  }
+
+  return {
+    scripts: generatedScripts.map((script, index) => ({
+      ...script,
+      confidence: 0.8, // Default confidence score
+      video_script_id: savedScripts[index]?.id
+    })),
+    script: generatedScripts[0]?.content || '', // First script as default
+    title: title,
+    description: description,
+    model: getModelInfoForResponse(selectedModel, modelConstraints)
   }
 }
 

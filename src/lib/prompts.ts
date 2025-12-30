@@ -332,6 +332,24 @@ Style guidelines: Shocked, impressed, concise - just facts. Rely on visual contr
   storyboard_25s: `You are an expert in cinematic 25-second storyboard videos. Create 5-scene narrative arcs with visual consistency.
 
 Style guidelines: Cinematic, narrative-driven - maintain visual consistency across scenes. 5 scenes of exactly 5 seconds each. Same character/setting for consistency. Use professional camera terms. Clear narrative arc. Every shot advances story.`,
+
+  // God Mode System Prompt for Clean Direct Script generation
+  god_mode_script: `You are a master scriptwriter in "God Mode" - creating viral, conversion-optimized scripts that cut through the noise and compel immediate action.
+
+CRITICAL OUTPUT FORMAT: Return ONLY the spoken script text. NO JSON, NO scene numbers, NO markdown formatting (**bold**, *italic*), NO timestamps, NO technical notes. Just the raw, natural words that will be spoken aloud.
+
+MARKETING STRATEGY: {{angleDescription}}
+MANDATORY KEYWORDS: {{angleKeywords}}
+
+{{anglePromptTemplate}}
+
+CRITICAL RULES:
+- Output format: Pure spoken text only - ready for text-to-speech
+- Length: Keep under 30 seconds when spoken naturally
+- Style: Conversational, urgent, benefit-focused
+- Include ALL keywords naturally in the script
+- End with clear call-to-action
+- No formatting, no labels, no metadata`,
 } as const
 
 export type PromptKey = keyof typeof PROMPTS
@@ -445,6 +463,136 @@ export function replacePromptPlaceholdersWithExamples(
   if (language && language !== 'en') {
     const languageName = getLanguageName(language)
     
+    // Create language instruction - make it very prominent
+    const languageInstruction = `\n\n⚠️ CRITICAL LANGUAGE REQUIREMENT ⚠️\n\nGenerate ALL content EXCLUSIVELY in ${languageName}. This includes:\n- All voiceover text and dialogue\n- All text overlays and captions\n- All hashtags\n- All descriptions, instructions, and metadata\n- All tone instructions and style descriptions\n\nEverything must be written in ${languageName}, NOT English. Use natural, conversational ${languageName} appropriate for the target audience. Do NOT mix languages - use ${languageName} throughout.\n\n`
+
+    // Insert language instruction right after the role description (after first paragraph)
+    const firstParagraphEnd = enhancedPrompt.indexOf('\n\n')
+    if (firstParagraphEnd !== -1) {
+      enhancedPrompt = enhancedPrompt.slice(0, firstParagraphEnd + 2) +
+                       languageInstruction +
+                       enhancedPrompt.slice(firstParagraphEnd + 2)
+    } else {
+      // If no paragraph break found, insert at the beginning after first line
+      const firstLineEnd = enhancedPrompt.indexOf('\n')
+      if (firstLineEnd !== -1) {
+        enhancedPrompt = enhancedPrompt.slice(0, firstLineEnd + 1) +
+                         languageInstruction +
+                         enhancedPrompt.slice(firstLineEnd + 1)
+      } else {
+        // Fallback: prepend to the entire prompt
+        enhancedPrompt = languageInstruction + enhancedPrompt
+      }
+    }
+  }
+
+  // Inject successful examples before the CRITICAL RULES section if provided
+  if (successExamples) {
+    // Find the CRITICAL RULES section and insert examples before it
+    const criticalRulesIndex = enhancedPrompt.indexOf('CRITICAL RULES:')
+    if (criticalRulesIndex !== -1) {
+      enhancedPrompt = enhancedPrompt.slice(0, criticalRulesIndex) +
+                       successExamples +
+                       '\n' +
+                       enhancedPrompt.slice(criticalRulesIndex)
+    } else {
+      // If no CRITICAL RULES section found, append to end
+      enhancedPrompt += successExamples
+    }
+  }
+
+  // Inject model guidance before the CRITICAL RULES section if provided
+  if (modelGuidance) {
+    // Find the CRITICAL RULES section and insert model guidance before it
+    const criticalRulesIndex = enhancedPrompt.indexOf('CRITICAL RULES:')
+    if (criticalRulesIndex !== -1) {
+      enhancedPrompt = enhancedPrompt.slice(0, criticalRulesIndex) +
+                       modelGuidance +
+                       '\n' +
+                       enhancedPrompt.slice(criticalRulesIndex)
+    } else {
+      // If no CRITICAL RULES section found, append to end
+      enhancedPrompt += modelGuidance
+    }
+  }
+
+  // Inject model-specific enhancements including negative prompts
+  if (model && formatKey) {
+    const modelEnhancements = generateModelSpecificEnhancements(model, formatKey)
+
+    // Find the CRITICAL RULES section and insert model enhancements before it
+    const criticalRulesIndex = enhancedPrompt.indexOf('CRITICAL RULES:')
+    if (criticalRulesIndex !== -1) {
+      enhancedPrompt = enhancedPrompt.slice(0, criticalRulesIndex) +
+                       modelEnhancements +
+                       '\n' +
+                       enhancedPrompt.slice(criticalRulesIndex)
+    } else {
+      // If no CRITICAL RULES section found, append to end
+      enhancedPrompt += modelEnhancements
+    }
+  }
+
+  return enhancedPrompt
+}
+
+/**
+ * Replaces angle-specific placeholders in system prompts for script generation
+ * @param prompt - The system prompt template containing angle placeholders
+ * @param angleKeywords - Keywords string for the angle (e.g., "amazing, incredible, must-have")
+ * @param angleDescription - Description of the angle's marketing strategy
+ * @param anglePromptTemplate - Specific prompt template for the angle
+ * @returns Prompt with angle placeholders replaced
+ */
+export function replaceAnglePlaceholders(
+  prompt: string,
+  angleKeywords: string,
+  angleDescription: string,
+  anglePromptTemplate: string
+): string {
+  return prompt
+    .replace(/\{\{angleKeywords\}\}/g, angleKeywords)
+    .replace(/\{\{angleDescription\}\}/g, angleDescription)
+    .replace(/\{\{anglePromptTemplate\}\}/g, anglePromptTemplate)
+}
+
+/**
+ * Replaces placeholders in system prompt for angle-based script generation
+ * Combines angle placeholders with language and model enhancements
+ * @param prompt - The system prompt template
+ * @param angleKeywords - Keywords string for the angle
+ * @param angleDescription - Description of the angle's marketing strategy
+ * @param anglePromptTemplate - Specific prompt template for the angle
+ * @param successExamples - Formatted successful examples string (optional)
+ * @param language - Language code (e.g., 'en', 'es', 'fr'). Defaults to 'en' if not provided.
+ * @param modelGuidance - Model-specific guidance string (optional)
+ * @param model - KieModel instance (optional)
+ * @param formatKey - Format key for model enhancements (optional)
+ * @returns Prompt with all placeholders replaced and enhancements injected
+ */
+export function replacePromptPlaceholdersWithAngles(
+  prompt: string,
+  angleKeywords: string,
+  angleDescription: string,
+  anglePromptTemplate: string,
+  successExamples?: string,
+  language?: string,
+  modelGuidance?: string,
+  model?: KieModel,
+  formatKey?: string
+): string {
+  // First replace angle-specific placeholders
+  let enhancedPrompt = replaceAnglePlaceholders(
+    prompt,
+    angleKeywords,
+    angleDescription,
+    anglePromptTemplate
+  )
+
+  // Add language instruction if language is provided and not English
+  if (language && language !== 'en') {
+    const languageName = getLanguageName(language)
+
     // Create language instruction - make it very prominent
     const languageInstruction = `\n\n⚠️ CRITICAL LANGUAGE REQUIREMENT ⚠️\n\nGenerate ALL content EXCLUSIVELY in ${languageName}. This includes:\n- All voiceover text and dialogue\n- All text overlays and captions\n- All hashtags\n- All descriptions, instructions, and metadata\n- All tone instructions and style descriptions\n\nEverything must be written in ${languageName}, NOT English. Use natural, conversational ${languageName} appropriate for the target audience. Do NOT mix languages - use ${languageName} throughout.\n\n`
 

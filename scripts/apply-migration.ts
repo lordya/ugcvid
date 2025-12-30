@@ -28,7 +28,6 @@ async function applyMigration(migrationFile: string) {
     for (const statement of statements) {
       if (statement.trim()) {
         console.log(`Executing: ${statement.substring(0, 100)}...`)
-        // @ts-expect-error - exec_sql is a dynamic RPC function that may not be in types
         const { error } = await adminClient.rpc('exec_sql' as any, { sql_query: statement })
         
         // If RPC doesn't work, try direct query (this requires raw SQL execution)

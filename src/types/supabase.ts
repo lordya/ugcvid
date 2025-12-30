@@ -14,303 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
-      transactions: {
-        Row: {
-          amount: number
-          created_at: string
-          id: string
-          payment_id: string | null
-          provider: Database["public"]["Enums"]["payment_provider"]
-          type: Database["public"]["Enums"]["transaction_type"]
-          user_id: string
-        }
-        Insert: {
-          amount: number
-          created_at?: string
-          id?: string
-          payment_id?: string | null
-          provider?: Database["public"]["Enums"]["payment_provider"]
-          type?: Database["public"]["Enums"]["transaction_type"]
-          user_id: string
-        }
-        Update: {
-          amount?: number
-          created_at?: string
-          id?: string
-          payment_id?: string | null
-          provider?: Database["public"]["Enums"]["payment_provider"]
-          type?: Database["public"]["Enums"]["transaction_type"]
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "transactions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      users: {
-        Row: {
-          avatar_url: string | null
-          banned: boolean
-          created_at: string
-          credits_balance: number
-          display_name: string | null
-          email: string
-          id: string
-          preferences: Json
-          role: string
-          updated_at: string
-        }
-        Insert: {
-          avatar_url?: string | null
-          banned?: boolean
-          created_at?: string
-          credits_balance?: number
-          display_name?: string | null
-          email: string
-          id: string
-          preferences?: Json
-          role?: string
-          updated_at?: string
-        }
-        Update: {
-          avatar_url?: string | null
-          banned?: boolean
-          created_at?: string
-          credits_balance?: number
-          display_name?: string | null
-          email?: string
-          id?: string
-          preferences?: Json
-          role?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      videos: {
-        Row: {
-          created_at: string
-          error_reason: string | null
-          final_script: string | null
-          id: string
-          input_metadata: Json | null
-          is_high_performer: boolean | null
-          is_low_performer: boolean | null
-          kie_task_id: string | null
-          performance_calculated_at: string | null
-          performance_score: number | null
-          status: Database["public"]["Enums"]["video_status"]
-          storage_path: string | null
-          updated_at: string
-          user_id: string
-          video_url: string | null
-        }
-        Insert: {
-          created_at?: string
-          error_reason?: string | null
-          final_script?: string | null
-          id?: string
-          input_metadata?: Json | null
-          is_high_performer?: boolean | null
-          is_low_performer?: boolean | null
-          kie_task_id?: string | null
-          performance_calculated_at?: string | null
-          performance_score?: number | null
-          status?: Database["public"]["Enums"]["video_status"]
-          storage_path?: string | null
-          updated_at?: string
-          user_id: string
-          video_url?: string | null
-        }
-        Update: {
-          created_at?: string
-          error_reason?: string | null
-          final_script?: string | null
-          id?: string
-          input_metadata?: Json | null
-          is_high_performer?: boolean | null
-          is_low_performer?: boolean | null
-          kie_task_id?: string | null
-          performance_calculated_at?: string | null
-          performance_score?: number | null
-          status?: Database["public"]["Enums"]["video_status"]
-          storage_path?: string | null
-          updated_at?: string
-          user_id?: string
-          video_url?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "videos_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      video_posts: {
-        Row: {
-          id: string
-          video_id: string
-          integration_id: string
-          external_post_id: string | null
-          status: Database["public"]["Enums"]["video_post_status"]
-          error_message: string | null
-          posted_at: string | null
-          view_count: number | null
-          like_count: number | null
-          share_count: number | null
-          analytics_last_updated: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          video_id: string
-          integration_id: string
-          external_post_id?: string | null
-          status?: Database["public"]["Enums"]["video_post_status"]
-          error_message?: string | null
-          posted_at?: string | null
-          view_count?: number | null
-          like_count?: number | null
-          share_count?: number | null
-          analytics_last_updated?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          video_id?: string
-          integration_id?: string
-          external_post_id?: string | null
-          status?: Database["public"]["Enums"]["video_post_status"]
-          error_message?: string | null
-          posted_at?: string | null
-          view_count?: number | null
-          like_count?: number | null
-          share_count?: number | null
-          analytics_last_updated?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "video_posts_video_id_fkey"
-            columns: ["video_id"]
-            isOneToOne: false
-            referencedRelation: "videos"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "video_posts_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: false
-            referencedRelation: "user_integrations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      video_batches: {
-        Row: {
-          id: string
-          user_id: string
-          status: Database["public"]["Enums"]["batch_status"]
-          total_items: number
-          processed_items: number
-          failed_items: number
-          total_credits_reserved: number
-          error_message: string | null
-          metadata: Json | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          status?: Database["public"]["Enums"]["batch_status"]
-          total_items: number
-          processed_items?: number
-          failed_items?: number
-          total_credits_reserved?: number
-          error_message?: string | null
-          metadata?: Json | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          status?: Database["public"]["Enums"]["batch_status"]
-          total_items?: number
-          processed_items?: number
-          failed_items?: number
-          total_credits_reserved?: number
-          error_message?: string | null
-          metadata?: Json | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "video_batches_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       batch_video_items: {
         Row: {
-          id: string
           batch_id: string
-          video_id: string | null
-          row_index: number
-          url: string
+          created_at: string | null
+          credits_used: number | null
           custom_title: string | null
-          style: string | null
-          status: Database["public"]["Enums"]["batch_item_status"]
           error_message: string | null
-          credits_used: number
+          id: string
           metadata: Json | null
-          created_at: string
-          updated_at: string
+          row_index: number
+          status: string
+          style: string | null
+          updated_at: string | null
+          url: string
+          video_id: string | null
         }
         Insert: {
-          id?: string
           batch_id: string
-          video_id?: string | null
-          row_index: number
-          url: string
+          created_at?: string | null
+          credits_used?: number | null
           custom_title?: string | null
-          style?: string | null
-          status?: Database["public"]["Enums"]["batch_item_status"]
           error_message?: string | null
-          credits_used?: number
+          id?: string
           metadata?: Json | null
-          created_at?: string
-          updated_at?: string
+          row_index: number
+          status?: string
+          style?: string | null
+          updated_at?: string | null
+          url: string
+          video_id?: string | null
         }
         Update: {
-          id?: string
           batch_id?: string
-          video_id?: string | null
-          row_index?: number
-          url?: string
+          created_at?: string | null
+          credits_used?: number | null
           custom_title?: string | null
-          style?: string | null
-          status?: Database["public"]["Enums"]["batch_item_status"]
           error_message?: string | null
-          credits_used?: number
+          id?: string
           metadata?: Json | null
-          created_at?: string
-          updated_at?: string
+          row_index?: number
+          status?: string
+          style?: string | null
+          updated_at?: string | null
+          url?: string
+          video_id?: string | null
         }
         Relationships: [
           {
@@ -423,54 +171,125 @@ export type Database = {
       }
       model_prompts: {
         Row: {
+          created_at: string
+          duration: string
+          guidelines: Json | null
           id: string
+          is_active: boolean | null
+          kie_api_model_name: string
+          model_config: Json | null
           model_id: string
           model_name: string
-          kie_api_model_name: string
-          style: string
-          duration: string
-          system_prompt: string
-          negative_prompts: Json
+          negative_prompts: Json | null
           quality_instructions: string | null
-          guidelines: Json | null
-          model_config: Json | null
-          is_active: boolean | null
-          created_at: string
+          style: string
+          system_prompt: string
           updated_at: string
         }
         Insert: {
+          created_at?: string
+          duration: string
+          guidelines?: Json | null
           id?: string
+          is_active?: boolean | null
+          kie_api_model_name: string
+          model_config?: Json | null
           model_id: string
           model_name: string
-          kie_api_model_name: string
-          style: string
-          duration: string
-          system_prompt: string
-          negative_prompts?: Json
+          negative_prompts?: Json | null
           quality_instructions?: string | null
-          guidelines?: Json | null
-          model_config?: Json | null
-          is_active?: boolean | null
-          created_at?: string
+          style: string
+          system_prompt: string
           updated_at?: string
         }
         Update: {
+          created_at?: string
+          duration?: string
+          guidelines?: Json | null
           id?: string
+          is_active?: boolean | null
+          kie_api_model_name?: string
+          model_config?: Json | null
           model_id?: string
           model_name?: string
-          kie_api_model_name?: string
-          style?: string
-          duration?: string
-          system_prompt?: string
-          negative_prompts?: Json
+          negative_prompts?: Json | null
           quality_instructions?: string | null
-          guidelines?: Json | null
-          model_config?: Json | null
-          is_active?: boolean | null
-          created_at?: string
+          style?: string
+          system_prompt?: string
           updated_at?: string
         }
         Relationships: []
+      }
+      script_angles: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          is_active: boolean | null
+          keywords: string[]
+          label: string
+          prompt_template: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id: string
+          is_active?: boolean | null
+          keywords: string[]
+          label: string
+          prompt_template: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean | null
+          keywords?: string[]
+          label?: string
+          prompt_template?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          payment_id: string | null
+          provider: Database["public"]["Enums"]["payment_provider"]
+          type: Database["public"]["Enums"]["transaction_type"]
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          payment_id?: string | null
+          provider?: Database["public"]["Enums"]["payment_provider"]
+          type?: Database["public"]["Enums"]["transaction_type"]
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          payment_id?: string | null
+          provider?: Database["public"]["Enums"]["payment_provider"]
+          type?: Database["public"]["Enums"]["transaction_type"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_integrations: {
         Row: {
@@ -525,44 +344,406 @@ export type Database = {
           },
         ]
       }
+      users: {
+        Row: {
+          auto_regenerate_on_low_quality: boolean
+          avatar_url: string | null
+          banned: boolean
+          created_at: string
+          credits_balance: number
+          display_name: string | null
+          email: string
+          id: string
+          preferences: Json
+          quality_tier: Database["public"]["Enums"]["user_quality_tier"]
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          auto_regenerate_on_low_quality?: boolean
+          avatar_url?: string | null
+          banned?: boolean
+          created_at?: string
+          credits_balance?: number
+          display_name?: string | null
+          email: string
+          id: string
+          preferences?: Json
+          quality_tier?: Database["public"]["Enums"]["user_quality_tier"]
+          role?: string
+          updated_at?: string
+        }
+        Update: {
+          auto_regenerate_on_low_quality?: boolean
+          avatar_url?: string | null
+          banned?: boolean
+          created_at?: string
+          credits_balance?: number
+          display_name?: string | null
+          email?: string
+          id?: string
+          preferences?: Json
+          quality_tier?: Database["public"]["Enums"]["user_quality_tier"]
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      video_batches: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          failed_items: number
+          id: string
+          metadata: Json | null
+          processed_items: number
+          status: string
+          total_credits_reserved: number
+          total_items: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          failed_items?: number
+          id?: string
+          metadata?: Json | null
+          processed_items?: number
+          status?: string
+          total_credits_reserved?: number
+          total_items: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          failed_items?: number
+          id?: string
+          metadata?: Json | null
+          processed_items?: number
+          status?: string
+          total_credits_reserved?: number
+          total_items?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_batches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_posts: {
+        Row: {
+          analytics_last_updated: string | null
+          created_at: string
+          error_message: string | null
+          external_post_id: string | null
+          id: string
+          integration_id: string
+          like_count: number | null
+          posted_at: string | null
+          share_count: number | null
+          status: Database["public"]["Enums"]["video_post_status"]
+          updated_at: string
+          video_id: string
+          view_count: number | null
+        }
+        Insert: {
+          analytics_last_updated?: string | null
+          created_at?: string
+          error_message?: string | null
+          external_post_id?: string | null
+          id?: string
+          integration_id: string
+          like_count?: number | null
+          posted_at?: string | null
+          share_count?: number | null
+          status?: Database["public"]["Enums"]["video_post_status"]
+          updated_at?: string
+          video_id: string
+          view_count?: number | null
+        }
+        Update: {
+          analytics_last_updated?: string | null
+          created_at?: string
+          error_message?: string | null
+          external_post_id?: string | null
+          id?: string
+          integration_id?: string
+          like_count?: number | null
+          posted_at?: string | null
+          share_count?: number | null
+          status?: Database["public"]["Enums"]["video_post_status"]
+          updated_at?: string
+          video_id?: string
+          view_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_posts_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "user_integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_posts_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_scripts: {
+        Row: {
+          angle_id: string
+          content: string
+          created_at: string
+          id: string
+          is_selected: boolean | null
+          video_id: string
+        }
+        Insert: {
+          angle_id: string
+          content: string
+          created_at?: string
+          id?: string
+          is_selected?: boolean | null
+          video_id: string
+        }
+        Update: {
+          angle_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_selected?: boolean | null
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_scripts_angle_id_fkey"
+            columns: ["angle_id"]
+            isOneToOne: false
+            referencedRelation: "script_angles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_scripts_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      videos: {
+        Row: {
+          created_at: string
+          error_reason: string | null
+          final_script: string | null
+          id: string
+          input_metadata: Json | null
+          is_high_performer: boolean | null
+          is_low_performer: boolean | null
+          kie_task_id: string | null
+          performance_calculated_at: string | null
+          performance_score: number | null
+          quality_issues: Json | null
+          quality_score: number | null
+          quality_validated_at: string | null
+          status: Database["public"]["Enums"]["video_status"]
+          storage_path: string | null
+          updated_at: string
+          user_id: string
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_reason?: string | null
+          final_script?: string | null
+          id?: string
+          input_metadata?: Json | null
+          is_high_performer?: boolean | null
+          is_low_performer?: boolean | null
+          kie_task_id?: string | null
+          performance_calculated_at?: string | null
+          performance_score?: number | null
+          quality_issues?: Json | null
+          quality_score?: number | null
+          quality_validated_at?: string | null
+          status?: Database["public"]["Enums"]["video_status"]
+          storage_path?: string | null
+          updated_at?: string
+          user_id: string
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_reason?: string | null
+          final_script?: string | null
+          id?: string
+          input_metadata?: Json | null
+          is_high_performer?: boolean | null
+          is_low_performer?: boolean | null
+          kie_task_id?: string | null
+          performance_calculated_at?: string | null
+          performance_score?: number | null
+          quality_issues?: Json | null
+          quality_score?: number | null
+          quality_validated_at?: string | null
+          status?: Database["public"]["Enums"]["video_status"]
+          storage_path?: string | null
+          updated_at?: string
+          user_id?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "videos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
-      [_ in never]: never
+      v_credit_consumption_daily: {
+        Row: {
+          credits_bonused: number | null
+          credits_consumed: number | null
+          credits_purchased: number | null
+          credits_refunded: number | null
+          date: string | null
+        }
+        Relationships: []
+      }
+      v_format_performance_daily: {
+        Row: {
+          avg_cost_credits: number | null
+          avg_generation_time_seconds: number | null
+          date: string | null
+          failed_attempts: number | null
+          format: string | null
+          success_rate_percent: number | null
+          successful_attempts: number | null
+          total_attempts: number | null
+        }
+        Relationships: []
+      }
+      v_model_performance_daily: {
+        Row: {
+          avg_cost_credits: number | null
+          avg_cost_usd: number | null
+          avg_generation_time_seconds: number | null
+          avg_retry_count: number | null
+          date: string | null
+          failed_attempts: number | null
+          model: string | null
+          success_rate_percent: number | null
+          successful_attempts: number | null
+          total_attempts: number | null
+        }
+        Relationships: []
+      }
+      v_revenue_daily: {
+        Row: {
+          avg_purchase_amount: number | null
+          credits_revenue: number | null
+          date: string | null
+          purchase_transactions: number | null
+          usd_revenue: number | null
+        }
+        Relationships: []
+      }
+      v_user_activity_daily: {
+        Row: {
+          active_users: number | null
+          avg_cost_per_video: number | null
+          avg_generation_time_seconds: number | null
+          date: string | null
+          users_with_completed_videos: number | null
+          videos_completed: number | null
+          videos_created: number | null
+        }
+        Relationships: []
+      }
+      v_user_growth_daily: {
+        Row: {
+          date: string | null
+          new_admins: number | null
+          new_users: number | null
+        }
+        Relationships: []
+      }
+      v_video_generation_daily: {
+        Row: {
+          completed_videos: number | null
+          date: string | null
+          failed_videos: number | null
+          processing_videos: number | null
+          success_rate_percent: number | null
+          total_videos: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      batch_update_performer_status: { Args: never; Returns: number }
+      calculate_user_rolling_average: {
+        Args: { user_uuid: string }
+        Returns: number
+      }
+      calculate_video_performance_score: {
+        Args: { video_uuid: string }
+        Returns: number
+      }
+      call_social_analytics_cron: { Args: never; Returns: undefined }
+      decrypt_token: { Args: { encrypted_token: string }; Returns: string }
+      delete_batch_item_with_refund: {
+        Args: { p_batch_id: string; p_item_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      encrypt_token: { Args: { token_text: string }; Returns: string }
+      get_batch_statistics: {
+        Args: { user_uuid: string }
+        Returns: {
+          completed_batches: number
+          failed_batches: number
+          processing_batches: number
+          total_batches: number
+          total_credits_used: number
+          total_videos_processed: number
+        }[]
+      }
+      is_admin: { Args: never; Returns: boolean }
+      log_social_analytics_cron: { Args: never; Returns: undefined }
+      update_video_performer_status: {
+        Args: { video_uuid: string }
+        Returns: undefined
+      }
     }
     Enums: {
-      payment_provider: "LEMON" | "CRYPTO" | "SYSTEM"
+      payment_provider: "LEMON" | "CRYPTO" | "SYSTEM" | "KIE_AI"
+      social_provider: "TIKTOK" | "YOUTUBE" | "INSTAGRAM"
       transaction_type: "PURCHASE" | "GENERATION" | "REFUND" | "BONUS"
+      user_quality_tier: "standard" | "premium"
+      video_post_status: "PENDING" | "PUBLISHED" | "FAILED"
       video_status:
         | "DRAFT"
         | "SCRIPT_GENERATED"
         | "PROCESSING"
         | "COMPLETED"
         | "FAILED"
-      batch_status:
-        | "PENDING"
-        | "PROCESSING"
-        | "COMPLETED"
-        | "FAILED"
-        | "CANCELLED"
-      batch_item_status:
-        | "PENDING"
-        | "PROCESSING"
-        | "COMPLETED"
-        | "FAILED"
-      video_post_status:
-        | "PENDING"
-        | "PUBLISHED"
-        | "FAILED"
-      social_provider:
-        | "TIKTOK"
-        | "YOUTUBE"
-        | "INSTAGRAM"
-      user_quality_tier:
-        | "standard"
-        | "premium"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -690,41 +871,17 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      payment_provider: ["LEMON", "CRYPTO", "SYSTEM"],
+      payment_provider: ["LEMON", "CRYPTO", "SYSTEM", "KIE_AI"],
+      social_provider: ["TIKTOK", "YOUTUBE", "INSTAGRAM"],
       transaction_type: ["PURCHASE", "GENERATION", "REFUND", "BONUS"],
+      user_quality_tier: ["standard", "premium"],
+      video_post_status: ["PENDING", "PUBLISHED", "FAILED"],
       video_status: [
         "DRAFT",
         "SCRIPT_GENERATED",
         "PROCESSING",
         "COMPLETED",
         "FAILED",
-      ],
-      batch_status: [
-        "PENDING",
-        "PROCESSING",
-        "COMPLETED",
-        "FAILED",
-        "CANCELLED",
-      ],
-      batch_item_status: [
-        "PENDING",
-        "PROCESSING",
-        "COMPLETED",
-        "FAILED",
-      ],
-      video_post_status: [
-        "PENDING",
-        "PUBLISHED",
-        "FAILED",
-      ],
-      social_provider: [
-        "TIKTOK",
-        "YOUTUBE",
-        "INSTAGRAM",
-      ],
-      user_quality_tier: [
-        "standard",
-        "premium",
       ],
     },
   },
@@ -771,11 +928,61 @@ export interface ScriptGenerationRequest {
   style: string
   duration: string
   language?: string // Optional language code (e.g., 'en', 'es', 'fr'). Defaults to 'en' if not provided.
+  video_id?: string // Optional video ID for script generation
+  manual_angle_ids?: string[] // Optional manual angle selection
 }
 
 export interface ScriptGenerationResponse {
   ugcContent?: UGCContent
   scriptContent?: StructuredScriptContent
+  // Backward compatibility fields
+  script: string
+  title: string
+  caption?: string
+  description: string
+  aspectRatio?: string
+  // Model-aware script generation fields
+  model?: {
+    id: string
+    name: string
+    maxDuration: number
+    supportedAspectRatios: string[]
+    capabilities: string[]
+    bestPractices: string[]
+    constraints: string[]
+    useCases: string[]
+    pricing?: {
+      perSecond: number
+      creditsPerSecond?: number
+    }
+  }
+  validation?: {
+    isValid: boolean
+    warnings: string[]
+    suggestions: string[]
+    estimatedDuration: number
+  }
+}
+
+export interface AdvancedScriptGenerationResponse {
+  scripts: Array<{
+    angle: {
+      id: string
+      label: string
+      description: string
+    }
+    content: string
+    confidence: number
+  }>
+  selectedScript?: {
+    angle: {
+      id: string
+      label: string
+      description: string
+    }
+    content: string
+    confidence: number
+  }
   // Backward compatibility fields
   script: string
   title: string
