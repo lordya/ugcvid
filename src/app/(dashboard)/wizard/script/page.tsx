@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { useWizardStore } from '@/store/useWizardStore'
+import { useWizardStore, ScriptVariant } from '@/store/useWizardStore'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Sparkles, ChevronDown, ChevronUp, RotateCcw, Eye, Clock } from 'lucide-react'
+import { ScriptVariantCard } from '@/components/wizard/ScriptVariantCard'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { validateStyleDuration } from '@/lib/validation'
@@ -38,9 +39,10 @@ const structuredScriptContentSchema = z.object({
 }).strict()
 
 const PROCESSING_MESSAGES = [
+  'Brainstorming angles...',
   'Analyzing product...',
   'Identifying key selling points...',
-  'Drafting script...',
+  'Generating script variants...',
   'Polishing content...',
 ]
 
@@ -67,8 +69,12 @@ export default function WizardScriptPage() {
   const {
     metadata,
     manualInput,
-    script,
-    setScript,
+    scriptVariants,
+    selectedScriptVariant,
+    setScriptVariants,
+    selectScriptVariant,
+    updateScriptVariant,
+    regenerateScriptVariant,
     ugcContent,
     setUgcContent,
     structuredScript,
@@ -96,6 +102,7 @@ export default function WizardScriptPage() {
   const [generating, setGenerating] = useState(false)
   const isGeneratingRef = useRef(false)
   const [scriptValidation, setScriptValidation] = useState<any>(null)
+  const [regeneratingVariants, setRegeneratingVariants] = useState<Set<number>>(new Set())
 
   // Get product info
   const productTitle = metadata?.title || manualInput?.title || ''
@@ -129,8 +136,8 @@ export default function WizardScriptPage() {
   useEffect(() => {
     const generateScript = async () => {
       // Prevent multiple simultaneous generations
-      if (isGeneratingRef.current || script) {
-        return // Already generating or script exists, don't regenerate
+      if (isGeneratingRef.current || scriptVariants.length > 0) {
+        return // Already generating or script variants exist, don't regenerate
       }
 
       // Get product title and description from metadata or manual input
@@ -167,6 +174,8 @@ export default function WizardScriptPage() {
             style,
             duration,
             language: language || 'en',
+            // Request advanced generation with multiple script variants
+            advanced: true,
           }),
         })
 
@@ -176,7 +185,19 @@ export default function WizardScriptPage() {
           // Special handling for JSON parsing errors - allow manual override
           if (response.status === 422 && errorData.rawContent) {
             console.warn('Script generation succeeded but JSON parsing failed - enabling manual override')
-            setScript(errorData.rawContent) // Pre-fill with raw content for manual editing
+            // Create a fallback script variant for manual editing
+            const fallbackVariant: ScriptVariant = {
+              angle: {
+                id: 'fallback',
+                label: 'Manual Edit Required',
+                description: 'Script generation had formatting issues',
+                keywords: []
+              },
+              content: errorData.rawContent,
+              isSelected: true
+            }
+            setScriptVariants([fallbackVariant])
+            selectScriptVariant(fallbackVariant)
             setError(`${errorData.error || 'Script generation had formatting issues'}. The content below can be manually edited.`)
             return // Don't throw error - allow user to proceed with manual editing
           }
@@ -191,19 +212,55 @@ export default function WizardScriptPage() {
           setScriptValidation(data.validation)
         }
 
-        // Handle structured script content response
-        if (data.scriptContent) {
-          // Validate the scriptContent shape to prevent silent data loss
+        // Handle advanced script generation with multiple variants
+        if (data.scripts && Array.isArray(data.scripts)) {
+          const scriptVariants: ScriptVariant[] = data.scripts.map((script: any, index: number) => ({
+            id: script.video_script_id,
+            angle: script.angle,
+            content: script.content,
+            confidence: script.confidence || 0.8,
+            isSelected: index === 0, // Select first variant by default
+          }))
+
+          setScriptVariants(scriptVariants)
+
+          // Auto-select the first variant
+          if (scriptVariants.length > 0) {
+            selectScriptVariant(scriptVariants[0])
+          }
+
+          // Store UGC content for video generation using the first variant
+          setUgcContent({
+            Title: scriptVariants[0]?.angle.label || 'Generated Script',
+            Caption: scriptVariants[0]?.content || '',
+            Description: scriptVariants[0]?.angle.description || '',
+            Prompt: scriptVariants[0]?.content || '',
+            aspect_ratio: 'portrait'
+          })
+        } else if (data.scriptContent) {
+          // Handle structured script content response (fallback)
           const validationResult = structuredScriptContentSchema.safeParse(data.scriptContent)
 
           if (validationResult.success) {
             const validatedContent = validationResult.data
             setStructuredScript(validatedContent)
-            // Initialize edited voiceover with the generated voiceover
             setEditedVoiceover(validatedContent.voiceover || [])
-            // Set script for backward compatibility (combine voiceover)
-            setScript(validatedContent.voiceover?.join(' ') || '')
-            // Store UGC content for video generation (create basic structure)
+
+            // Create a single script variant for backward compatibility
+            const scriptVariant: ScriptVariant = {
+              angle: {
+                id: 'legacy',
+                label: 'Generated Script',
+                description: validatedContent.tone_instructions || 'AI-generated script',
+                keywords: []
+              },
+              content: validatedContent.voiceover?.join(' ') || '',
+              isSelected: true
+            }
+
+            setScriptVariants([scriptVariant])
+            selectScriptVariant(scriptVariant)
+
             setUgcContent({
               Title: validatedContent.style || 'Generated Script',
               Caption: validatedContent.voiceover?.join(' ') || '',
@@ -213,13 +270,31 @@ export default function WizardScriptPage() {
             })
           } else {
             console.error('Invalid scriptContent structure:', validationResult.error)
-            // Fall back to treating it as plain script content
-            setScript(data.scriptContent.voiceover?.join(' ') || JSON.stringify(data.scriptContent))
             setError('Generated script has an unexpected format. Please review and edit manually.')
           }
         } else if (data.script) {
-          // Backward compatibility
-          setScript(data.script)
+          // Backward compatibility - create single variant
+          const scriptVariant: ScriptVariant = {
+            angle: {
+              id: 'legacy',
+              label: 'Generated Script',
+              description: 'AI-generated script',
+              keywords: []
+            },
+            content: data.script,
+            isSelected: true
+          }
+
+          setScriptVariants([scriptVariant])
+          selectScriptVariant(scriptVariant)
+
+          setUgcContent({
+            Title: 'Generated Script',
+            Caption: data.script,
+            Description: '',
+            Prompt: data.script,
+            aspect_ratio: 'portrait'
+          })
         } else {
           throw new Error('No script returned from API')
         }
@@ -235,7 +310,7 @@ export default function WizardScriptPage() {
     }
 
     generateScript()
-  }, [productTitle, productDescription, router, style, duration, language, script, setEditedVoiceover, setScript, setStructuredScript, setUgcContent, setLoading, setError, setMessageIndex, setProcessingMessage])
+  }, [productTitle, productDescription, router, style, duration, language, scriptVariants, setEditedVoiceover, setScriptVariants, selectScriptVariant, setStructuredScript, setUgcContent, setLoading, setError, setMessageIndex, setProcessingMessage])
 
   const handleRegenerateScript = async () => {
     if (!productTitle || !productDescription) {
@@ -268,18 +343,17 @@ export default function WizardScriptPage() {
           style,
           duration,
           language: language || 'en',
+          advanced: true,
         }),
       })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
 
-        // Special handling for JSON parsing errors - allow manual override
         if (response.status === 422 && errorData.rawContent) {
           console.warn('Script regeneration succeeded but JSON parsing failed - enabling manual override')
-          setScript(errorData.rawContent) // Pre-fill with raw content for manual editing
           setError(`${errorData.error || 'Script generation had formatting issues'}. The content below can be manually edited.`)
-          return // Don't throw error - allow user to proceed with manual editing
+          return
         }
 
         throw new Error(errorData.error || 'Failed to regenerate script')
@@ -292,30 +366,41 @@ export default function WizardScriptPage() {
         setScriptValidation(data.validation)
       }
 
-      if (data.scriptContent) {
-        // Validate the scriptContent shape to prevent silent data loss
-        const validationResult = structuredScriptContentSchema.safeParse(data.scriptContent)
+      if (data.scripts && Array.isArray(data.scripts)) {
+        const newScriptVariants: ScriptVariant[] = data.scripts.map((script: any, index: number) => ({
+          id: script.video_script_id,
+          angle: script.angle,
+          content: script.content,
+          confidence: script.confidence || 0.8,
+          isSelected: index === 0, // Select first variant by default
+        }))
 
-        if (validationResult.success) {
-          const validatedContent = validationResult.data
-          setStructuredScript(validatedContent)
-          setEditedVoiceover(validatedContent.voiceover || [])
-          setScript(validatedContent.voiceover?.join(' ') || '')
-        } else {
-          console.error('Invalid scriptContent structure:', validationResult.error)
-          // Fall back to treating it as plain script content
-          setScript(data.scriptContent.voiceover?.join(' ') || JSON.stringify(data.scriptContent))
-          setError('Generated script has an unexpected format. Please review and edit manually.')
+        setScriptVariants(newScriptVariants)
+
+        // Auto-select the first variant
+        if (newScriptVariants.length > 0) {
+          selectScriptVariant(newScriptVariants[0])
         }
       } else if (data.script) {
-        setScript(data.script)
-        setStructuredScript(null)
-        setEditedVoiceover([])
+        // Fallback to single script
+        const scriptVariant: ScriptVariant = {
+          angle: {
+            id: 'regenerated',
+            label: 'Regenerated Script',
+            description: 'AI-regenerated script',
+            keywords: []
+          },
+          content: data.script,
+          isSelected: true
+        }
+
+        setScriptVariants([scriptVariant])
+        selectScriptVariant(scriptVariant)
       } else {
         throw new Error('No script returned from API')
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to generate script'
+      const errorMessage = err instanceof Error ? err.message : 'Failed to regenerate script'
       setError(errorMessage)
     } finally {
       clearInterval(messageInterval)
@@ -337,8 +422,90 @@ export default function WizardScriptPage() {
     toggleImageSelection(imageUrl)
   }
 
+  const handleSelectScriptVariant = async (variant: ScriptVariant) => {
+    selectScriptVariant(variant)
+
+    // Update database selection if variant has an ID (was saved to DB)
+    if (variant.id) {
+      try {
+        await fetch('/api/videos/scripts/select', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            scriptId: variant.id,
+          }),
+        })
+      } catch (error) {
+        console.error('Failed to update script selection in database:', error)
+        // Don't block the UI flow if database update fails
+      }
+    }
+  }
+
+  const handleEditScriptVariant = (index: number, newContent: string) => {
+    updateScriptVariant(index, { content: newContent })
+  }
+
+  const handleRegenerateScriptVariant = async (index: number) => {
+    if (!productTitle || !productDescription) {
+      setError('Product information is missing')
+      return
+    }
+
+    setRegeneratingVariants(prev => new Set([...prev, index]))
+
+    try {
+      // Generate a new angle for this specific variant
+      const response = await fetch('/api/generate/script', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: productTitle,
+          description: productDescription,
+          style,
+          duration,
+          language: language || 'en',
+          advanced: true,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to regenerate script variant')
+      }
+
+      const data = await response.json()
+
+      if (data.scripts && Array.isArray(data.scripts) && data.scripts.length > 0) {
+        // Use the first new script as replacement
+        const newScript = data.scripts[0]
+        const newVariant: ScriptVariant = {
+          id: newScript.video_script_id,
+          angle: newScript.angle,
+          content: newScript.content,
+          confidence: newScript.confidence || 0.8,
+          isSelected: scriptVariants[index]?.isSelected || false,
+        }
+
+        regenerateScriptVariant(index, newVariant)
+      }
+    } catch (err) {
+      console.error('Error regenerating script variant:', err)
+      setError('Failed to regenerate script variant')
+    } finally {
+      setRegeneratingVariants(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(index)
+        return newSet
+      })
+    }
+  }
+
   const handleGenerateVideo = async () => {
-    if ((!script.trim() && !structuredScript) || selectedImages.length === 0) {
+    if ((!selectedScriptVariant?.content.trim() && !structuredScript) || selectedImages.length === 0) {
       return
     }
 
@@ -363,7 +530,7 @@ export default function WizardScriptPage() {
 
     try {
       // Prepare the script content for Kie.ai
-      let finalScript = script.trim()
+      let finalScript = selectedScriptVariant?.content.trim() || ''
 
       if (structuredScript && editedVoiceover.length > 0) {
         // Combine visual cues and edited voiceover for structured content
@@ -386,7 +553,11 @@ export default function WizardScriptPage() {
           aspectRatio: ugcContent?.aspect_ratio || 'portrait',
           title: productTitle,
           description: productDescription,
-          ugcContent: ugcContent,
+          ugcContent: {
+            ...ugcContent,
+            Prompt: finalScript,
+            Caption: finalScript,
+          },
           structuredScript: structuredScript,
           style,
           duration,
@@ -443,10 +614,10 @@ export default function WizardScriptPage() {
     }
   }
 
-  // Calculate script length from either structured script or plain script
+  // Calculate script length from selected script variant or structured script
   const scriptLength = structuredScript
     ? editedVoiceover.join(' ').length
-    : script.length
+    : selectedScriptVariant?.content.length || 0
 
   const isScriptValid = scriptLength >= 50 && scriptLength <= 500
   const isScriptTooShort = scriptLength > 0 && scriptLength < 50
@@ -496,12 +667,12 @@ export default function WizardScriptPage() {
     )
   }
 
-  // Main Review Step UI - Split Screen Layout
+  // Main Director Mode UI - Script Variants Selection
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-semibold mb-2">Script Review</h1>
-        <p className="text-muted-foreground">Review and edit your script, then select images</p>
+        <h1 className="text-3xl font-semibold mb-2">Choose Your Creative Direction</h1>
+        <p className="text-muted-foreground">Select the script variant that best fits your vision</p>
       </div>
 
       {/* Error Banner */}
@@ -527,254 +698,149 @@ export default function WizardScriptPage() {
         </div>
       )}
 
-      {/* Split Screen Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Column: Reference/Assets */}
-        <div className="space-y-6">
-          <Card className="bg-layer-2 border-border">
-            <CardHeader>
-              <CardTitle className="text-lg">Product Reference</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Product Title */}
-              <div>
-                <h3 className="font-semibold text-lg mb-2">{productTitle}</h3>
-              </div>
-
-              {/* Product Description (Collapsible) */}
-              <div>
-                <button
-                  onClick={() => setDescriptionExpanded(!descriptionExpanded)}
-                  className="flex items-center justify-between w-full text-left text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <span>Description</span>
-                  {descriptionExpanded ? (
-                    <ChevronUp className="w-4 h-4" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4" />
-                  )}
-                </button>
-                {descriptionExpanded && (
-                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                    {productDescription}
-                  </p>
-                )}
-              </div>
-
-              {/* Image Selection Grid */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium">
-                    Select Images ({selectedImages.length}/{maxImageLimit})
-                  </label>
-                  {selectedImages.length === 0 && (
-                    <span className="text-xs text-warning">Select at least 1 image</span>
-                  )}
-                  {selectedImages.length >= maxImageLimit && (
-                    <span className="text-xs text-muted-foreground">Maximum reached</span>
-                  )}
-                </div>
-                {availableImages.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    {availableImages.map((imageUrl, index) => {
-                      const isSelected = selectedImages.includes(imageUrl)
-                      return (
-                        <button
-                          key={index}
-                          onClick={() => handleImageToggle(imageUrl)}
-                          className={cn(
-                            'relative aspect-square rounded-lg overflow-hidden border-2 transition-all',
-                            isSelected
-                              ? 'border-primary opacity-100 ring-2 ring-primary ring-offset-2 ring-offset-layer-2'
-                              : 'border-border opacity-60 hover:opacity-80 hover:border-primary/50'
-                          )}
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={imageUrl}
-                            alt={`Product image ${index + 1}`}
-                            className="w-full h-full object-cover"
-                            referrerPolicy="no-referrer"
-                            onError={(e) => {
-                              // Handle image load errors
-                              const target = e.target as HTMLImageElement
-                              target.style.display = 'none'
-                            }}
-                          />
-                          {isSelected && (
-                            <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
-                              <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-                                <span className="text-white text-xs font-bold">✓</span>
-                              </div>
-                            </div>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="p-8 text-center text-sm text-muted-foreground border border-dashed border-border rounded-lg">
-                    No images available
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+      {/* Script Variants Grid */}
+      {scriptVariants.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {scriptVariants.map((variant, index) => (
+            <ScriptVariantCard
+              key={variant.id || index}
+              variant={variant}
+              isSelected={selectedScriptVariant?.id === variant.id || (selectedScriptVariant === null && index === 0)}
+              onSelect={() => handleSelectScriptVariant(variant)}
+              onEdit={(content) => handleEditScriptVariant(index, content)}
+              onRegenerate={() => handleRegenerateScriptVariant(index)}
+              isRegenerating={regeneratingVariants.has(index)}
+            />
+          ))}
         </div>
+      )}
 
-        {/* Right Column: Script Editor */}
-        <div className="space-y-6">
-          <Card className="bg-layer-2 border-border">
-            <CardHeader>
-              <CardTitle className="text-lg">Script Editor</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Structured Script Blocks */}
-              {structuredScript ? (
-                <div className="space-y-4">
-                  {/* Scene Blocks */}
-                  {structuredScript.visual_cues?.map((visualCue, index) => {
-                    const timeRange = extractTimeRange(visualCue)
-                    const visualDesc = extractVisualDescription(visualCue)
-                    const voiceoverText = editedVoiceover[index] || extractVoiceoverText(structuredScript.voiceover?.[index] || '')
+      {/* Product Reference and Image Selection */}
+      <Card className="bg-layer-2 border-border">
+        <CardHeader>
+          <CardTitle className="text-lg">Product Reference</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Product Title */}
+          <div>
+            <h3 className="font-semibold text-lg mb-2">{productTitle}</h3>
+          </div>
 
-                    return (
-                      <Card key={index} className="border border-border/50">
-                        <CardContent className="p-4">
-                          <div className="space-y-3">
-                            {/* Time Range Header */}
-                            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                              <Clock className="w-4 h-4" />
-                              <span>{timeRange}</span>
-                            </div>
-
-                            {/* Visual Cue (Read-only) */}
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                                <Eye className="w-4 h-4" />
-                                <span>Director Notes</span>
-                              </div>
-                              <div className="p-3 bg-muted/30 rounded-md text-sm text-muted-foreground border-l-2 border-muted">
-                                {visualDesc}
-                              </div>
-                            </div>
-
-                            {/* Voiceover Input */}
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">
-                                Voiceover Script
-                              </label>
-                              <Textarea
-                                value={voiceoverText}
-                                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updateVoiceoverSegment(index, e.target.value)}
-                                placeholder="Enter your voiceover script..."
-                                className="min-h-[80px] resize-none"
-                                rows={3}
-                              />
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-
-                  {/* Text Overlays Section */}
-                  {structuredScript.text_overlay && structuredScript.text_overlay.length > 0 && (
-                    <Card className="border border-border/50">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base">Text Overlays</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {structuredScript.text_overlay.map((overlay, index) => (
-                            <div key={index} className="p-3 bg-muted/20 rounded-md border">
-                              <div className="text-sm">
-                                <span className="font-medium text-muted-foreground">
-                                  {extractTimeRange(overlay)}:
-                                </span>
-                                <span className="ml-2">
-                                  {extractVisualDescription(overlay)}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
+          {/* Product Description (Collapsible) */}
+          <div>
+            <button
+              onClick={() => setDescriptionExpanded(!descriptionExpanded)}
+              className="flex items-center justify-between w-full text-left text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span>Description</span>
+              {descriptionExpanded ? (
+                <ChevronUp className="w-4 h-4" />
               ) : (
-                /* Fallback to textarea for backward compatibility */
-                <div className="space-y-2">
-                  <label htmlFor="script-input" className="text-sm font-medium">
-                    Video Script
-                  </label>
-                  <textarea
-                    id="script-input"
-                    value={script}
-                    onChange={(e) => setScript(e.target.value)}
-                    placeholder="Your script will appear here..."
-                    className={cn(
-                      'flex min-h-[300px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none font-mono',
-                      (isScriptTooShort || isScriptTooLong) && 'border-warning'
-                    )}
-                    rows={12}
-                  />
-                  <div className="flex items-center justify-between">
-                    <p
+                <ChevronDown className="w-4 h-4" />
+              )}
+            </button>
+            {descriptionExpanded && (
+              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                {productDescription}
+              </p>
+            )}
+          </div>
+
+          {/* Image Selection Grid */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">
+                Select Images ({selectedImages.length}/{maxImageLimit})
+              </label>
+              {selectedImages.length === 0 && (
+                <span className="text-xs text-warning">Select at least 1 image</span>
+              )}
+              {selectedImages.length >= maxImageLimit && (
+                <span className="text-xs text-muted-foreground">Maximum reached</span>
+              )}
+            </div>
+            {availableImages.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {availableImages.map((imageUrl, index) => {
+                  const isSelected = selectedImages.includes(imageUrl)
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => handleImageToggle(imageUrl)}
                       className={cn(
-                        'text-xs',
-                        isScriptTooShort || isScriptTooLong ? 'text-warning font-medium' : 'text-muted-foreground'
+                        'relative aspect-square rounded-lg overflow-hidden border-2 transition-all',
+                        isSelected
+                          ? 'border-primary opacity-100 ring-2 ring-primary ring-offset-2 ring-offset-layer-2'
+                          : 'border-border opacity-60 hover:opacity-80 hover:border-primary/50'
                       )}
                     >
-                      {scriptLength} characters
-                      {isScriptTooShort && ' • Too short (min 50)'}
-                      {isScriptTooLong && ' • Too long (max 500)'}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                <Button
-                  onClick={handleRegenerateScript}
-                  variant="outline"
-                  className="flex-1"
-                  disabled={loading}
-                >
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Regenerate Script
-                </Button>
-                <Button
-                  onClick={handleGenerateVideo}
-                  disabled={!canGenerate || generating}
-                  className="flex-1 bg-primary hover:bg-primary/90 text-white h-12 text-base font-semibold"
-                  size="lg"
-                >
-                  {generating ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                      Preparing...
-                    </>
-                  ) : (
-                    `Generate Video • -${costCredits} Credit${costCredits === 1 ? '' : 's'}`
-                  )}
-                </Button>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={imageUrl}
+                        alt={`Product image ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          // Handle image load errors
+                          const target = e.target as HTMLImageElement
+                          target.style.display = 'none'
+                        }}
+                      />
+                      {isSelected && (
+                        <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
+                          <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">✓</span>
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
+            ) : (
+              <div className="p-8 text-center text-sm text-muted-foreground border border-dashed border-border rounded-lg">
+                No images available
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-              {/* Validation Hints */}
-              {(!script.trim() || selectedImages.length === 0) && (
-                <div className="p-3 bg-layer-3 rounded-md text-xs text-muted-foreground">
-                  {!script.trim() && <p>• Script cannot be empty</p>}
-                  {selectedImages.length === 0 && <p>• Select at least 1 image</p>}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-        </div>
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Button
+          onClick={handleRegenerateScript}
+          variant="outline"
+          className="flex-1"
+          disabled={loading}
+        >
+          <RotateCcw className="w-4 h-4 mr-2" />
+          Generate New Variants
+        </Button>
+        <Button
+          onClick={handleGenerateVideo}
+          disabled={!canGenerate || generating}
+          className="flex-1 bg-primary hover:bg-primary/90 text-white h-12 text-base font-semibold"
+          size="lg"
+        >
+          {generating ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+              Preparing...
+            </>
+          ) : (
+            `Generate Video • -${costCredits} Credit${costCredits === 1 ? '' : 's'}`
+          )}
+        </Button>
       </div>
+
+      {/* Validation Hints */}
+      {((!selectedScriptVariant?.content.trim() && !structuredScript) || selectedImages.length === 0) && (
+        <div className="p-3 bg-layer-3 rounded-md text-xs text-muted-foreground">
+          {!selectedScriptVariant?.content.trim() && !structuredScript && <p>• Select a script variant</p>}
+          {selectedImages.length === 0 && <p>• Select at least 1 image</p>}
+        </div>
+      )}
     </div>
   )
 }

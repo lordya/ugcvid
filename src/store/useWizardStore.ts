@@ -8,6 +8,20 @@ export interface ProductMetadata {
   images: string[]
 }
 
+export interface ScriptVariant {
+  id?: string
+  angle: {
+    id: string
+    label: string
+    description: string
+    keywords: string[]
+  }
+  content: string
+  confidence?: number
+  isSelected?: boolean
+  isEditing?: boolean
+}
+
 export interface BulkCSVRow {
   url: string
   custom_title?: string
@@ -67,7 +81,8 @@ interface WizardState {
   language: string // Target language code (e.g., 'en', 'es', 'fr')
   url: string
   metadata: ProductMetadata | null
-  script: string
+  scriptVariants: ScriptVariant[] // Array of script variants from different angles
+  selectedScriptVariant: ScriptVariant | null // Currently selected script variant
   ugcContent: UGCContent | null // Structured UGC content from AI
   structuredScript: StructuredScriptContent | null // Structured script content with visual cues, voiceover, etc.
   editedVoiceover: string[] // User-edited voiceover segments
@@ -94,7 +109,10 @@ interface WizardState {
   setLanguage: (language: string) => void
   setUrl: (url: string) => void
   setMetadata: (metadata: ProductMetadata) => void
-  setScript: (script: string) => void
+  setScriptVariants: (variants: ScriptVariant[]) => void
+  selectScriptVariant: (variant: ScriptVariant | null) => void
+  updateScriptVariant: (index: number, updates: Partial<ScriptVariant>) => void
+  regenerateScriptVariant: (index: number, newVariant: ScriptVariant) => void
   setUgcContent: (ugcContent: UGCContent | null) => void
   setStructuredScript: (structuredScript: StructuredScriptContent | null) => void
   setEditedVoiceover: (editedVoiceover: string[]) => void
@@ -124,7 +142,8 @@ const initialState = {
   language: 'en',
   url: '',
   metadata: null,
-  script: '',
+  scriptVariants: [],
+  selectedScriptVariant: null,
   ugcContent: null,
   structuredScript: null,
   editedVoiceover: [],
@@ -155,7 +174,20 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   setLanguage: (language) => set({ language }),
   setUrl: (url) => set({ url }),
   setMetadata: (metadata) => set({ metadata }),
-  setScript: (script) => set({ script }),
+  setScriptVariants: (scriptVariants) => set({ scriptVariants }),
+  selectScriptVariant: (selectedScriptVariant) => set({ selectedScriptVariant }),
+  updateScriptVariant: (index, updates) => {
+    const { scriptVariants } = get()
+    const updated = [...scriptVariants]
+    updated[index] = { ...updated[index], ...updates }
+    set({ scriptVariants: updated })
+  },
+  regenerateScriptVariant: (index, newVariant) => {
+    const { scriptVariants } = get()
+    const updated = [...scriptVariants]
+    updated[index] = newVariant
+    set({ scriptVariants: updated })
+  },
   setUgcContent: (ugcContent) => set({ ugcContent }),
   setStructuredScript: (structuredScript) => set({ structuredScript }),
   setEditedVoiceover: (editedVoiceover) => set({ editedVoiceover }),
