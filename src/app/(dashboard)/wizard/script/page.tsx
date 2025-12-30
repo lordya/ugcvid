@@ -240,19 +240,8 @@ export default function WizardScriptPage() {
 
         setScriptVariants(scriptVariants)
 
-        // Auto-select the first variant
-        if (scriptVariants.length > 0) {
-          selectScriptVariant(scriptVariants[0])
-        }
-
-        // Store UGC content for video generation using the first variant
-        setUgcContent({
-          Title: scriptVariants[0]?.angle.label || 'Generated Script',
-          Caption: scriptVariants[0]?.content || '',
-          Description: scriptVariants[0]?.angle.description || '',
-          Prompt: scriptVariants[0]?.content || '',
-          aspect_ratio: 'portrait'
-        })
+        // Don't auto-select any variant - let user choose which one to use
+        // Don't set UGC content until user selects a variant
       } else if (data.scriptContent) {
         // Handle structured script content response (fallback)
         const validationResult = structuredScriptContentSchema.safeParse(data.scriptContent)
@@ -469,7 +458,8 @@ export default function WizardScriptPage() {
     setRegeneratingVariants(prev => new Set([...prev, index]))
 
     try {
-      // Generate a new angle for this specific variant
+      // Generate a new script for the same angle as the current variant
+      const currentVariant = scriptVariants[index]
       const response = await fetch('/api/generate/script', {
         method: 'POST',
         headers: {
@@ -481,7 +471,8 @@ export default function WizardScriptPage() {
           style,
           duration,
           language: language || 'en',
-          advanced: true,
+          mode: 'single',
+          angleId: currentVariant.angle.id,
         }),
       })
 
@@ -738,7 +729,7 @@ export default function WizardScriptPage() {
             <ScriptVariantCard
               key={variant.id || index}
               variant={variant}
-              isSelected={selectedScriptVariant?.id === variant.id || (selectedScriptVariant === null && index === 0)}
+              isSelected={selectedScriptVariant?.id === variant.id}
               onSelect={() => handleSelectScriptVariant(variant)}
               onEdit={(content) => handleEditScriptVariant(index, content)}
               onRegenerate={() => handleRegenerateScriptVariant(index)}

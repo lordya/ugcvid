@@ -99,7 +99,7 @@ export function ScriptVariantCard({
                   {isSelected ? (
                     <>
                       <Check className="w-4 h-4 mr-2" />
-                      Selected
+                      Deselect
                     </>
                   ) : (
                     'Select This Script'
