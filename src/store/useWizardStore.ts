@@ -179,7 +179,15 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   setMetadata: (metadata) => set({ metadata }),
   setSelectedAngle: (selectedAngle) => set({ selectedAngle }),
   setScriptVariants: (scriptVariants) => set({ scriptVariants }),
-  selectScriptVariant: (selectedScriptVariant) => set({ selectedScriptVariant }),
+  selectScriptVariant: (selectedScriptVariant) => {
+    // Allow toggling: if clicking the same variant, unselect it; otherwise select the new one
+    const current = get().selectedScriptVariant
+    if (current && selectedScriptVariant && current.id === selectedScriptVariant.id) {
+      set({ selectedScriptVariant: null }) // Unselect if clicking the same variant
+    } else {
+      set({ selectedScriptVariant }) // Select the new variant
+    }
+  },
   updateScriptVariant: (index, updates) => {
     const { scriptVariants } = get()
     const updated = [...scriptVariants]

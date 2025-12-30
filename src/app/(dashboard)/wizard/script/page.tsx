@@ -382,20 +382,17 @@ export default function WizardScriptPage() {
       }
 
       if (data.scripts && Array.isArray(data.scripts)) {
-        const newScriptVariants: ScriptVariant[] = data.scripts.map((script: any, index: number) => ({
+        const newScriptVariants: ScriptVariant[] = data.scripts.map((script: any) => ({
           id: script.video_script_id,
           angle: script.angle,
           content: script.content,
           confidence: script.confidence || 0.8,
-          isSelected: index === 0, // Select first variant by default
+          isSelected: false, // Don't auto-select any variant - let user choose
         }))
 
         setScriptVariants(newScriptVariants)
 
-        // Auto-select the first variant
-        if (newScriptVariants.length > 0) {
-          selectScriptVariant(newScriptVariants[0])
-        }
+        // Don't auto-select any variant - user must choose which one to use
       } else if (data.script) {
         // Fallback to single script
         const scriptVariant: ScriptVariant = {
