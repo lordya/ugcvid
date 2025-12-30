@@ -22,9 +22,14 @@ import {
   getModelInfoForResponse
 } from '@/lib/model-aware-script'
 
-// Helper to determine if model uses GPT-5 style parameters
-function isGPT5Model(model: string): boolean {
-  return model.startsWith('gpt-5')
+// Helper to determine if model uses max_completion_tokens (newer models) or max_tokens (older models)
+function shouldUseMaxCompletionTokens(model: string): boolean {
+  // GPT-5 models and newer models like GPT-4o, GPT-4-turbo, etc. use max_completion_tokens
+  return model.startsWith('gpt-5') ||
+         model.includes('gpt-4o') ||
+         model.includes('gpt-4-turbo') ||
+         model.includes('gpt-4-0125') ||
+         model.includes('gpt-4-1106')
 }
 
 
@@ -43,26 +48,17 @@ function buildModelParams(
     ],
   }
 
-  if (isGPT5Model(model)) {
-    // GPT-5 models use reasoning_effort, verbosity, max_completion_tokens
+  if (shouldUseMaxCompletionTokens(model)) {
+    // Newer models use max_completion_tokens
     return {
       ...baseParams,
-      reasoning_effort: (process.env.OPENAI_REASONING_EFFORT || 'minimal') as
-        | 'minimal'
-        | 'low'
-        | 'medium'
-        | 'high',
-      verbosity: (process.env.OPENAI_VERBOSITY || 'medium') as
-        | 'low'
-        | 'medium'
-        | 'high',
       max_completion_tokens: parseInt(
         process.env.OPENAI_MAX_COMPLETION_TOKENS || '500',
         10
       ),
     }
   } else {
-    // Traditional models use temperature, max_tokens
+    // Older models use temperature, max_tokens
     return {
       ...baseParams,
       temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.8'),
@@ -241,25 +237,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Add model-specific parameters
-    if (isGPT5Model(model)) {
-      // GPT-5 models use reasoning_effort, verbosity, max_completion_tokens
-      params.reasoning_effort = (process.env.OPENAI_REASONING_EFFORT || 'minimal') as
-        | 'minimal'
-        | 'low'
-        | 'medium'
-        | 'high'
-      params.verbosity = (process.env.OPENAI_VERBOSITY || 'medium') as
-        | 'low'
-        | 'medium'
-        | 'high'
+    if (shouldUseMaxCompletionTokens(model)) {
+      // Newer models use max_completion_tokens
       params.max_completion_tokens = parseInt(
         process.env.OPENAI_MAX_COMPLETION_TOKENS || '2000',
         10
       )
     } else {
-      // Traditional models use temperature, max_tokens
-      params.temperature = parseFloat(process.env.OPENAI_TEMPERATURE || '0.8')
+      // Older models use max_tokens
       params.max_tokens = parseInt(process.env.OPENAI_MAX_TOKENS || '2000', 10)
+    }
+
+    // Add temperature for all models (not needed for some reasoning models)
+    if (!model.startsWith('gpt-5')) {
+      params.temperature = parseFloat(process.env.OPENAI_TEMPERATURE || '0.8')
     }
 
     const completion = await openai.chat.completions.create(params)
@@ -385,15 +376,24 @@ async function generateAdvancedScripts(
       console.log(`[Advanced Script Generation] Generating script for angle: ${angle.id}`)
 
       // For advanced generation, we want clean text output, not JSON
-      const completion = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-4o',
+      const model = process.env.OPENAI_MODEL || 'gpt-4o'
+      const completionParams: any = {
+        model,
         messages: [
           { role: 'system' as const, content: systemPrompt },
           { role: 'user' as const, content: userPrompt },
         ],
-        temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.8'),
-        max_tokens: parseInt(process.env.OPENAI_MAX_TOKENS || '500', 10),
-      })
+      }
+
+      // Add the appropriate max tokens parameter based on model
+      if (shouldUseMaxCompletionTokens(model)) {
+        completionParams.max_completion_tokens = parseInt(process.env.OPENAI_MAX_COMPLETION_TOKENS || '500', 10)
+      } else {
+        completionParams.max_tokens = parseInt(process.env.OPENAI_MAX_TOKENS || '500', 10)
+        completionParams.temperature = parseFloat(process.env.OPENAI_TEMPERATURE || '0.8')
+      }
+
+      const completion = await openai.chat.completions.create(completionParams)
 
       const content = completion.choices[0]?.message?.content?.trim()
 
