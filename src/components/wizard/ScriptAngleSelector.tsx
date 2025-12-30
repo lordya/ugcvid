@@ -95,97 +95,105 @@ export function ScriptAngleSelector({
   const selectedAngleOption = availableAngles.find(angle => angle.id === selectedAngle)
 
   return (
-    <Card className={cn('bg-layer-2 border-border', className)}>
+    <Card className={cn('bg-layer-2 border-border max-w-4xl mx-auto', className)}>
       <CardHeader className="pb-4">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Target className="w-5 h-5" />
-          Choose Your Marketing Angle
+        <CardTitle className="text-xl flex items-center gap-2">
+          <Target className="w-6 h-6" />
+          Choose Your Creative Direction
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Select a specific marketing approach or let AI generate multiple options
+          Select the script variant that best fits your vision
         </p>
       </CardHeader>
 
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Marketing Strategy</label>
-          <Select
-            value={selectedAngle || 'auto'}
-            onValueChange={(value) => onAngleChange(value === 'auto' ? null : value)}
-            disabled={loading}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select marketing angle..." />
-            </SelectTrigger>
-            <SelectContent>
-              {availableAngles.map((angle) => (
-                <SelectItem key={angle.id} value={angle.id}>
-                  <div className="flex items-center gap-2">
-                    {getCategoryIcon(angle.category)}
-                    <span>{angle.label}</span>
-                    {angle.isDefault && (
-                      <Badge variant="secondary" className="text-xs">
-                        Recommended
+      <CardContent className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left side - Angle Selector */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Marketing Strategy</label>
+              <Select
+                value={selectedAngle || 'auto'}
+                onValueChange={(value) => onAngleChange(value === 'auto' ? null : value)}
+                disabled={loading}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select marketing angle..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableAngles.map((angle) => (
+                    <SelectItem key={angle.id} value={angle.id}>
+                      <div className="flex items-center gap-2">
+                        {getCategoryIcon(angle.category)}
+                        <span>{angle.label}</span>
+                        {angle.isDefault && (
+                          <Badge variant="secondary" className="text-xs">
+                            Recommended
+                          </Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p><strong>Angle Types:</strong></p>
+              <div className="grid grid-cols-1 gap-2">
+                <div className="flex items-center gap-2">
+                  <Target className="w-3 h-3 text-blue-600" />
+                  <span className="text-xs">Logical - Facts & Benefits</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Heart className="w-3 h-3 text-pink-600" />
+                  <span className="text-xs">Emotional - Feelings & Stories</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-3 h-3 text-orange-600" />
+                  <span className="text-xs">Viral - Shareable & Trendy</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right side - Angle Description */}
+          {selectedAngleOption && (
+            <div className="space-y-4">
+              <div className="p-6 bg-muted/30 rounded-lg border">
+                <div className="flex items-start gap-4">
+                  <div className={cn(
+                    'p-3 rounded-full border',
+                    getCategoryColor(selectedAngleOption.category)
+                  )}>
+                    {getCategoryIcon(selectedAngleOption.category)}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-semibold text-lg">{selectedAngleOption.label}</h4>
+                      <Badge
+                        variant="outline"
+                        className={cn('text-xs', getCategoryColor(selectedAngleOption.category))}
+                      >
+                        {selectedAngleOption.category || 'Strategy'}
                       </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {selectedAngleOption.description}
+                    </p>
+                    {selectedAngleOption.id === 'auto' && (
+                      <div className="pt-2">
+                        <p className="text-xs text-muted-foreground">
+                          💡 <strong>Pro tip:</strong> Auto mode generates 3 different marketing angles
+                          (Logical, Emotional, and Viral) so you can choose the best approach for your audience.
+                        </p>
+                      </div>
                     )}
                   </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {selectedAngleOption && (
-          <div className="p-4 bg-muted/30 rounded-lg border">
-            <div className="flex items-start gap-3">
-              <div className={cn(
-                'p-2 rounded-full border',
-                getCategoryColor(selectedAngleOption.category)
-              )}>
-                {getCategoryIcon(selectedAngleOption.category)}
-              </div>
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-2">
-                  <h4 className="font-medium">{selectedAngleOption.label}</h4>
-                  <Badge
-                    variant="outline"
-                    className={cn('text-xs', getCategoryColor(selectedAngleOption.category))}
-                  >
-                    {selectedAngleOption.category || 'Strategy'}
-                  </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {selectedAngleOption.description}
-                </p>
-                {selectedAngleOption.id === 'auto' && (
-                  <div className="pt-2">
-                    <p className="text-xs text-muted-foreground">
-                      💡 <strong>Pro tip:</strong> Auto mode generates 3 different marketing angles
-                      (Logical, Emotional, and Viral) so you can choose the best approach for your audience.
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
-          </div>
-        )}
-
-        <div className="text-xs text-muted-foreground space-y-1">
-          <p><strong>Angle Types:</strong></p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <div className="flex items-center gap-1">
-              <Target className="w-3 h-3 text-blue-600" />
-              <span>Logical - Facts & Benefits</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Heart className="w-3 h-3 text-pink-600" />
-              <span>Emotional - Feelings & Stories</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <TrendingUp className="w-3 h-3 text-orange-600" />
-              <span>Viral - Shareable & Trendy</span>
-            </div>
-          </div>
+          )}
         </div>
       </CardContent>
     </Card>
