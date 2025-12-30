@@ -6,7 +6,8 @@ import { useWizardStore, ScriptVariant } from '@/store/useWizardStore'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
-import { Sparkles, ChevronDown, ChevronUp, RotateCcw, Eye, Clock } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Sparkles, ChevronDown, ChevronUp, RotateCcw, Eye, Clock, X } from 'lucide-react'
 import { ScriptVariantCard } from '@/components/wizard/ScriptVariantCard'
 import { ScriptAngleSelector } from '@/components/wizard/ScriptAngleSelector'
 import { cn } from '@/lib/utils'
@@ -717,19 +718,47 @@ export default function WizardScriptPage() {
 
       {/* Script Variants Grid */}
       {scriptVariants.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {scriptVariants.map((variant, index) => (
-            <ScriptVariantCard
-              key={variant.id || index}
-              variant={variant}
-              isSelected={selectedScriptVariant?.id === variant.id}
-              onSelect={() => handleSelectScriptVariant(variant)}
-              onEdit={(content) => handleEditScriptVariant(index, content)}
-              onRegenerate={() => handleRegenerateScriptVariant(index)}
-              isRegenerating={regeneratingVariants.has(index)}
-            />
-          ))}
-        </div>
+        <>
+          {/* Selection Controls */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                {scriptVariants.length} script variant{scriptVariants.length !== 1 ? 's' : ''} generated
+              </h3>
+              {selectedScriptVariant && (
+                <Badge variant="outline" className="text-xs">
+                  1 selected
+                </Badge>
+              )}
+            </div>
+            {selectedScriptVariant && (
+              <Button
+                onClick={() => selectScriptVariant(null)}
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-3 h-3 mr-1" />
+                Clear selection
+              </Button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {scriptVariants.map((variant, index) => (
+              <ScriptVariantCard
+                key={`variant-${variant.id || `temp-${index}`}-${variant.angle.id}`}
+                variant={variant}
+                isSelected={selectedScriptVariant?.id === variant.id}
+                onSelect={() => handleSelectScriptVariant(variant)}
+                onEdit={(content) => handleEditScriptVariant(index, content)}
+                onRegenerate={() => handleRegenerateScriptVariant(index)}
+                isRegenerating={regeneratingVariants.has(index)}
+                index={index}
+              />
+            ))}
+          </div>
+        </>
       )}
 
       {/* Product Reference and Image Selection */}
