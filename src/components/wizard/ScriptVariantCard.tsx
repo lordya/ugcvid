@@ -62,9 +62,9 @@ export function ScriptVariantCard({
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col space-y-4">
-        {/* Script Content */}
-        <div className="space-y-2">
+      <CardContent className="flex-1 flex flex-col justify-between min-h-0">
+        {/* Script Content - Takes available space */}
+        <div className="flex-shrink-0 space-y-2 mb-4">
           {isEditing ? (
             <Textarea
               value={editContent}
@@ -82,79 +82,82 @@ export function ScriptVariantCard({
           )}
         </div>
 
-        {/* Action Buttons */}
-        <div className="space-y-2">
-          {!isEditing ? (
-            <>
-              <Button
-                onClick={onSelect}
-                variant={isSelected ? "default" : "outline"}
-                className={cn(
-                  "w-full h-9 text-sm font-medium",
-                  isSelected && "bg-primary text-primary-foreground hover:bg-primary/90"
-                )}
-              >
-                {isSelected ? (
-                  <>
-                    <Check className="w-4 h-4 mr-2" />
-                    Selected
-                  </>
-                ) : (
-                  'Select This Script'
-                )}
-              </Button>
-
-              <div className="grid grid-cols-2 gap-2">
+        {/* Bottom Section - Buttons and Description */}
+        <div className="flex-shrink-0 space-y-3 mt-auto">
+          {/* Action Buttons */}
+          <div className="space-y-2">
+            {!isEditing ? (
+              <>
                 <Button
-                  onClick={handleStartEdit}
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-xs"
+                  onClick={onSelect}
+                  variant={isSelected ? "default" : "outline"}
+                  className={cn(
+                    "w-full h-9 text-sm font-medium",
+                    isSelected && "bg-primary text-primary-foreground hover:bg-primary/90"
+                  )}
                 >
-                  <Edit3 className="w-3 h-3 mr-1" />
-                  Edit
+                  {isSelected ? (
+                    <>
+                      <Check className="w-4 h-4 mr-2" />
+                      Selected
+                    </>
+                  ) : (
+                    'Select This Script'
+                  )}
                 </Button>
 
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    onClick={handleStartEdit}
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                  >
+                    <Edit3 className="w-3 h-3 mr-1" />
+                    Edit
+                  </Button>
+
+                  <Button
+                    onClick={onRegenerate}
+                    variant="outline"
+                    size="sm"
+                    disabled={isRegenerating}
+                    className="h-8 text-xs"
+                  >
+                    {isRegenerating ? (
+                      <Sparkles className="w-3 h-3 mr-1 animate-spin" />
+                    ) : (
+                      <RotateCcw className="w-3 h-3 mr-1" />
+                    )}
+                    Try Another
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="flex gap-2">
                 <Button
-                  onClick={onRegenerate}
-                  variant="outline"
-                  size="sm"
-                  disabled={isRegenerating}
-                  className="h-8 text-xs"
+                  onClick={handleSaveEdit}
+                  className="flex-1 h-8 text-sm"
                 >
-                  {isRegenerating ? (
-                    <Sparkles className="w-3 h-3 mr-1 animate-spin" />
-                  ) : (
-                    <RotateCcw className="w-3 h-3 mr-1" />
-                  )}
-                  Try Another
+                  Save Changes
+                </Button>
+                <Button
+                  onClick={handleCancelEdit}
+                  variant="outline"
+                  className="flex-1 h-8 text-sm"
+                >
+                  Cancel
                 </Button>
               </div>
-            </>
-          ) : (
-            <div className="flex gap-2">
-              <Button
-                onClick={handleSaveEdit}
-                className="flex-1 h-8 text-sm"
-              >
-                Save Changes
-              </Button>
-              <Button
-                onClick={handleCancelEdit}
-                variant="outline"
-                className="flex-1 h-8 text-sm"
-              >
-                Cancel
-              </Button>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        {/* Angle Description */}
-        <div className="pt-2 border-t border-border/50 mt-auto">
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            <strong>Angle:</strong> {variant.angle.description}
-          </p>
+          {/* Angle Description */}
+          <div className="pt-2 border-t border-border/50">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              <strong>Angle:</strong> {variant.angle.description}
+            </p>
+          </div>
         </div>
       </CardContent>
     </Card>
