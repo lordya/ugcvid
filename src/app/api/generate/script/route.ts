@@ -360,6 +360,8 @@ async function generateAdvancedScripts(
   // Generate scripts for all angles in parallel
   const generationPromises = selectedAngles.map(async (angle: SelectedAngle) => {
     try {
+      console.log(`[Advanced Script Generation] Generating script for angle: ${angle.id}`)
+
       // Enhance system prompt with angle-specific content
       const systemPrompt = replacePromptPlaceholdersWithAngles(
         systemPromptTemplate,
@@ -372,8 +374,6 @@ async function generateAdvancedScripts(
         selectedModel,
         `${style}_${duration}`
       )
-
-      console.log(`[Advanced Script Generation] Generating script for angle: ${angle.id}`)
 
       // For advanced generation, we want clean text output, not JSON
       const model = process.env.OPENAI_MODEL || 'gpt-4o'
@@ -398,7 +398,7 @@ async function generateAdvancedScripts(
       const content = completion.choices[0]?.message?.content?.trim()
 
       if (!content) {
-        throw new Error(`Failed to generate script for angle ${angle.id}`)
+        throw new Error('OpenAI API returned empty response')
       }
 
       return {
@@ -411,10 +411,11 @@ async function generateAdvancedScripts(
         content
       }
     } catch (error) {
-      console.error(`[Advanced Script Generation] Error generating script for angle ${angle.id}:`, error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error(`[Advanced Script Generation] Error generating script for angle ${angle.id}:`, errorMessage)
 
       // Return a fallback script instead of throwing to allow other angles to succeed
-      const fallbackContent = `Unable to generate script for ${angle.label}. Please try again or select a different angle.`
+      const fallbackContent = `Unable to generate script for ${angle.label}. ${errorMessage.includes('rate limit') ? 'Please wait a moment and try again.' : 'Please try again or select a different angle.'}`
 
       return {
         angle: {
@@ -424,7 +425,8 @@ async function generateAdvancedScripts(
           keywords: angle.keywords
         },
         content: fallbackContent,
-        isFallback: true
+        isFallback: true,
+        error: errorMessage
       }
     }
   })
