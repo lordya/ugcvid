@@ -52,6 +52,31 @@ export async function getSystemPrompt(
  * @returns Promise<ModelPrompt | null>
  */
 export async function getModelPromptByKey(key: string): Promise<ModelPrompt | null> {
+  // Handle special case prompts that don't follow style_duration format
+  if (key === 'god_mode_script') {
+    // For god_mode_script, we don't need format-specific logic
+    // Just query for any model that can handle this prompt
+    try {
+      const supabase = await createClient()
+      const { data, error } = await supabase
+        .from('model_prompts')
+        .select('*')
+        .eq('prompt_key', key)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (error || !data) {
+        return null
+      }
+
+      return data
+    } catch (error) {
+      console.warn(`[ModelPrompts] Error fetching god_mode_script:`, error)
+      return null
+    }
+  }
+
   // Parse format key: e.g., 'ugc_auth_15s' -> style: 'ugc_auth', duration: '15s'
   // Duration always ends with 's', so find the last underscore before the duration
   const durationMatch = key.match(/_(\d+s)$/)

@@ -412,19 +412,46 @@ async function generateAdvancedScripts(
       }
     } catch (error) {
       console.error(`[Advanced Script Generation] Error generating script for angle ${angle.id}:`, error)
-      throw error
+
+      // Return a fallback script instead of throwing to allow other angles to succeed
+      const fallbackContent = `Unable to generate script for ${angle.label}. Please try again or select a different angle.`
+
+      return {
+        angle: {
+          id: angle.id,
+          label: angle.label,
+          description: angle.description,
+          keywords: angle.keywords
+        },
+        content: fallbackContent,
+        isFallback: true
+      }
     }
   })
 
   // Wait for all scripts to be generated
   const generatedScripts = await Promise.all(generationPromises)
 
-  // Save to database if video_id is provided
+  // Filter out fallback scripts (failed generations)
+  const successfulScripts = generatedScripts.filter(script => !script.isFallback)
+
+  // If no scripts succeeded, return an error
+  if (successfulScripts.length === 0) {
+    throw new Error('Failed to generate any scripts. Please try again.')
+  }
+
+  // Log warning if some scripts failed
+  if (successfulScripts.length < generatedScripts.length) {
+    const failedCount = generatedScripts.length - successfulScripts.length
+    console.warn(`[Advanced Script Generation] ${failedCount} out of ${generatedScripts.length} script generations failed`)
+  }
+
+  // Save to database if video_id is provided (only successful scripts)
   let savedScripts: any[] = []
   if (video_id) {
     try {
       savedScripts = await saveVideoScripts(
-        generatedScripts.map(script => ({
+        successfulScripts.map(script => ({
           video_id,
           angle_id: script.angle.id,
           content: script.content
@@ -438,12 +465,12 @@ async function generateAdvancedScripts(
   }
 
   return {
-    scripts: generatedScripts.map((script, index) => ({
+    scripts: successfulScripts.map((script, index) => ({
       ...script,
       confidence: 0.8, // Default confidence score
       video_script_id: savedScripts[index]?.id
     })),
-    script: generatedScripts[0]?.content || '', // First script as default
+    script: successfulScripts[0]?.content || '', // First successful script as default
     title: title,
     description: description,
     model: getModelInfoForResponse(selectedModel, modelConstraints)
