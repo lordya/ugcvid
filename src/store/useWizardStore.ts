@@ -18,7 +18,6 @@ export interface ScriptVariant {
   }
   content: string
   confidence?: number
-  isSelected?: boolean
   isEditing?: boolean
 }
 

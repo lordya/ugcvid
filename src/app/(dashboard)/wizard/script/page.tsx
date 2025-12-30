@@ -209,8 +209,7 @@ export default function WizardScriptPage() {
                 description: 'Script generation had formatting issues',
                 keywords: []
               },
-              content: errorData.rawContent,
-              isSelected: true
+              content: errorData.rawContent
             }
             setScriptVariants([fallbackVariant])
             selectScriptVariant(fallbackVariant)
@@ -230,12 +229,11 @@ export default function WizardScriptPage() {
 
       // Handle advanced script generation with multiple variants
       if (data.scripts && Array.isArray(data.scripts)) {
-        const scriptVariants: ScriptVariant[] = data.scripts.map((script: any, index: number) => ({
+        const scriptVariants: ScriptVariant[] = data.scripts.map((script: any) => ({
           id: script.video_script_id,
           angle: script.angle,
           content: script.content,
           confidence: script.confidence || 0.8,
-          isSelected: index === 0, // Select first variant by default
         }))
 
         setScriptVariants(scriptVariants)
@@ -259,8 +257,7 @@ export default function WizardScriptPage() {
               description: validatedContent.tone_instructions || 'AI-generated script',
               keywords: []
             },
-            content: validatedContent.voiceover?.join(' ') || '',
-            isSelected: true
+            content: validatedContent.voiceover?.join(' ') || ''
           }
 
           setScriptVariants([scriptVariant])
@@ -286,8 +283,7 @@ export default function WizardScriptPage() {
             description: 'AI-generated script',
             keywords: []
           },
-          content: data.script,
-          isSelected: true
+          content: data.script
         }
 
         setScriptVariants([scriptVariant])
@@ -376,7 +372,6 @@ export default function WizardScriptPage() {
           angle: script.angle,
           content: script.content,
           confidence: script.confidence || 0.8,
-          isSelected: false, // Don't auto-select any variant - let user choose
         }))
 
         setScriptVariants(newScriptVariants)
@@ -391,8 +386,7 @@ export default function WizardScriptPage() {
             description: 'AI-regenerated script',
             keywords: []
           },
-          content: data.script,
-          isSelected: true
+          content: data.script
         }
 
         setScriptVariants([scriptVariant])
@@ -490,7 +484,6 @@ export default function WizardScriptPage() {
           angle: newScript.angle,
           content: newScript.content,
           confidence: newScript.confidence || 0.8,
-          isSelected: scriptVariants[index]?.isSelected || false,
         }
 
         regenerateScriptVariant(index, newVariant)
