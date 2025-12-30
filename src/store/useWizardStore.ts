@@ -81,6 +81,7 @@ interface WizardState {
   language: string // Target language code (e.g., 'en', 'es', 'fr')
   url: string
   metadata: ProductMetadata | null
+  selectedAngle: string | null // Selected marketing angle ID, null = auto (3 variations)
   scriptVariants: ScriptVariant[] // Array of script variants from different angles
   selectedScriptVariant: ScriptVariant | null // Currently selected script variant
   ugcContent: UGCContent | null // Structured UGC content from AI
@@ -109,6 +110,7 @@ interface WizardState {
   setLanguage: (language: string) => void
   setUrl: (url: string) => void
   setMetadata: (metadata: ProductMetadata) => void
+  setSelectedAngle: (angleId: string | null) => void
   setScriptVariants: (variants: ScriptVariant[]) => void
   selectScriptVariant: (variant: ScriptVariant | null) => void
   updateScriptVariant: (index: number, updates: Partial<ScriptVariant>) => void
@@ -142,6 +144,7 @@ const initialState = {
   language: 'en',
   url: '',
   metadata: null,
+  selectedAngle: null, // null = auto mode (3 variations)
   scriptVariants: [],
   selectedScriptVariant: null,
   ugcContent: null,
@@ -174,6 +177,7 @@ export const useWizardStore = create<WizardState>((set, get) => ({
   setLanguage: (language) => set({ language }),
   setUrl: (url) => set({ url }),
   setMetadata: (metadata) => set({ metadata }),
+  setSelectedAngle: (selectedAngle) => set({ selectedAngle }),
   setScriptVariants: (scriptVariants) => set({ scriptVariants }),
   selectScriptVariant: (selectedScriptVariant) => set({ selectedScriptVariant }),
   updateScriptVariant: (index, updates) => {

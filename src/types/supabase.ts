@@ -930,6 +930,8 @@ export interface ScriptGenerationRequest {
   language?: string // Optional language code (e.g., 'en', 'es', 'fr'). Defaults to 'en' if not provided.
   video_id?: string // Optional video ID for script generation
   manual_angle_ids?: string[] // Optional manual angle selection
+  mode?: 'single' | 'auto' // Generation mode: 'single' for specific angle, 'auto' for 3 variations
+  angleId?: string // Specific angle ID when mode is 'single'
 }
 
 export interface ScriptGenerationResponse {

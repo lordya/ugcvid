@@ -74,7 +74,7 @@ function buildModelParams(
 export async function POST(request: NextRequest) {
   try {
     const body: ScriptGenerationRequest = await request.json()
-    const { title, description, style, duration, language, video_id, manual_angle_ids } = body
+    const { title, description, style, duration, language, video_id, manual_angle_ids, mode, angleId } = body
 
     if (!title || !description || !style || !duration) {
       return NextResponse.json(
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if this is advanced script generation (with angles)
-    const isAdvancedGeneration = video_id !== undefined || manual_angle_ids !== undefined
+    const isAdvancedGeneration = video_id !== undefined || manual_angle_ids !== undefined || mode === 'auto' || angleId !== undefined
 
     // Use provided language or default to English
     const targetLanguage = language || 'en'
@@ -116,6 +116,17 @@ export async function POST(request: NextRequest) {
 
     // Handle advanced script generation
     if (isAdvancedGeneration) {
+      // Determine which angles to use based on mode and angleId
+      let anglesToUse: string[] | undefined = manual_angle_ids
+
+      if (mode === 'single' && angleId) {
+        // Generate only the specific angle
+        anglesToUse = [angleId]
+      } else if (mode === 'auto' || (!manual_angle_ids && !angleId)) {
+        // Generate 3 random angles (existing behavior)
+        anglesToUse = undefined
+      }
+
       const result = await generateAdvancedScripts(
         title,
         description,
@@ -123,7 +134,7 @@ export async function POST(request: NextRequest) {
         duration,
         targetLanguage,
         video_id,
-        manual_angle_ids,
+        anglesToUse,
         user.id,
         userQualityTier,
         supabase

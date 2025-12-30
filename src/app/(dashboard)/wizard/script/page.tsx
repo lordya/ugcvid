@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Sparkles, ChevronDown, ChevronUp, RotateCcw, Eye, Clock } from 'lucide-react'
 import { ScriptVariantCard } from '@/components/wizard/ScriptVariantCard'
+import { ScriptAngleSelector } from '@/components/wizard/ScriptAngleSelector'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { validateStyleDuration } from '@/lib/validation'
@@ -38,13 +39,26 @@ const structuredScriptContentSchema = z.object({
   cinematic_techniques: z.array(z.string()).optional(),
 }).strict()
 
-const PROCESSING_MESSAGES = [
-  'Brainstorming angles...',
-  'Analyzing product...',
-  'Identifying key selling points...',
-  'Generating script variants...',
-  'Polishing content...',
-]
+// Dynamic processing messages based on mode
+const getProcessingMessages = (selectedAngle: string | null) => {
+  if (selectedAngle) {
+    // Single angle mode
+    return [
+      'Analyzing your marketing angle...',
+      'Crafting the perfect script...',
+      'Polishing the content...',
+    ]
+  } else {
+    // Auto mode - generating 3 variants
+    return [
+      'Brainstorming angles...',
+      'Analyzing product from multiple perspectives...',
+      'Generating script variants...',
+      'Comparing approaches...',
+      'Polishing content...',
+    ]
+  }
+}
 
 // Helper function to extract time range from visual cue string
 function extractTimeRange(visualCue: string): string {
@@ -69,8 +83,10 @@ export default function WizardScriptPage() {
   const {
     metadata,
     manualInput,
+    selectedAngle,
     scriptVariants,
     selectedScriptVariant,
+    setSelectedAngle,
     setScriptVariants,
     selectScriptVariant,
     updateScriptVariant,
@@ -95,7 +111,7 @@ export default function WizardScriptPage() {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [processingMessage, setProcessingMessage] = useState(PROCESSING_MESSAGES[0])
+  const [processingMessage, setProcessingMessage] = useState('Brainstorming angles...')
   const [messageIndex, setMessageIndex] = useState(0)
   const [descriptionExpanded, setDescriptionExpanded] = useState(false)
   const [selectionError, setSelectionError] = useState<string | null>(null)
@@ -151,13 +167,14 @@ export default function WizardScriptPage() {
       setLoading(true)
       setError(null)
       setMessageIndex(0)
-      setProcessingMessage(PROCESSING_MESSAGES[0])
+      const messages = getProcessingMessages(selectedAngle)
+      setProcessingMessage(messages[0])
 
       // Rotate processing messages every 2 seconds
       const messageInterval = setInterval(() => {
         setMessageIndex((prev) => {
-          const next = (prev + 1) % PROCESSING_MESSAGES.length
-          setProcessingMessage(PROCESSING_MESSAGES[next])
+          const next = (prev + 1) % messages.length
+          setProcessingMessage(messages[next])
           return next
         })
       }, 2000)
@@ -174,8 +191,9 @@ export default function WizardScriptPage() {
             style,
             duration,
             language: language || 'en',
-            // Request advanced generation with multiple script variants
-            advanced: true,
+            // Request advanced generation based on angle selection
+            mode: selectedAngle ? 'single' : 'auto',
+            angleId: selectedAngle || undefined,
           }),
         })
 
@@ -310,7 +328,7 @@ export default function WizardScriptPage() {
     }
 
     generateScript()
-  }, [productTitle, productDescription, router, style, duration, language, scriptVariants, setEditedVoiceover, setScriptVariants, selectScriptVariant, setStructuredScript, setUgcContent, setLoading, setError, setMessageIndex, setProcessingMessage])
+  }, [productTitle, productDescription, router, style, duration, language, selectedAngle, scriptVariants, setEditedVoiceover, setScriptVariants, selectScriptVariant, setStructuredScript, setUgcContent, setLoading, setError, setMessageIndex, setProcessingMessage])
 
   const handleRegenerateScript = async () => {
     if (!productTitle || !productDescription) {
@@ -321,12 +339,13 @@ export default function WizardScriptPage() {
     setLoading(true)
     setError(null)
     setMessageIndex(0)
-    setProcessingMessage(PROCESSING_MESSAGES[0])
+    const messages = getProcessingMessages(selectedAngle)
+    setProcessingMessage(messages[0])
 
     const messageInterval = setInterval(() => {
       setMessageIndex((prev) => {
-        const next = (prev + 1) % PROCESSING_MESSAGES.length
-        setProcessingMessage(PROCESSING_MESSAGES[next])
+        const next = (prev + 1) % messages.length
+        setProcessingMessage(messages[next])
         return next
       })
     }, 2000)
@@ -343,7 +362,8 @@ export default function WizardScriptPage() {
           style,
           duration,
           language: language || 'en',
-          advanced: true,
+          mode: selectedAngle ? 'single' : 'auto',
+          angleId: selectedAngle || undefined,
         }),
       })
 
@@ -697,6 +717,12 @@ export default function WizardScriptPage() {
           <p className="text-sm text-destructive font-medium">{selectionError}</p>
         </div>
       )}
+
+      {/* Angle Selector */}
+      <ScriptAngleSelector
+        selectedAngle={selectedAngle}
+        onAngleChange={setSelectedAngle}
+      />
 
       {/* Script Variants Grid */}
       {scriptVariants.length > 0 && (
