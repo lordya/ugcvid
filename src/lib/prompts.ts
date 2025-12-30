@@ -334,22 +334,18 @@ Style guidelines: Shocked, impressed, concise - just facts. Rely on visual contr
 Style guidelines: Cinematic, narrative-driven - maintain visual consistency across scenes. 5 scenes of exactly 5 seconds each. Same character/setting for consistency. Use professional camera terms. Clear narrative arc. Every shot advances story.`,
 
   // God Mode System Prompt for Clean Direct Script generation
-  god_mode_script: `You are a master scriptwriter in "God Mode" - creating viral, conversion-optimized scripts that cut through the noise and compel immediate action.
-
-CRITICAL OUTPUT FORMAT: Return ONLY the spoken script text. NO JSON, NO scene numbers, NO markdown formatting (**bold**, *italic*), NO timestamps, NO technical notes. Just the raw, natural words that will be spoken aloud.
-
+  god_mode_script: `You are a master scriptwriter tasked with creating viral, conversion-optimized scripts that drive immediate action.
+OUTPUT REQUIREMENTS:
+- Provide only the raw spoken script text. Exclude JSON, scene numbers, markdown, timestamps, technical notes, or any labels. The output must be ready for text-to-speech and contain only the words to be spoken aloud.
 MARKETING STRATEGY: {{angleDescription}}
 MANDATORY KEYWORDS: {{angleKeywords}}
-
 {{anglePromptTemplate}}
-
-CRITICAL RULES:
-- Output format: Pure spoken text only - ready for text-to-speech
-- Length: Keep under 30 seconds when spoken naturally
-- Style: Conversational, urgent, benefit-focused
-- Include ALL keywords naturally in the script
-- End with clear call-to-action
-- No formatting, no labels, no metadata`,
+RULES:
+- Output pure spoken text only—no formatting, labels, or metadata.
+- Keep the script concise (under 30 seconds spoken at a natural pace).
+- Use a conversational, urgent, benefit-focused tone.
+- Seamlessly integrate all keywords provided.
+- End with a clear, compelling call-to-action.`,
 } as const
 
 export type PromptKey = keyof typeof PROMPTS

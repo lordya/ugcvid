@@ -148,54 +148,52 @@ export default function WizardScriptPage() {
   }, [maxImageLimit, style, duration]) // Only run when style, duration, or maxImageLimit changes
 
 
-  // Auto-trigger script generation if script is empty and metadata exists
-  useEffect(() => {
-    const generateScript = async () => {
-      // Prevent multiple simultaneous generations
-      if (isGeneratingRef.current || scriptVariants.length > 0) {
-        return // Already generating or script variants exist, don't regenerate
-      }
+  // Manual script generation function
+  const handleGenerateScripts = async () => {
+    // Prevent multiple simultaneous generations
+    if (isGeneratingRef.current || loading) {
+      return
+    }
 
-      // Get product title and description from metadata or manual input
-      if (!productTitle || !productDescription) {
-        // If no metadata, redirect back to step 1
-        router.push('/wizard')
-        return
-      }
+    // Get product title and description from metadata or manual input
+    if (!productTitle || !productDescription) {
+      setError('Product information is missing')
+      return
+    }
 
-      isGeneratingRef.current = true
-      setLoading(true)
-      setError(null)
-      setMessageIndex(0)
-      const messages = getProcessingMessages(selectedAngle)
-      setProcessingMessage(messages[0])
+    isGeneratingRef.current = true
+    setLoading(true)
+    setError(null)
+    setMessageIndex(0)
+    const messages = getProcessingMessages(selectedAngle)
+    setProcessingMessage(messages[0])
 
-      // Rotate processing messages every 2 seconds
-      const messageInterval = setInterval(() => {
-        setMessageIndex((prev) => {
-          const next = (prev + 1) % messages.length
-          setProcessingMessage(messages[next])
-          return next
-        })
-      }, 2000)
+    // Rotate processing messages every 2 seconds
+    const messageInterval = setInterval(() => {
+      setMessageIndex((prev) => {
+        const next = (prev + 1) % messages.length
+        setProcessingMessage(messages[next])
+        return next
+      })
+    }, 2000)
 
-      try {
-        const response = await fetch('/api/generate/script', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            title: productTitle,
-            description: productDescription,
-            style,
-            duration,
-            language: language || 'en',
-            // Request advanced generation based on angle selection
-            mode: selectedAngle ? 'single' : 'auto',
-            angleId: selectedAngle || undefined,
-          }),
-        })
+    try {
+      const response = await fetch('/api/generate/script', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: productTitle,
+          description: productDescription,
+          style,
+          duration,
+          language: language || 'en',
+          // Request advanced generation based on angle selection
+          mode: selectedAngle ? 'single' : 'auto',
+          angleId: selectedAngle || undefined,
+        }),
+      })
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}))
@@ -223,83 +221,56 @@ export default function WizardScriptPage() {
           throw new Error(errorData.error || 'Failed to generate script')
         }
 
-        const data = await response.json()
+      const data = await response.json()
 
-        // Store validation results if provided
-        if (data.validation) {
-          setScriptValidation(data.validation)
+      // Store validation results if provided
+      if (data.validation) {
+        setScriptValidation(data.validation)
+      }
+
+      // Handle advanced script generation with multiple variants
+      if (data.scripts && Array.isArray(data.scripts)) {
+        const scriptVariants: ScriptVariant[] = data.scripts.map((script: any, index: number) => ({
+          id: script.video_script_id,
+          angle: script.angle,
+          content: script.content,
+          confidence: script.confidence || 0.8,
+          isSelected: index === 0, // Select first variant by default
+        }))
+
+        setScriptVariants(scriptVariants)
+
+        // Auto-select the first variant
+        if (scriptVariants.length > 0) {
+          selectScriptVariant(scriptVariants[0])
         }
 
-        // Handle advanced script generation with multiple variants
-        if (data.scripts && Array.isArray(data.scripts)) {
-          const scriptVariants: ScriptVariant[] = data.scripts.map((script: any, index: number) => ({
-            id: script.video_script_id,
-            angle: script.angle,
-            content: script.content,
-            confidence: script.confidence || 0.8,
-            isSelected: index === 0, // Select first variant by default
-          }))
+        // Store UGC content for video generation using the first variant
+        setUgcContent({
+          Title: scriptVariants[0]?.angle.label || 'Generated Script',
+          Caption: scriptVariants[0]?.content || '',
+          Description: scriptVariants[0]?.angle.description || '',
+          Prompt: scriptVariants[0]?.content || '',
+          aspect_ratio: 'portrait'
+        })
+      } else if (data.scriptContent) {
+        // Handle structured script content response (fallback)
+        const validationResult = structuredScriptContentSchema.safeParse(data.scriptContent)
 
-          setScriptVariants(scriptVariants)
+        if (validationResult.success) {
+          const validatedContent = validationResult.data
+          setStructuredScript(validatedContent)
+          setEditedVoiceover(validatedContent.voiceover || [])
 
-          // Auto-select the first variant
-          if (scriptVariants.length > 0) {
-            selectScriptVariant(scriptVariants[0])
-          }
-
-          // Store UGC content for video generation using the first variant
-          setUgcContent({
-            Title: scriptVariants[0]?.angle.label || 'Generated Script',
-            Caption: scriptVariants[0]?.content || '',
-            Description: scriptVariants[0]?.angle.description || '',
-            Prompt: scriptVariants[0]?.content || '',
-            aspect_ratio: 'portrait'
-          })
-        } else if (data.scriptContent) {
-          // Handle structured script content response (fallback)
-          const validationResult = structuredScriptContentSchema.safeParse(data.scriptContent)
-
-          if (validationResult.success) {
-            const validatedContent = validationResult.data
-            setStructuredScript(validatedContent)
-            setEditedVoiceover(validatedContent.voiceover || [])
-
-            // Create a single script variant for backward compatibility
-            const scriptVariant: ScriptVariant = {
-              angle: {
-                id: 'legacy',
-                label: 'Generated Script',
-                description: validatedContent.tone_instructions || 'AI-generated script',
-                keywords: []
-              },
-              content: validatedContent.voiceover?.join(' ') || '',
-              isSelected: true
-            }
-
-            setScriptVariants([scriptVariant])
-            selectScriptVariant(scriptVariant)
-
-            setUgcContent({
-              Title: validatedContent.style || 'Generated Script',
-              Caption: validatedContent.voiceover?.join(' ') || '',
-              Description: validatedContent.tone_instructions || '',
-              Prompt: validatedContent.voiceover?.join(' ') || '',
-              aspect_ratio: 'portrait'
-            })
-          } else {
-            console.error('Invalid scriptContent structure:', validationResult.error)
-            setError('Generated script has an unexpected format. Please review and edit manually.')
-          }
-        } else if (data.script) {
-          // Backward compatibility - create single variant
+          // Create a single script variant for backward compatibility
           const scriptVariant: ScriptVariant = {
             angle: {
               id: 'legacy',
               label: 'Generated Script',
-              description: 'AI-generated script',
+              description: validatedContent.tone_instructions || 'AI-generated script',
               keywords: []
             },
-            content: data.script,
+            content: validatedContent.voiceover?.join(' ') || '',
             isSelected: true
           }
 
@@ -307,28 +278,52 @@ export default function WizardScriptPage() {
           selectScriptVariant(scriptVariant)
 
           setUgcContent({
-            Title: 'Generated Script',
-            Caption: data.script,
-            Description: '',
-            Prompt: data.script,
+            Title: validatedContent.style || 'Generated Script',
+            Caption: validatedContent.voiceover?.join(' ') || '',
+            Description: validatedContent.tone_instructions || '',
+            Prompt: validatedContent.voiceover?.join(' ') || '',
             aspect_ratio: 'portrait'
           })
         } else {
-          throw new Error('No script returned from API')
+          console.error('Invalid scriptContent structure:', validationResult.error)
+          setError('Generated script has an unexpected format. Please review and edit manually.')
         }
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to generate script'
-        setError(errorMessage)
-        // Don't block the flow - user can manually type script
-      } finally {
-        clearInterval(messageInterval)
-        setLoading(false)
-        isGeneratingRef.current = false
-      }
-    }
+      } else if (data.script) {
+        // Backward compatibility - create single variant
+        const scriptVariant: ScriptVariant = {
+          angle: {
+            id: 'legacy',
+            label: 'Generated Script',
+            description: 'AI-generated script',
+            keywords: []
+          },
+          content: data.script,
+          isSelected: true
+        }
 
-    generateScript()
-  }, [productTitle, productDescription, router, style, duration, language, selectedAngle, scriptVariants, setEditedVoiceover, setScriptVariants, selectScriptVariant, setStructuredScript, setUgcContent, setLoading, setError, setMessageIndex, setProcessingMessage])
+        setScriptVariants([scriptVariant])
+        selectScriptVariant(scriptVariant)
+
+        setUgcContent({
+          Title: 'Generated Script',
+          Caption: data.script,
+          Description: '',
+          Prompt: data.script,
+          aspect_ratio: 'portrait'
+        })
+      } else {
+        throw new Error('No script returned from API')
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate script'
+      setError(errorMessage)
+      // Don't block the flow - user can manually type script
+    } finally {
+      clearInterval(messageInterval)
+      setLoading(false)
+      isGeneratingRef.current = false
+    }
+  }
 
   const handleRegenerateScript = async () => {
     if (!productTitle || !productDescription) {
@@ -724,6 +719,21 @@ export default function WizardScriptPage() {
         onAngleChange={setSelectedAngle}
       />
 
+      {/* Generate Scripts Button */}
+      {scriptVariants.length === 0 && !loading && (
+        <div className="flex justify-center">
+          <Button
+            onClick={handleGenerateScripts}
+            size="lg"
+            className="px-8 py-3 text-lg font-semibold"
+            disabled={!productTitle || !productDescription}
+          >
+            <Sparkles className="w-5 h-5 mr-2" />
+            Generate Scripts
+          </Button>
+        </div>
+      )}
+
       {/* Script Variants Grid */}
       {scriptVariants.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -786,7 +796,7 @@ export default function WizardScriptPage() {
               )}
             </div>
             {availableImages.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {availableImages.map((imageUrl, index) => {
                   const isSelected = selectedImages.includes(imageUrl)
                   return (
@@ -794,17 +804,17 @@ export default function WizardScriptPage() {
                       key={index}
                       onClick={() => handleImageToggle(imageUrl)}
                       className={cn(
-                        'relative aspect-square rounded-lg overflow-hidden border-2 transition-all',
+                        'relative aspect-square rounded-lg overflow-hidden border-2 transition-all hover:scale-105',
                         isSelected
-                          ? 'border-primary opacity-100 ring-2 ring-primary ring-offset-2 ring-offset-layer-2'
-                          : 'border-border opacity-60 hover:opacity-80 hover:border-primary/50'
+                          ? 'border-primary opacity-100 ring-2 ring-primary ring-offset-2 ring-offset-layer-2 scale-105'
+                          : 'border-border opacity-70 hover:opacity-90 hover:border-primary/60'
                       )}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={imageUrl}
                         alt={`Product image ${index + 1}`}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform duration-200"
                         referrerPolicy="no-referrer"
                         onError={(e) => {
                           // Handle image load errors
@@ -813,9 +823,9 @@ export default function WizardScriptPage() {
                         }}
                       />
                       {isSelected && (
-                        <div className="absolute inset-0 bg-primary/10 flex items-center justify-center">
-                          <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-                            <span className="text-white text-xs font-bold">✓</span>
+                        <div className="absolute inset-0 bg-primary/15 flex items-center justify-center transition-all duration-200">
+                          <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-lg">
+                            <span className="text-white text-sm font-bold">✓</span>
                           </div>
                         </div>
                       )}
